@@ -166,6 +166,10 @@
                 </div>
                 <div class="tut-step">
                     <div class="tut-icon">4.</div>
+                    <div><strong>Mobile Tools:</strong> Use <span style="font-weight:bold; color:#0078A8;">◎</span> to find your current GPS location and <span style="font-weight:bold;">−</span> to hide this menu.</div>
+                </div>
+                <div class="tut-step">
+                    <div class="tut-icon">5.</div>
                     <div><strong>Live Info:</strong> Tap any station dot on the map to be taken to the live departures for that stop (opens new tabs).</div>
                 </div>              
                 <div class="tut-step">
@@ -301,6 +305,10 @@
             attribution: '&copy; CARTO', subdomains: 'abcd', maxZoom: 19
         }).addTo(map);
 
+        // CREATE A CUSTOM PANE FOR STATIONS (z-index 650) to sit above overlays (400)
+        map.createPane('stations');
+        map.getPane('stations').style.zIndex = 650;
+
         var transportLayer = L.layerGroup().addTo(map); 
         var logicLayer = L.layerGroup().addTo(map);     
         var guideLayer = L.layerGroup().addTo(map);     
@@ -322,29 +330,42 @@
                 logicLayer.clearLayers();
                 if (myConstraints.length === 0) return;
                 var allowedZone = worldPoly;
+                
                 for (let c of myConstraints) {
-                    var constraintGreenShape = null;
-                    if (c.type === 'radius' || c.type === 'borough' || c.type === 'zone') {
-                        if (c.state === 'hit') constraintGreenShape = c.geometry;
-                        else constraintGreenShape = turf.difference(worldPoly, c.geometry);
-                    } 
-                    else if (c.type === 'angle') {
-                        if (c.state === 'hit') constraintGreenShape = c.geometry;
-                        else constraintGreenShape = turf.difference(worldPoly, c.geometry);
-                    }
-                    if (constraintGreenShape) {
-                        var cleanShape = fixGeometry(constraintGreenShape);
-                        var cleanAllowed = fixGeometry(allowedZone);
-                        if (cleanShape && cleanAllowed) {
-                            var intersection = turf.intersect(cleanAllowed, cleanShape);
-                            allowedZone = intersection ? intersection : null;
-                        } else { allowedZone = null; }
-                    }
+                    try {
+                        var constraintGreenShape = null;
+                        if (c.type === 'radius' || c.type === 'borough' || c.type === 'zone') {
+                            if (c.state === 'hit') constraintGreenShape = c.geometry;
+                            else constraintGreenShape = turf.difference(worldPoly, c.geometry);
+                        } 
+                        else if (c.type === 'angle') {
+                            if (c.state === 'hit') constraintGreenShape = c.geometry;
+                            else constraintGreenShape = turf.difference(worldPoly, c.geometry);
+                        }
+                        if (constraintGreenShape) {
+                            var cleanShape = fixGeometry(constraintGreenShape);
+                            var cleanAllowed = fixGeometry(allowedZone);
+                            if (cleanShape && cleanAllowed) {
+                                var intersection = turf.intersect(cleanAllowed, cleanShape);
+                                allowedZone = intersection ? intersection : null;
+                            } else { allowedZone = null; }
+                        }
+                    } catch(err) { console.warn("Skipping invalid constraint layer"); }
                     if (!allowedZone) break;
                 }
-                L.geoJSON(worldPoly, { style: { color: 'none', fillColor: '#ff0000', fillOpacity: 0.15 } }).addTo(logicLayer);
+
+                // Add Red Background (Not Clickable)
+                L.geoJSON(worldPoly, { 
+                    style: { color: 'none', fillColor: '#ff0000', fillOpacity: 0.15 },
+                    interactive: false 
+                }).addTo(logicLayer);
+
+                // Add Green Foreground (Not Clickable)
                 if (allowedZone) {
-                    L.geoJSON(allowedZone, { style: { color: 'none', fillColor: '#00ff00', fillOpacity: 0.3 } }).addTo(logicLayer);
+                    L.geoJSON(allowedZone, { 
+                        style: { color: 'none', fillColor: '#00ff00', fillOpacity: 0.3 },
+                        interactive: false 
+                    }).addTo(logicLayer);
                 }
             } catch (e) { console.error("Logic Engine Error:", e); }
         }
@@ -419,7 +440,9 @@
             if (visualGeoJSON) {
                 layer = L.geoJSON(visualGeoJSON, { style: { color: 'black', weight: 2, dashArray: '5, 5', fill: false } }).addTo(guideLayer);
             }
-            myConstraints.push({ id: id, type: type, geometry: geoJsonShape, state: 'hit', name: label, leafletLayer: layer, visualGeometry: visualGeoJSON });
+            // Simplify geometry before storing to prevent crashes
+            var simpleGeo = fixGeometry(geoJsonShape);
+            myConstraints.push({ id: id, type: type, geometry: simpleGeo, state: 'hit', name: label, leafletLayer: layer, visualGeometry: visualGeoJSON });
             saveConstraints(); updateLayerList(); updateLogicMap(); switchTab('layers'); 
         }
 
@@ -447,11 +470,11 @@
 
         function saveConstraints() {
             var toSave = myConstraints.map(c => ({ id: c.id, type: c.type, geometry: c.geometry, state: c.state, name: c.name, visualGeometry: c.visualGeometry }));
-            localStorage.setItem('gm_constraints_v50', JSON.stringify(toSave));
+            localStorage.setItem('gm_constraints_v51', JSON.stringify(toSave));
         }
 
         function loadConstraints() {
-            var saved = localStorage.getItem('gm_constraints_v50');
+            var saved = localStorage.getItem('gm_constraints_v51');
             if (saved) {
                 try {
                     var data = JSON.parse(saved);
@@ -678,7 +701,7 @@
             "4": ["Manchester Airport", "Altrincham", "Benchill", "Brooklands", "Bury", "Crossacres", "Derker", "Kingsway Business Park", "Martinscroft", "Milnrow", "Navigation Road", "Newbold", "Newhey", "Peel Hall", "Radcliffe", "Robinswood Road", "Rochdale Railway Station", "Rochdale Town Centre", "Roundthorn", "Shadowmoss", "Shaw and Crompton", "Timperley", "Whitefield", "Wythenshawe Town Centre"]
         };
 
-        const blacklistedStops = ["Lakeside", "Whitegate", "Tram Museum", "Middleton Road", "White Gate", "Depot"];
+        const blacklistedStops = ["Lakeside", "Whitegate", "Tram Museum", "Middleton Road"];
 
         function resolveCoords(name, missingList) {
             var cleanName = name.toLowerCase().replace(" (for trafford palazzo)", "").trim();
@@ -843,14 +866,14 @@
                     if(isTram){
                         var slug = cn.replace(/[^a-z0-9\s-]/g, "").replace(/\s+/g, "-") + "-tram";
                         var tramUrl = `https://tfgm.com/travel-updates/live-departures/tram/${slug}`;
-                        L.circleMarker([e.lat,e.lon],{radius:4,fillColor:"#FFC107",color:"#333",weight:1,fillOpacity:1})
+                        L.circleMarker([e.lat,e.lon],{radius:4,fillColor:"#FFC107",color:"#333",weight:1,fillOpacity:1, pane: 'stations'})
                             .addTo(transportLayer)
                             .bindPopup(`<b>${e.tags.name}</b><br><button class='popup-link' onclick='openPopup("${tramUrl}")'>Live Trams</button>`);
                     } else if(isRail){
                         // ONLY SHOW ALLOWED STATIONS
                         if(allowedStations.some(s=>cn.includes(s))){
                             var trainLink = `https://www.realtimetrains.co.uk/search/detailed/gb-nr:${crs ? crs : e.tags.name}`;
-                            L.circleMarker([e.lat,e.lon],{radius:5,fillColor:"#333",color:"#fff",weight:1.5,fillOpacity:1})
+                            L.circleMarker([e.lat,e.lon],{radius:5,fillColor:"#333",color:"#fff",weight:1.5,fillOpacity:1, pane: 'stations'})
                                 .addTo(transportLayer)
                                 .bindPopup(`<b>${e.tags.name}</b><br><button class='popup-link' onclick='openPopup("${trainLink}")'>Realtime Trains</button>`);
                         }
