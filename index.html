@@ -876,9 +876,28 @@
                     }
                 }
             });
+            // --- Manual Injection for Hall-i'-th'-Wood ---
+const hitwCoords = [53.5985, -2.4135];
+const hitwName = "Hall-i'-th'-Wood";
+
+L.circleMarker(hitwCoords, {
+    radius: 6,
+    fillColor: "#333", // Station color
+    color: "#000",
+    weight: 1,
+    opacity: 1,
+    fillOpacity: 0.8,
+    pane: 'stations'
+})
+.bindPopup(`<b>${hitwName}</b><br><button class="popup-link" onclick="window.open('https://www.nationalrail.co.uk/live-trains/departures/HID/')">Live Departures</button>`)
+.addTo(transportLayer);
+// --------------------------------------------
+            
+            
         }
         function toggleTransport(){if(map.hasLayer(transportLayer))map.removeLayer(transportLayer);else map.addLayer(transportLayer);}
     </script>
 </body>
 </html>
+
 
