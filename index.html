@@ -42,11 +42,35 @@
         #controls.minimized .tab-content { display: none !important; }
         #controls.minimized .controls-header { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
 
-        .tab-bar { display: flex; border-bottom: 1px solid #ccc; margin-bottom: 15px; }
-        .tab-btn { flex: 1; padding: 10px 5px; border: none; background: #f9f9f9; cursor: pointer; font-weight: bold; color: #666; font-size: 0.85em; }
-        .tab-btn.active { background: #fff; border-bottom: 2px solid #0078A8; color: #0078A8; }
+        /* --- IMPROVED TABS --- */
+        .tab-bar { display: flex; border-bottom: 1px solid #ddd; margin-bottom: 15px; background: #f4f4f4; border-radius: 4px 4px 0 0; }
+        
+        .tab-btn { 
+            flex: 1; 
+            padding: 12px 5px; 
+            border: none; 
+            background: transparent; 
+            cursor: pointer; 
+            color: #666; 
+            font-size: 0.9em; 
+            border-bottom: 3px solid transparent; 
+            transition: all 0.2s;
+        }
+        
+        .tab-btn:hover { background: #e9e9e9; }
+        
+        .tab-btn.active { 
+            background: #fff; 
+            border-bottom: 3px solid #0078A8; 
+            color: #0078A8; 
+            font-weight: bold; 
+            border-radius: 4px 4px 0 0;
+        }
+
         .tab-content { display: none; }
-        .tab-content.active { display: block; }
+        .tab-content.active { display: block; animation: fadeIn 0.2s; }
+        
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
         .tool-section { margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 15px; }
         label { display: block; margin-top: 8px; font-size: 0.9em; font-weight: bold;}
@@ -158,7 +182,7 @@
                 </div>
                 <div class="tut-step">
                     <div class="tut-icon">2.</div>
-                    <div><strong>Use the Tools:</strong> Choose from Radar, Line split, Borough Match or Zone Match to mark where the hider can and can't be!</div>
+                    <div><strong>Use the Tools:</strong> Choose from Radius, Lines, Boroughs or zones to mark where the hider can and can't be!</div>
                 </div>
                 <div class="tut-step">
                     <div class="tut-icon">3.</div>
@@ -301,6 +325,7 @@
             attribution: '&copy; CARTO', subdomains: 'abcd', maxZoom: 19
         }).addTo(map);
 
+        // CREATE A CUSTOM PANE FOR STATIONS (z-index 650) to sit above overlays (400)
         map.createPane('stations');
         map.getPane('stations').style.zIndex = 650;
 
@@ -309,6 +334,7 @@
         var guideLayer = L.layerGroup().addTo(map);     
         var gpsLayer = L.layerGroup().addTo(map);
 
+        var stationMap = {};
         var myConstraints = []; 
         var worldBbox = [-15.0, 48.0, 5.0, 62.0]; 
         var worldPoly = turf.bboxPolygon(worldBbox);
@@ -317,49 +343,569 @@
         L.DomEvent.disableClickPropagation(controlsDiv);
         L.DomEvent.disableScrollPropagation(controlsDiv);
 
-        // --- 2. Station Data Logic (UPDATED) ---
-        async function loadTransportData() {
-            var loader = document.getElementById('loader');
-            loader.style.display = 'block';
+        function fixGeometry(geo) { try { return turf.buffer(geo, 0); } catch(e) { return geo; } }
 
-            // 1. Broad Bounding Box for Greater Manchester
-            var bbox = "53.330,-2.720,53.690,-1.910";
-
-            // 2. Query for stations, halts, and tram stops
-            var query = `
-                [out:json][timeout:25];
-                (
-                  node["railway"~"station|halt"](${bbox});
-                  node["tram"~"stop"](${bbox});
-                );
-                out body;
-            `;
-
-            var url = "https://overpass-api.de/api/interpreter?data=" + encodeURIComponent(query);
-
+        function updateLogicMap() {
             try {
-                var response = await fetch(url);
-                var data = await response.json();
+                logicLayer.clearLayers();
+                if (myConstraints.length === 0) return;
+                var allowedZone = worldPoly;
+                
+                for (let c of myConstraints) {
+                    try {
+                        var constraintGreenShape = null;
+                        if (c.type === 'radius' || c.type === 'borough' || c.type === 'zone') {
+                            if (c.state === 'hit') constraintGreenShape = c.geometry;
+                            else constraintGreenShape = turf.difference(worldPoly, c.geometry);
+                        } 
+                        else if (c.type === 'angle') {
+                            if (c.state === 'hit') constraintGreenShape = c.geometry;
+                            else constraintGreenShape = turf.difference(worldPoly, c.geometry);
+                        }
+                        if (constraintGreenShape) {
+                            var cleanShape = fixGeometry(constraintGreenShape);
+                            var cleanAllowed = fixGeometry(allowedZone);
+                            if (cleanShape && cleanAllowed) {
+                                var intersection = turf.intersect(cleanAllowed, cleanShape);
+                                allowedZone = intersection ? intersection : null;
+                            } else { allowedZone = null; }
+                        }
+                    } catch(err) { console.warn("Skipping invalid constraint layer"); }
+                    if (!allowedZone) break;
+                }
 
-                // Clear old data before drawing new
-                transportLayer.clearLayers();
+                // Add Red Background (Not Clickable)
+                L.geoJSON(worldPoly, { 
+                    style: { color: 'none', fillColor: '#ff0000', fillOpacity: 0.15 },
+                    interactive: false 
+                }).addTo(logicLayer);
 
-                // 3. Draw the data from the API
-                data.elements.forEach(element => {
-                    var lat = element.lat;
-                    var lon = element.lon;
-                    var name = element.tags.name || "Unknown Stop";
+                // Add Green Foreground (Not Clickable)
+                if (allowedZone) {
+                    L.geoJSON(allowedZone, { 
+                        style: { color: 'none', fillColor: '#00ff00', fillOpacity: 0.3 },
+                        interactive: false 
+                    }).addTo(logicLayer);
+                }
+                
+                // FORCE BACK SO CLICKS PASS THROUGH
+                logicLayer.bringToBack();
+                
+            } catch (e) { console.error("Logic Engine Error:", e); }
+        }
+
+        // --- GEOLOCATION TOOLS ---
+        function locateMe() {
+            if (!navigator.geolocation) { alert("GPS not supported"); return; }
+            var btn = document.querySelector('.gps-btn');
+            btn.style.background = "#d4edda"; btn.innerText = "⏳";
+            
+            var options = { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 };
+
+            navigator.geolocation.getCurrentPosition(function(position) {
+                var lat = position.coords.latitude; var lng = position.coords.longitude;
+                gpsLayer.clearLayers(); map.setView([lat, lng], 15);
+                L.marker([lat, lng]).addTo(gpsLayer).bindPopup("You are here").openPopup();
+                L.circle([lat, lng], {radius: 40, color: '#0078A8', fillOpacity: 0.1, weight: 1, dashArray: '5,5'}).addTo(gpsLayer);
+                btn.style.background = "#f0f0f0"; btn.innerText = "◎";
+            }, function(error) {
+                var msg = "GPS Error.";
+                if (error.code === 1) msg = "Permission Denied. Please allow location access.";
+                else if (error.code === 2) msg = "Position Unavailable. Check GPS signal.";
+                else if (error.code === 3) msg = "Timeout getting location.";
+                
+                alert(msg + "\nNote: Mobile browsers require HTTPS for GPS.");
+                btn.style.background = "#f8d7da"; btn.innerText = "❌";
+            }, options);
+        }
+
+        function radiusAtGPS() {
+            if (!navigator.geolocation) { alert("GPS not supported"); return; }
+            var btn = document.getElementById('btnGpsRadius');
+            var oldText = btn.innerText;
+            btn.innerText = "Locating...";
+            
+            var options = { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 };
+
+            navigator.geolocation.getCurrentPosition(function(position) {
+                drawRadiusAt(position.coords.latitude, position.coords.longitude);
+                btn.innerText = oldText;
+            }, function(error) {
+                var msg = "GPS Error.";
+                if (error.code === 1) msg = "Permission Denied.";
+                alert("Could not place radius: " + msg);
+                btn.innerText = oldText;
+            }, options);
+        }
+
+        // --- POPUP WINDOW ---
+        function openPopup(url) {
+            window.open(url, "TransitInfo", "width=400,height=600,resizable=yes,scrollbars=yes,status=yes");
+        }
+
+        // --- TUTORIAL LOGIC ---
+        function checkTutorial() {
+            if (!localStorage.getItem('gm_tutorial_seen')) {
+                document.getElementById('tutorialModal').style.display = 'block';
+            }
+        }
+        function closeTutorial() {
+            document.getElementById('tutorialModal').style.display = 'none';
+            localStorage.setItem('gm_tutorial_seen', 'true');
+        }
+        function openTutorial() {
+            document.getElementById('tutorialModal').style.display = 'block';
+        }
+
+        // --- CONSTRAINT MANAGEMENT ---
+        function addConstraint(type, geoJsonShape, label, visualGeoJSON) {
+            var id = Date.now();
+            var layer = null;
+            if (visualGeoJSON) {
+                layer = L.geoJSON(visualGeoJSON, { style: { color: 'black', weight: 2, dashArray: '5, 5', fill: false } }).addTo(guideLayer);
+            }
+            // Simplify geometry before storing to prevent crashes
+            var simpleGeo = fixGeometry(geoJsonShape);
+            myConstraints.push({ id: id, type: type, geometry: simpleGeo, state: 'hit', name: label, leafletLayer: layer, visualGeometry: visualGeoJSON });
+            saveConstraints(); updateLayerList(); updateLogicMap(); switchTab('layers'); 
+        }
+
+        function removeConstraint(id) {
+            var idx = myConstraints.findIndex(c => c.id === id);
+            if (idx > -1) {
+                if (myConstraints[idx].leafletLayer) guideLayer.removeLayer(myConstraints[idx].leafletLayer);
+                myConstraints.splice(idx, 1);
+                saveConstraints(); updateLayerList(); updateLogicMap();
+            }
+        }
+
+        function renameConstraint(id) {
+            var c = myConstraints.find(c => c.id === id);
+            if (c) {
+                var newName = prompt("Rename:", c.name);
+                if (newName && newName.trim() !== "") { c.name = newName.trim(); saveConstraints(); updateLayerList(); }
+            }
+        }
+
+        function toggleConstraintState(id, newState) {
+            var c = myConstraints.find(c => c.id === id);
+            if (c) { c.state = newState; saveConstraints(); updateLayerList(); updateLogicMap(); }
+        }
+
+        function saveConstraints() {
+            var toSave = myConstraints.map(c => ({ id: c.id, type: c.type, geometry: c.geometry, state: c.state, name: c.name, visualGeometry: c.visualGeometry }));
+            localStorage.setItem('gm_constraints_v53', JSON.stringify(toSave));
+        }
+
+        function loadConstraints() {
+            var saved = localStorage.getItem('gm_constraints_v53');
+            if (saved) {
+                try {
+                    var data = JSON.parse(saved);
+                    myConstraints = []; guideLayer.clearLayers();
+                    data.forEach(c => {
+                        var layer = null;
+                        if (c.visualGeometry) { layer = L.geoJSON(c.visualGeometry, { style: { color: 'black', weight: 2, dashArray: '5, 5', fill: false } }).addTo(guideLayer); }
+                        myConstraints.push({ id: c.id, type: c.type, geometry: c.geometry, state: c.state, name: c.name, visualGeometry: c.visualGeometry, leafletLayer: layer });
+                    });
+                    updateLayerList(); updateLogicMap();
+                } catch(e) { console.error("Failed to load saved constraints", e); }
+            }
+        }
+
+        function updateLayerList() {
+            var list = document.getElementById('layerList'); list.innerHTML = "";
+            myConstraints.slice().reverse().forEach(c => {
+                var li = document.createElement('li'); li.className = 'layer-item';
+                var controlsHtml = "";
+                if (c.type === 'radius' || c.type === 'borough' || c.type === 'zone') {
+                    controlsHtml = `<button class="toggle-btn ${c.state==='hit'?'is-hit':''}" onclick="toggleConstraintState(${c.id}, 'hit')">HIT</button><button class="toggle-btn ${c.state==='miss'?'is-miss':''}" onclick="toggleConstraintState(${c.id}, 'miss')">MISS</button>`;
+                } else if (c.type === 'angle') {
+                    controlsHtml = `<button class="toggle-btn ${c.state==='hit'?'is-hit':''}" onclick="toggleConstraintState(${c.id}, 'hit')">Side A</button><button class="toggle-btn ${c.state==='miss'?'is-miss':''}" onclick="toggleConstraintState(${c.id}, 'miss')">Side B</button>`;
+                }
+                li.innerHTML = `<div class="layer-header"><span class="layer-name" onclick="renameConstraint(${c.id})">${c.name}</span><div class="icon-group"><button class="icon-btn" onclick="renameConstraint(${c.id})">✎</button><button class="icon-btn del-btn" onclick="removeConstraint(${c.id})">×</button></div></div><div class="layer-controls">${controlsHtml}</div>`;
+                list.appendChild(li);
+            });
+        }
+
+        function toggleControls() {
+            var c = document.getElementById('controls'); c.classList.toggle('minimized');
+            var btn = document.getElementById('minBtn'); btn.innerText = c.classList.contains('minimized') ? "+" : "−";
+        }
+
+        function resetTools() {
+            document.getElementById('btnRadius').classList.remove('active-tool-btn');
+            document.getElementById('btnAngle').classList.remove('active-tool-btn');
+            document.getElementById('map').classList.remove('crosshair-cursor');
+            if(angleGhost) { map.removeLayer(angleGhost); angleGhost = null; }
+            if(angleMoveHandler) { map.off('mousemove', angleMoveHandler); angleMoveHandler = null; }
+        }
+
+        function startRadiusTool(e) {
+            e.stopPropagation(); resetTools();
+            document.getElementById('btnRadius').classList.add('active-tool-btn');
+            document.getElementById('map').classList.add('crosshair-cursor');
+            var c = document.getElementById('controls'); if (!c.classList.contains('minimized')) toggleControls();
+            map.once('click', function(ev) {
+                drawRadiusAt(ev.latlng.lat, ev.latlng.lng); resetTools();
+                if (document.getElementById('controls').classList.contains('minimized')) toggleControls();
+            });
+        }
+
+        var angleGhost = null; var angleMoveHandler = null;
+        function startAngleTool(e) {
+            e.stopPropagation(); resetTools();
+            document.getElementById('btnAngle').classList.add('active-tool-btn');
+            document.getElementById('map').classList.add('crosshair-cursor');
+            var c = document.getElementById('controls'); if (!c.classList.contains('minimized')) toggleControls();
+            map.once('click', function(startEv) {
+                var origin = startEv.latlng;
+                angleGhost = L.polyline([origin, origin], {color:'black', dashArray:'5,5'}).addTo(map);
+                angleMoveHandler = function(moveEv) { angleGhost.setLatLngs([origin, moveEv.latlng]); };
+                map.on('mousemove', angleMoveHandler);
+                map.once('click', function(endEv) {
+                    var b = turf.rhumbBearing([origin.lng, origin.lat], [endEv.latlng.lng, endEv.latlng.lat]);
+                    drawAngleAt(origin.lat, origin.lng, b); resetTools();
+                    if (document.getElementById('controls').classList.contains('minimized')) toggleControls();
+                });
+            });
+        }
+
+        function undoLast() { if(myConstraints.length>0) removeConstraint(myConstraints[myConstraints.length-1].id); }
+        function manualRadius() { var c=document.getElementById('radiusCoords').value.split(','); if(c.length===2) drawRadiusAt(parseFloat(c[0]), parseFloat(c[1])); }
+        function manualAngle() { var c=document.getElementById('angleCoords').value.split(','); if(c.length===2) { var b=prompt("Bearing:", "90"); drawAngleAt(parseFloat(c[0]), parseFloat(c[1]), parseFloat(b)); }}
+
+        function getSegmentPoints(start, end) {
+            var dist = turf.rhumbDistance(start, end); var bearing = turf.rhumbBearing(start, end); var steps = 25; var points = [];
+            for (var i = 0; i <= steps; i++) { var d = (dist * i) / steps; var pt = turf.rhumbDestination(start, d, bearing); points.push(pt.geometry.coordinates); }
+            return points;
+        }
+
+        function drawAngleAt(lat, lng, bearing) {
+            try {
+                var sizeKm = 100; var origin = turf.point([lng, lat]);
+                var pForw = turf.rhumbDestination(origin, sizeKm, bearing); var pBack = turf.rhumbDestination(origin, sizeKm, bearing + 180);
+                var pForwLeft = turf.rhumbDestination(pForw, sizeKm, bearing - 90); var pBackLeft = turf.rhumbDestination(pBack, sizeKm, bearing - 90);
+                var s1 = getSegmentPoints(origin, pForw); var s2 = getSegmentPoints(pForw, pForwLeft); var s3 = getSegmentPoints(pForwLeft, pBackLeft);
+                var s4 = getSegmentPoints(pBackLeft, pBack); var s5 = getSegmentPoints(pBack, origin);
+                var ring = [...s1, ...s2.slice(1), ...s3.slice(1), ...s4.slice(1), ...s5.slice(1)];
+                var poly = turf.polygon([ring]); var guideLine = turf.lineString([pBack.geometry.coordinates, pForw.geometry.coordinates]);
+                addConstraint('angle', poly, `Line ${Math.round(bearing)}°`, guideLine);
+            } catch(e) { console.error("Geometry Gen Error", e); }
+        }
+
+        function drawRadiusAt(lat, lng) {
+            var r = parseFloat(document.getElementById('radiusInput').value);
+            var poly = turf.circle([lng, lat], r, {steps: 128, units: 'kilometers'});
+            addConstraint('radius', poly, `Radius ${r}km`, poly);
+        }
+
+        function clearAll() { myConstraints = []; guideLayer.clearLayers(); saveConstraints(); updateLayerList(); updateLogicMap(); }
+
+        function renderLog() {
+            var list = document.getElementById('logList'); list.innerHTML = "";
+            if (logEntries.length === 0) { list.innerHTML = "<div style='padding:10px; color:#999; font-style:italic;'>No tasks completed yet.</div>"; return; }
+            logEntries.forEach((entryName, index) => {
+                var div = document.createElement('div'); div.className = 'log-list-item';
+                div.innerHTML = `<div style="display:flex; align-items:center;"><span class="log-index">${index + 1}.</span><span>${entryName}</span></div>`;
+                list.appendChild(div);
+            });
+        }
+
+        function clearLog() {
+            if(confirm("Clear completion history?")) { 
+                logEntries = []; localStorage.removeItem('gm_question_log');
+                questionState = {}; localStorage.removeItem('gm_question_state');
+                renderLog(); renderQuestions();
+            }
+        }
+
+        function switchTab(t) {
+            // Update Content
+            document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
+            document.getElementById('tab-'+t).classList.add('active');
+            
+            // Update Buttons
+            document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+            document.getElementById('btn-tab-'+t).classList.add('active');
+        }
+
+        const questionData = {
+            "1. Matching - Draw 3 Pick 1": [
+                { name: "Transit", items: ["Commercial Airport", "Transit Line", "Station's Name Length", "Street or Path"] },
+                { name: "Administrative", items: ["1st", "2nd", "3rd", "4th"] },
+                { name: "Natural", items: ["Mountain", "Landmass", "Park"] },
+                { name: "POIs", items: ["Amusement Park", "Zoo", "Aquarium", "Golf Course", "Museum", "Cinema"] },
+                { name: "Utilities", items: ["Hospital", "Library", "Consulate"] }
+            ],
+            "2. Measuring - Draw 3 Pick 1": [
+                { name: "Transit", items: ["Commercial Airport", "Transit Line", "Station's name Length", "Street or Path"] },
+                { name: "Administrative Division Borders", items: ["Country", "1st", "2nd"] },
+                { name: "Natural", items: ["A Mountain", "A Landmass", "A Park", "Sea Level", "A Body of Water"] },
+                { name: "POIs", items: ["An Amusement Park", "A Zoo", "An Aquarium", "A Golf Course", "A Museum", "A Cinema"] },
+                { name: "Utilities", items: ["A Hospital", "A Library", "A Consulate"] }
+            ],
+            "3. Thermometer - Draw 2 Pick 1": [
+                { name: "Distances", items: ["1km", "5km", "15km (Medium)", "75km (Large)"] }
+            ],
+            "4. Radar - Draw 2 Pick 1": [
+                { name: "Ranges", items: ["500m", "1km", "2km", "5km", "10km", "15km", "40km", "80km", "160km", "Custom"] }
+            ],
+            "5. Tentacles - Draw 4 Pick 2": [
+                { name: "Medium and Large - 2km", items: ["Museums", "Libraries", "Cinemas", "Hospitals"] },
+                { name: "Large - 25km", items: ["Transit Lines", "Zoos", "Aquariums", "Amusement Parks"] }
+            ],
+            "6. Photos - Draw 1": [
+                { name: "All Games", items: ["A Tree (entire)", "The Sky (Directly Up)", "You (Selfie, fully extended)", "Widest Street (Both Sides)", "Tallest Structure in Sightline", "Any Building Visible From Station"] },
+                { name: "Medium and Large", items: ["Tallest Building From Station", "Trace Nearest Street/Path", "Two Buildings", "Restaurant Interior", "Train Platform", "Park", "S/Market Store Aisle", "Place of Worship"] },
+                { name: "Large", items: ["Strava Map", "Tallest Mountain visible from station", "Biggest Body Of Water in Your Zone", "Five Buildings"] }
+            ]
+        };
+
+        var questionState = JSON.parse(localStorage.getItem('gm_question_state')) || {};
+        var openSections = JSON.parse(localStorage.getItem('gm_open_sections')) || {"1. Matching - Draw 3 Pick 1": true};
+        var logEntries = JSON.parse(localStorage.getItem('gm_question_log')) || [];
+
+        function renderQuestions() {
+            var container = document.getElementById('questionsContainer'); container.innerHTML = "";
+            Object.keys(questionData).forEach(catKey => {
+                var catDiv = document.createElement('div'); catDiv.className = 'q-category';
+                var header = document.createElement('div'); header.className = 'q-cat-title';
+                header.innerHTML = `${catKey} <span class="arrow">${openSections[catKey] ? '▼' : '▶'}</span>`;
+                header.onclick = function() { openSections[catKey] = !openSections[catKey]; localStorage.setItem('gm_open_sections', JSON.stringify(openSections)); renderQuestions(); };
+                catDiv.appendChild(header);
+                var contentDiv = document.createElement('div'); contentDiv.className = 'q-content ' + (openSections[catKey] ? "open" : ""); 
+                questionData[catKey].forEach(sub => {
+                    var subHeader = document.createElement('div'); subHeader.className = 'q-subcat'; subHeader.innerText = sub.name; contentDiv.appendChild(subHeader);
+                    var grid = document.createElement('div'); grid.className = 'q-grid';
+                    sub.items.forEach(item => {
+                        var qKey = catKey + "_" + sub.name + "_" + item; 
+                        var btn = document.createElement('div'); btn.className = 'q-btn ' + (questionState[qKey] ? 'asked' : ''); btn.innerText = item;
+                        btn.onclick = function() { toggleQuestion(qKey, item, sub.name, catKey, this); }; grid.appendChild(btn);
+                    });
+                    contentDiv.appendChild(grid);
+                });
+                catDiv.appendChild(contentDiv); container.appendChild(catDiv);
+            });
+        }
+
+        function toggleQuestion(key, itemName, subName, catName, btnElement) {
+            questionState[key] = !questionState[key]; localStorage.setItem('gm_question_state', JSON.stringify(questionState));
+            var logText = `${itemName} <span class="log-meta">(${catName})</span>`;
+            if (questionState[key]) { btnElement.classList.add('asked'); logEntries.push(logText); } 
+            else { btnElement.classList.remove('asked'); var idx = logEntries.indexOf(logText); if (idx > -1) logEntries.splice(idx, 1); }
+            localStorage.setItem('gm_question_log', JSON.stringify(logEntries)); renderLog();
+        }
+
+        window.onload = function() { renderLog(); renderQuestions(); loadConstraints(); checkTutorial(); };
+
+        // --- DATA DEFS ---
+        const allowedStations=["Altrincham","Appley Bridge","Ardwick","Ashburys","Ashton-under-Lyne","Atherton","Belle Vue","Blackrod","Bolton","Bramhall","Bredbury","Brinnington","Broadbottom","Bromley Cross","Bryn","Burnage","Castleton","Chassen Road","Cheadle Hulme","Clifton","Daisy Hill","Davenport","Deansgate","Dinting","East Didsbury","Eccles","Fairfield","Farnworth","Flixton","Flowery Field","Gatley","Gathurst","Glazebrook","Glossop","Godley","Gorton","Greenfield","Guide Bridge","Hadfield","Hag Fold","Hale","Hall-i'-th'-Wood","Hattersley","Hazel Grove","Heald Green","Heaton Chapel","Hindley","Horwich Parkway","Humphrey Park","Hyde Central","Hyde North","Ince","Irlam","Kearsley","Levenshulme","Littleborough","Lostock","Manchester Airport","Manchester Oxford Road","Manchester Piccadilly","Manchester Victoria","Marple","Mauldeth Road","Middlewood","Mills Hill","Moorside","Moses Gate","Mossley","Moston","Navigation Road","Newton for Hyde","Orrell","Patricroft","Pemberton","Reddish North","Rochdale","Romiley","Rose Hill","Rose Hill Marple","Ryder Brow","Salford Central","Salford Crescent","Smithy Bridge","Stalybridge","Stockport","Strines","Swinton","Trafford Park","Urmston","Walkden","Westhoughton","Wigan North Western","Wigan Wallgate","Woodley","Woodsmoor"].map(s=>s.toLowerCase());
+        const stationAliases = {"trafford palazzo":"barton dock road","robinswood road":"robinswood","rochdale town centre":"rochdale town centre","rochdale railway station":"rochdale railway station","deansgate-castlefield ( deansgate)":"deansgate-castlefield","oldham mumps":"oldham mumps","st peter's square":"st peter's square","st. peter's square":"st peter's square"};
+        const tramLines = [{name:"Alty-Bury",color:"#00cc00",weight:4,stops:["Altrincham","Navigation Road","Timperley","Brooklands","Sale","Dane Road","Stretford","Old Trafford","Trafford Bar","Cornbrook","Deansgate-Castlefield","St Peter's Square","Market Street","Shudehill","Manchester Victoria","Queens Road","Abraham Moss","Crumpsall","Bowker Vale","Heaton Park","Prestwich","Besses o' th' Barn","Whitefield","Radcliffe","Bury"]},{name:"Alty-Picc",color:"purple",weight:3,stops:["Altrincham","Navigation Road","Timperley","Brooklands","Sale","Dane Road","Stretford","Old Trafford","Trafford Bar","Cornbrook","Deansgate-Castlefield","St Peter's Square","Piccadilly Gardens","Manchester Piccadilly"]},{name:"Ashton-Eccles",color:"#00BFFF",weight:3,stops:["Ashton-under-Lyne","Ashton West","Ashton Moss","Audenshaw","Droylsden","Cemetery Road","Edge Lane","Clayton Hall","Velopark","Etihad Campus","Holt Town","New Islington","Manchester Piccadilly","Piccadilly Gardens","St Peter's Square","Deansgate-Castlefield","Cornbrook","Pomona","Exchange Quay","Salford Quays","Anchorage","Harbour City","MediaCityUK","Broadway","Langworthy","Weaste","Ladywell","Eccles"]},{name:"Bury-Picc",color:"#00cc00",weight:3,stops:["Bury","Radcliffe","Whitefield","Besses o' th' Barn","Prestwich","Heaton Park","Bowker Vale","Crumpsall","Abraham Moss","Queens Road","Manchester Victoria","Shudehill","Market Street","Piccadilly Gardens","Manchester Piccadilly"]},{name:"Didsbury-Rochdale",color:"hotpink",weight:3,stops:["East Didsbury","Didsbury Village","West Didsbury","Burton Road","Withington","St Werburgh's Road","Chorlton","Firswood","Trafford Bar","Cornbrook","Deansgate-Castlefield","St Peter's Square","Exchange Square","Manchester Victoria","Monsall","Central Park","Newton Heath and Moston","Failsworth","Hollinwood","South Chadderton","Freehold","Westwood","Oldham King Street","Oldham Central","Oldham Mumps","Derker","Shaw and Crompton","Newhey","Milnrow","Kingsway Business Park","Newbold","Rochdale Railway Station","Rochdale Town Centre"]},{name:"Trafford-Deansgate",color:"red",weight:3,stops:["The Trafford Centre","Trafford Palazzo","Parkway","Village","Imperial War Museum","Wharfside","Pomona","Cornbrook","Deansgate-Castlefield"]},{name:"Airport-Vic",color:"navy",weight:3,stops:["Manchester Airport","Shadowmoss","Peel Hall","Robinswood Road","Wythenshawe Town Centre","Crossacres","Benchill","Martinscroft","Roundthorn","Baguley","Moor Road","Wythenshawe Park","Northern Moor","Sale Water Park","Barlow Moor Road","St Werburgh's Road","Chorlton","Firswood","Trafford Bar","Cornbrook","Deansgate-Castlefield","St Peter's Square","Market Street","Shudehill","Manchester Victoria"]}];
+        
+        // --- RESTORED BOROUGH/ZONE DEFINITIONS ---
+        const boroughStops = {
+            "Bolton": ["Blackrod","Bolton","Bromley Cross","Farnworth","Hall-i'-th'-Wood","Horwich Parkway","Kearsley","Lostock","Moses Gate","Westhoughton"],
+            "Bury": ["Besses o' th' Barn","Bury Interchange","Heaton Park","Prestwich","Radcliffe","Whitefield"],
+            "Manchester": ["Abraham Moss","Baguley","Barlow Moor Road","Benchill","Bowker Vale","Burton Road","Central Park","Chorlton","Clayton Hall","Cornbrook","Crossacres","Crumpsall","Deansgate-Castlefield","Didsbury Village","East Didsbury","Etihad Campus","Exchange Square","Holt Town","Manchester Airport","Market Street","Martinscroft","Monsall","Moor Road","New Islington","Newton Heath and Moston","Northern Moor","Peel Hall","Piccadilly","Piccadilly Gardens","Queens Road","Robinswood Road","Roundthorn","Shadowmoss","Shudehill","St. Peter's Square","St Werburgh's Road","Velopark","Victoria","West Didsbury","Withington","Wythenshawe Park","Wythenshawe Town Centre", "Ardwick","Ashburys","Belle Vue","Burnage","Deansgate","Gorton","Levenshulme","Manchester Oxford Road","Mauldeth Road","Moston","Ryder Brow"],
+            "Oldham": ["Derker","Failsworth","Freehold","Hollinwood","Oldham Central","Oldham King Street","Oldham Mumps","Shaw and Crompton","South Chadderton","Westwood","Greenfield","Mills Hill"],
+            "Rochdale": ["Kingsway Business Park","Milnrow","Newbold","Newhey","Rochdale Railway Station","Rochdale Town Centre","Castleton","Littleborough","Rochdale","Smithy Bridge"],
+            "Salford": ["Anchorage","Broadway","Eccles","Exchange Quay","Harbour City","Ladywell","Langworthy","MediaCityUK","Salford Quays","Weaste","Clifton","Irlam","Moorside","Patricroft","Salford Central","Salford Crescent","Swinton","Walkden", "Glazebrook"],
+            "Stockport": ["Bramhall","Bredbury","Brinnington","Cheadle Hulme","Davenport","Gatley","Hazel Grove","Heald Green","Heaton Chapel","Marple","Middlewood","Reddish North","Romiley","Rose Hill Marple","Stockport","Strines","Woodley","Woodsmoor"],
+            "Tameside": ["Ashton Moss","Ashton-under-Lyne","Ashton West","Audenshaw","Cemetery Road","Droylsden","Edge Lane","Broadbottom","Fairfield","Flowery Field","Godley","Guide Bridge","Hattersley","Hyde Central","Hyde North","Mossley","Newton for Hyde","Stalybridge", "Glossop", "Hadfield", "Dinting"],
+            "Trafford": ["Altrincham","Barton Dock Road","Brooklands","Dane Road","Firswood","Imperial War Museum","Navigation Road","Old Trafford","Parkway","Pomona","Sale","Sale Water Park","Stretford","The Trafford Centre","Timperley","Trafford Bar","Village","Wharfside","Chassen Road","Flixton","Hale","Humphrey Park","Trafford Park","Urmston"],
+            "Wigan": ["Atherton","Bryn","Daisy Hill","Gathurst","Hag Fold","Hindley","Ince","Orrell","Pemberton","Wigan North Western","Wigan Wallgate", "Appley Bridge"]
+        };
+
+        const zoneStops = {
+            "1": ["Cornbrook", "Deansgate-Castlefield", "Exchange Square", "Market Street", "New Islington", "Piccadilly", "Piccadilly Gardens", "Shudehill", "St. Peter's Square", "Victoria", "Deansgate", "Manchester Oxford Road", "Manchester Piccadilly", "Manchester Victoria"],
+            "2": ["Abraham Moss", "Anchorage", "Barton Dock Road", "Bowker Vale", "Broadway", "Cornbrook", "Crumpsall", "Edge Lane", "Etihad Campus", "Exchange Quay", "Firswood", "Harbour City", "Holt Town", "Imperial War Museum", "Ladywell", "Langworthy", "MediaCityUK", "Monsall", "Newton Heath and Moston", "Old Trafford", "Parkway", "Pomona", "Queens Road", "Salford Quays", "St Werburgh's Road", "Stretford", "The Trafford Centre", "Trafford Bar", "Velopark", "Village", "Weaste", "Wharfside", "Salford Central", "Salford Crescent", "Ardwick", "Ashburys", "Gorton", "Belle Vue", "Ryder Brow", "Levenshulme", "Trafford Park", "Eccles"],
+            "3": ["Ashton Moss", "Ashton West", "Ashton-under-Lyne", "Audenshaw", "Baguley", "Barlow Moor Road", "Besses o' th' Barn", "Bowker Vale", "Brooklands", "Burton Road", "Cemetery Road", "Chorlton", "Clayton Hall", "Derker", "Didsbury Village", "Droylsden", "East Didsbury", "Edge Lane", "Failsworth", "Freehold", "Heaton Park", "Hollinwood", "Martinscroft", "Moor Road", "Newton Heath and Moston", "Northern Moor", "Oldham Central", "Oldham King Street", "Oldham Mumps", "Prestwich", "Roundthorn", "Sale", "Sale Water Park", "South Chadderton", "St Werburgh's Road", "Stretford", "West Didsbury", "Westwood", "Whitefield", "Withington", "Wythenshawe Park", "Moston", "Ashton-under-Lyne", "Fairfield", "Guide Bridge", "Hyde North", "Flowery Field", "Denton", "Hyde Central", "Reddish North", "Reddish South", "Brinnington", "Woodley", "Bredbury", "Heaton Chapel", "Mauldeth Road", "Burnage", "East Didsbury", "Urmston", "Humphrey Park", "Patricroft", "Moorside", "Swinton", "Clifton"],
+            "4": ["Manchester Airport", "Altrincham", "Benchill", "Brooklands", "Bury", "Crossacres", "Derker", "Kingsway Business Park", "Martinscroft", "Milnrow", "Navigation Road", "Newbold", "Newhey", "Peel Hall", "Radcliffe", "Robinswood Road", "Rochdale Railway Station", "Rochdale Town Centre", "Roundthorn", "Shadowmoss", "Shaw and Crompton", "Timperley", "Whitefield", "Wythenshawe Town Centre"]
+        };
+
+        const blacklistedStops = ["Lakeside", "Whitegate", "Tram Museum", "Middleton Road"];
+
+        function resolveCoords(name, missingList) {
+            var cleanName = name.toLowerCase().replace(" (for trafford palazzo)", "").trim();
+            if (cleanName === "bury interchange") cleanName = "bury"; 
+            if (cleanName === "rochdale railway station") cleanName = "rochdale"; 
+            
+            var normalize = (str) => str.replace(/\./g, "").replace(/\s+/g, " ").trim();
+            var target = normalize(cleanName);
+            var coords = stationMap[target]; 
+            
+            if (!coords) {
+                 var key = Object.keys(stationMap).find(k => {
+                     var nk = normalize(k);
+                     return nk.includes(target) || target.includes(nk);
+                 });
+                 if(key) coords = stationMap[key];
+            }
+            if(!coords && missingList) missingList.push(name);
+            return coords;
+        }
+
+        function addBorough() {
+            var borough = document.getElementById('boroughSelect').value;
+            if (Object.keys(stationMap).length === 0) { alert("Load Stations first!"); return; }
+
+            var stops = boroughStops[borough];
+            var circles = [];
+            var missing = [];
+
+            stops.forEach(name => {
+                var coords = resolveCoords(name, missing);
+                if (coords) circles.push(turf.circle([coords[1], coords[0]], 0.5, {steps: 64, units: 'kilometers'}));
+            });
+
+            if (circles.length === 0) { alert("No stops found for " + borough); return; }
+
+            var unionPoly = circles[0];
+            for (var i = 1; i < circles.length; i++) {
+                try { unionPoly = turf.union(unionPoly, circles[i]); } catch(e) {}
+            }
+            addConstraint('borough', unionPoly, `${borough} (Stops 500m)`, unionPoly);
+        }
+
+        function addZoneLayer() {
+            var zone = document.getElementById('zoneSelect').value;
+            if (Object.keys(stationMap).length === 0) { alert("Load Stations first!"); return; }
+
+            var stops = [];
+            
+            if (zone === "4") {
+                stops = [...zoneStops["4"]]; 
+                var allBoroughStops = new Set();
+                Object.values(boroughStops).forEach(list => list.forEach(s => allBoroughStops.add(s)));
+                allBoroughStops.forEach(s => {
+                    var found = false;
+                    for(var z=1; z<=3; z++) { if(zoneStops[z].includes(s)) found = true; }
+                    if(!found) stops.push(s);
+                });
+            } else {
+                stops = zoneStops[zone];
+            }
+
+            var circles = [];
+            var missing = [];
+
+            stops.forEach(name => {
+                var coords = resolveCoords(name, missing);
+                if (coords) circles.push(turf.circle([coords[1], coords[0]], 0.5, {steps: 64, units: 'kilometers'}));
+            });
+
+            if (circles.length === 0) { alert("No stops found for Zone " + zone); return; }
+
+            var unionPoly = circles[0];
+            for (var i = 1; i < circles.length; i++) {
+                try { unionPoly = turf.union(unionPoly, circles[i]); } catch(e) {}
+            }
+            addConstraint('zone', unionPoly, `Zone ${zone} (500m)`, unionPoly);
+        }
+        
+        async function loadTransportData() {
+            var btn = document.getElementById('btnLoadTransport'); var loader = document.getElementById('loader');
+            btn.disabled = true; loader.style.display = 'block';
+            var savedData = localStorage.getItem('gm_transport_data');
+            if (savedData) { processData(JSON.parse(savedData)); loader.style.display = 'none'; document.getElementById('legend').style.display = 'block'; return; }
+            
+            var bbox="53.30,-2.75,53.68,-1.90";
+            var q=`[out:json][timeout:25];(node["railway"="tram_stop"](${bbox});node["railway"="station"](${bbox});way["railway"="rail"]["usage"="main"](${bbox});way["railway"="rail"]["usage"="branch"](${bbox}););out body;>;out skel qt;`;
+            try {
+                const r = await fetch("https://overpass-api.de/api/interpreter?data="+encodeURIComponent(q));
+                const d = await r.json();
+                try { localStorage.setItem('gm_transport_data', JSON.stringify(d)); } catch(e) {}
+                processData(d); loader.style.display = 'none'; document.getElementById('legend').style.display = 'block';
+            } catch(e) { alert("Data Load Error. Check connection."); btn.disabled = false; loader.style.display = 'none'; }
+        }
+
+        function forceRefreshData() { localStorage.removeItem('gm_transport_data'); document.getElementById('btnLoadTransport').disabled = false; loadTransportData(); }
+
+        function processData(d){
+            stationMap = {};
+            var n={}; var sm={};
+            if(!d.elements) return;
+
+            // Cache Nodes
+            d.elements.forEach(e=>{
+                if(e.type==="node") n[e.id]=[e.lat,e.lon];
+            });
+
+            // 1. Draw Lines (Trams and Rails)
+            d.elements.forEach(e=>{
+                 if(e.type==="way" && e.tags.railway==="rail"){
+                     var c=e.nodes.map(id=>n[id]).filter(x=>x);
+                     L.polyline(c,{color:'#444',weight:2,dashArray:'5,8',opacity:0.6}).addTo(transportLayer);
+                 }
+            });
+            
+            // 2. Draw Coloured Tram Lines (Manually Defined)
+            var tempNameMap = {};
+            d.elements.forEach(e=>{
+                if(e.type==="node" && e.tags && e.tags.name){
+                     var clean = e.tags.name.toLowerCase().trim();
+                     tempNameMap[clean] = [e.lat, e.lon];
+                     var simple = clean.replace(" metrolink","").replace(" station","").trim();
+                     tempNameMap[simple] = [e.lat, e.lon];
+                     if(clean.includes("st peter")) tempNameMap["st peter's square"] = [e.lat, e.lon];
+                }
+            });
+
+            tramLines.forEach(l=>{
+                var lc=[];
+                l.stops.forEach(rn=>{
+                    var sn=rn.toLowerCase().trim();
+                    if(stationAliases[sn]) sn=stationAliases[sn];
                     
-                    // Style: Stations are black/large, Trams are small/yellow
-                    // NOTE: This logic might miss Hall-i'-th'-Wood if API excludes it, 
-                    // which is why we add it manually below.
-                    var isStation = (element.tags.railway === 'station' || element.tags.railway === 'halt');
+                    var coord = tempNameMap[sn];
+                    if(!coord) {
+                        var k = Object.keys(tempNameMap).find(key => key.includes(sn));
+                        if(k) coord = tempNameMap[k];
+                    }
+                    if(coord) lc.push(coord);
+                });
+                if(lc.length>1) L.polyline(lc,{color:l.color,weight:l.weight,opacity:0.6}).addTo(transportLayer);
+            });
+
+            // 3. Draw Stations (Filtered)
+            d.elements.forEach(e=>{
+                if(e.type==="node" && e.tags && e.tags.name){
+                    var rawName = e.tags.name.toLowerCase();
+                    var cn = rawName.replace(" station","").replace(" rail station","").replace(" metrolink","").trim();
                     
-                    var marker = L.circleMarker([lat, lon], {
-                        radius: isStation ? 6 : 4,
-                        fillColor: isStation ? "#333" : "#FFC107",
-                        color: "#000",
-                        weight: 1,
-                        opacity: 1,
-                        fillOpacity: 0.8,
-  
+                    // Filter blacklist
+                    var isBlacklisted = blacklistedStops.some(b => e.tags.name.includes(b));
+                    if(isBlacklisted) return;
+
+                    var searchKey = cn.replace(/\./g, "").replace(/\s+/g, " ");
+                    sm[cn]=[e.lat,e.lon]; 
+                    stationMap[searchKey] = [e.lat, e.lon];
+
+                    var isTram = e.tags.railway==="tram_stop";
+                    var isRail = e.tags.railway==="station";
+                    var crs = e.tags["ref:crs"] || e.tags["ref"] || null; 
+
+                    if(isTram){
+                        var slug = cn.replace(/[^a-z0-9\s-]/g, "").replace(/\s+/g, "-") + "-tram";
+                        var tramUrl = `https://tfgm.com/travel-updates/live-departures/tram/${slug}`;
+                        L.circleMarker([e.lat,e.lon],{radius:4,fillColor:"#FFC107",color:"#333",weight:1,fillOpacity:1, pane: 'stations'})
+                            .addTo(transportLayer)
+                            .bindPopup(`<b>${e.tags.name}</b><br><button class='popup-link' onclick='openPopup("${tramUrl}")'>Live Trams</button>`);
+                    } else if(isRail){
+                        // ONLY SHOW ALLOWED STATIONS
+                        if(allowedStations.some(s=>cn.includes(s))){
+                            var trainLink = `https://www.realtimetrains.co.uk/search/detailed/gb-nr:${crs ? crs : e.tags.name}`;
+                            L.circleMarker([e.lat,e.lon],{radius:5,fillColor:"#333",color:"#fff",weight:1.5,fillOpacity:1, pane: 'stations'})
+                                .addTo(transportLayer)
+                                .bindPopup(`<b>${e.tags.name}</b><br><button class='popup-link' onclick='openPopup("${trainLink}")'>Realtime Trains</button>`);
+                        }
+                    }
+                }
+            });
+        }
+        function toggleTransport(){if(map.hasLayer(transportLayer))map.removeLayer(transportLayer);else map.addLayer(transportLayer);}
+    </script>
+</body>
+</html>
