@@ -3,13 +3,13 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval'; script-src * 'unsafe-inline' 'unsafe-eval'; connect-src * 'unsafe-inline'; img-src * data: blob: 'unsafe-inline'; style-src * 'unsafe-inline';">
     <title>JetLagPal - Multiplayer</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         body { margin: 0; padding: 0; font-family: sans-serif; overflow: hidden; }
         #map { height: 100vh; width: 100%; z-index: 1; }
         
-
         .crosshair-cursor { cursor: crosshair !important; }
         #map.crosshair-cursor .leaflet-interactive { pointer-events: none !important; }
         
@@ -134,27 +134,226 @@
         
         #closeModalBtn { background: #d9534f; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; width: auto; margin:0;}
         #extLinkBtn { background: #0078A8; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; text-decoration:none; font-size:0.8em; margin-right:5px;}
+        
+        /* --- GAME SETUP SCREEN --- */
+        #setupScreen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #0078A8; z-index: 10000; 
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            font-family: sans-serif; transition: opacity 0.3s ease;
+        }
+        .setup-container {
+            background: white; padding: 30px; border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            width: 90%; max-width: 400px; text-align: center;
+        }
+        .setup-container h1 { color: #0078A8; margin-top: 0; margin-bottom: 5px; }
+        .setup-container p { color: #666; font-size: 0.9em; margin-bottom: 25px; }
+        .setup-box {
+            background: #f9f9f9; border: 1px solid #ddd; border-radius: 6px; padding: 15px; margin-bottom: 15px;
+        }
+        .setup-box h3 { margin-top: 0; color: #333; font-size: 1.1em; margin-bottom: 10px;}
+        .setup-box select, .setup-box input {
+            width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;
+            font-size: 1em;
+        }
+        .setup-box button { margin-top: 0; font-size: 1.05em; padding: 12px; }
+        .btn-create { background: #28a745; }
+        .btn-join { background: #0078A8; }
+    
+/* Ko-fi Floating Container - Definitively Fixed for a compact pill */
+        .kofi-support-container {
+            position: absolute;
+            bottom: 25px;
+            left: 7.5%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            background-color: #FF5E5B; /* Ko-fi Brand Red/Pink */
+            border-radius: 50px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            transition: transform 0.2s, background-color 0.2s;
+            /* NEW: Direct fix for squishing and uneven rounding: ensures a proper minimum width */
+            min-width: max-content;
+        }
+
+        .kofi-support-container:hover {
+            transform: translateX(-50%) scale(1.05);
+            background-color: #E04C49; /* Darker red on hover */
+        }
+
+        /* The actual link text - compactified and forced onto one line */
+        .kofi-support-btn {
+            color: white !important;
+            padding: 10px 8px 10px 20px; /* Refined compact padding (Left is wider) */
+            font-family: Arial, sans-serif;
+            font-weight: bold;
+            font-size: 14px;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 8px; /* Compact space between icon and text */
+            /* NEW: Direct fix for internal text wrapping (prevents the stacked look) */
+            white-space: nowrap;
+        }
+
+        .kofi-support-btn:hover {
+            text-decoration: none;
+        }
+
+        /* The Close 'X' Button - compactified and only right corners rounded */
+        .kofi-close-btn {
+            background: none;
+            border: none;
+            color: white;
+            padding: 10px 20px 10px 8px; /* Refined compact padding (Right is wider) */
+            font-size: 16px;
+            cursor: pointer;
+            opacity: 0.7;
+            border-radius: 0 50px 50px 0; /* Ensures only the right side is pill-rounded */
+            transition: opacity 0.2s;
+            line-height: 1; /* Helps vertically center the 'X' */
+        }
+
+        .kofi-close-btn:hover {
+            opacity: 1;
+        }
+
+        /* Ko-fi Sidebar Button */
+        .kofi-sidebar-btn {
+            display: block;
+            width: 100%;
+            box-sizing: border-box;
+            background-color: #FF5E5B; /* Ko-fi Brand Red */
+            color: white !important;
+            padding: 12px 15px;
+            border-radius: 6px;
+            font-family: Arial, sans-serif;
+            font-weight: bold;
+            font-size: 15px;
+            text-align: center;
+            text-decoration: none;
+            transition: background-color 0.2s, transform 0.1s;
+            margin-top: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .kofi-sidebar-btn:hover {
+            background-color: #E04C49;
+            text-decoration: none;
+            transform: translateY(-1px);
+        }
+
+        /* Specific styling for the Undo button */
+.undo-btn {
+    background-color: #f44336; /* A subtle red to indicate 'reverting' */
+    color: white;
+}
+
+.undo-btn:hover {
+    background-color: #d32f2f;
+}
     </style>
 </head>
 <body>
+
+<div id="settingsModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:10001;">
+        <div style="background:white; width:90%; max-width:400px; margin:4% auto; border-radius:8px; overflow:hidden; box-shadow:0 5px 15px rgba(0,0,0,0.5);">
+            <div style="padding:10px; background:#eee; border-bottom:1px solid #ccc; display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-weight:bold; font-size:1.1em; color:#333;">⚙️ Game Settings</span>
+                <button onclick="window.closeSettings()" style="background:#d9534f; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; width:auto; margin:0;">X</button>
+            </div>
+            <div style="padding:20px;">
+                
+                <div style="margin-bottom:20px; text-align: left;">
+                    <strong style="font-size: 1.1em;">Map Layers</strong>
+                    <label style="display:flex; align-items:center; margin-top:10px; cursor:pointer;">
+                        <input type="checkbox" id="toggleLocal" checked onchange="window.toggleMapLayer('local', this.checked)" style="width:20px; height:20px; margin-right:10px;"> 
+                        🚇 Local Transit (Tram/Tube)
+                    </label>
+                    <label style="display:flex; align-items:center; margin-top:10px; cursor:pointer;">
+                        <input type="checkbox" id="toggleRail" checked onchange="window.toggleMapLayer('rail', this.checked)" style="width:20px; height:20px; margin-right:10px;"> 
+                        🚆 National Rail
+                    </label>
+                </div>
+                
+                <hr style="border:0; border-top:1px solid #ddd; margin:20px 0;">
+                
+                <div style="margin-bottom:20px; text-align: left;">
+                    <strong style="font-size: 1.1em;">Player Tracking</strong>
+                    <label style="display:flex; align-items:center; margin-top:10px; cursor:pointer;">
+                        <input type="checkbox" id="toggleLiveGPS" onchange="window.toggleLiveGPS(this.checked)" style="width:20px; height:20px; margin-right:10px;"> 
+                        🛰️ Live GPS Tracking (Local View Only)
+                    </label>
+                </div>
+
+                <hr style="border:0; border-top:1px solid #ddd; margin:20px 0;">
+
+                <div style="margin-bottom:20px; text-align: left;">
+                    <strong style="font-size: 1.1em;">Data Management</strong>
+                    <button id="btnLoadTransport" onclick="window.loadTransportData()" style="background:#0078A8; color:white; border:none; padding:10px; border-radius:4px; width:100%; margin-top:10px; cursor:pointer;">Load Map Stations</button>
+                    <div id="loader" style="display:none; text-align:center; color:#0078A8; margin-top:5px; font-weight:bold;">Fetching Data...</div>
+                    <button onclick="window.forceRefreshData()" style="background:#999; color:white; border:none; padding:10px; border-radius:4px; width:100%; margin-top:10px; cursor:pointer;">↻ Force Re-download</button>
+                </div>
+                
+                <hr style="border:0; border-top:1px solid #ddd; margin:20px 0;">
+                
+                <div>
+                    <button onclick="window.leaveRoom()" style="background:#f0ad4e; color:#fff; border:none; padding:12px; border-radius:4px; cursor:pointer; width:100%; font-size: 1em; font-weight: bold;">Leave Room / Change City</button>
+                </div>
+                <div class="tool-section" style="border-top: 1px solid #ccc; padding-top: 15px; margin-top: 20px;">
+                <strong>Buy the Developer a Coffee</strong>
+                <p style="font-size: 12px; color: #666; margin: 5px 0 10px 0;">If you enjoy this tool, consider supporting its development!</p>
+                <a href="https://ko-fi.com/jetlagpal" target="_blank" class="kofi-sidebar-btn">
+                    ☕ Support on Ko-fi
+                </a>
+            </div>
+
+            </div>
+        </div>
+    </div>
+    </div>
+
+    <div id="setupScreen">
+        <div class="setup-container">
+            <h1>JetLagPal</h1>
+            <p>Real-time Multiplayer Map Tracker</p>
+            <div class="setup-box">
+                <h3>Create New Game</h3>
+                <select id="regionSelect">
+                    <option value="manchester">Greater Manchester</option>
+                    <option value="london">London</option>
+                    <option value="custom">Custom (Draw Map)</option> </select>
+                <button class="btn-create" onclick="window.startCreateFlow()">Create Room</button>
+            </div>
+
+
+            <div style="color: #999; margin: 10px 0; font-size: 0.9em;">— OR —</div>
+
+            <div class="setup-box">
+                <h3>Join Existing Game</h3>
+                <input type="text" id="joinRoomInput" placeholder="Enter 5-Digit Room Code" maxlength="5" style="text-align: center; font-weight: bold; letter-spacing: 2px;">
+                <button class="btn-join" onclick="window.joinExistingGame()">Join Room</button>
+            </div>
+        </div>
+    </div>
 
 
     <div id="controls">
         <div class="controls-header">
             <h3>JetLagPal</h3>
             <div class="header-btns">
+                <button class="icon-btn-header" onclick="window.openSettings()" title="Settings">⚙️</button>
                 <button class="icon-btn-header help-btn" onclick="openTutorial()" title="Help">?</button>
-                <button class="icon-btn-header gps-btn" onclick="locateMe()" title="Locate Me">◎</button>
+                <button class="icon-btn-header" onclick="undoLast()" title="Undo last action"> ↩ </button>
                 <button class="icon-btn-header" id="minBtn" onclick="toggleControls()">−</button>
             </div>
         </div>
 
-        <div style="padding: 10px; background: #eef; margin-bottom: 10px; border-radius: 4px; display: flex; gap: 5px;">
-            <input type="text" id="gameIdInput" placeholder="Enter Game ID (e.g. 1234)" style="flex: 1;">
-            <button onclick="joinGame()" style="width: auto; margin: 0; padding: 8px 15px; background: #28a745;">Join</button>
+        <div id="connectionStatus" style="padding: 8px; background: #eef; margin-bottom: 10px; border-radius: 4px; font-size: 0.9em; color: #333; text-align: center; font-weight: bold;">
+            Room: <span id="displayRoomCode">Not Connected</span> | Region: <span id="displayRegion">N/A</span>
         </div>
-        <div id="connectionStatus" style="font-size: 0.8em; color: #666; text-align: center; margin-bottom: 10px;">Not connected to a room (Local Mode)</div>
-
+        
         <div class="tab-bar">
             <button id="btn-tab-tools" class="tab-btn active" onclick="switchTab('tools')">Tools</button>
             <button id="btn-tab-layers" class="tab-btn" onclick="switchTab('layers')">Layers</button>
@@ -163,22 +362,16 @@
         </div>
 
         <div id="tab-tools" class="tab-content active">
-            <button onclick="undoLast()" style="background:#f0ad4e;">⎌ Undo Last Constraint</button>
+            
 
             <div class="tool-section">
-                <strong>Data Layer</strong>
-                <button id="btnLoadTransport" onclick="loadTransportData()">Load Stations</button>
-                <div id="loader">Fetching...</div>
-                <div id="legend" style="display:none;">
+                <strong>Map Legend</strong>
                     <div class="legend-grid">
                         <div class="legend-item"><span class="dot" style="background:#FFC107; border:1px solid #888;"></span> Stop</div>
                         <div class="legend-item"><span class="dot" style="background:#333;"></span> Station</div>
                         <div class="legend-item"><span class="line-box" style="background:purple;"></span> Tram</div>
                         <div class="legend-item"><span class="line-box" style="background:#444; border-bottom:1px dashed white;"></span> Rail</div>
                     </div>
-                    <button onclick="toggleTransport()" style="background:#666; font-size: 0.8em; padding: 5px; margin-top:10px;">Toggle Visibility</button>
-                    <button onclick="forceRefreshData()" style="background:#999; font-size: 0.8em; padding: 5px; margin-top:5px;">↻ Force Re-download</button>
-                </div>
             </div>
 
             <div class="tool-section">
@@ -225,14 +418,49 @@
             </div>
 
             <div class="tool-section">
-                <strong>5. Zone Match</strong>
-                <select id="zoneSelect">
-                    <option value="1">Zone 1 (City)</option>
-                    <option value="2">Zone 2</option>
-                    <option value="3">Zone 3</option>
-                    <option value="4">Zone 4 (Outer)</option>
+                <strong>5. County Match</strong>
+                <select id="countySelect">
+                    <option>Loading Counties...</option>
                 </select>
-                <button onclick="addZoneLayer()" style="background:#4CAF50;">Add Zone Layer</button>
+                <button onclick="window.addCounty()" style="background:#4CAF50;">Add County Layer</button>
+            </div>
+
+            <div class="tool-section">
+                <strong>6. Country Match</strong>
+                <select id="countrySelect">
+                    <option>Loading Countries...</option>
+                </select>
+                <button onclick="window.addCountry()" style="background:#4CAF50;">Add Country Layer</button>
+            </div>
+            <div id="zoneToolSection" class="tool-section" style="display: none;">
+                <strong>7. Transport Fare Zones</strong>
+                <select id="zoneSelect">
+                    <option>Loading zones...</option>
+                </select>
+                <button onclick="window.addZoneLayer()" style="background:#4CAF50;">Add Zone Layer</button>
+            </div>
+            <div class="tool-section">
+                <strong>8. Nearest POI Catchment (Voronoi)</strong>
+                <div style="display: flex; gap: 5px; margin-bottom: 5px;">
+                    <select id="poiCategorySelect" style="flex-grow: 1;">
+                        <option value="theme_park">Amusement Park</option>
+                        <option value="zoo">Zoo</option>
+                        <option value="aquarium">Aquarium</option>
+                        <option value="golf_course">Golf Course</option>
+                        <option value="museum">Museum</option>
+                        <option value="cinema">Cinema</option>
+                        <option value="library">Library</option>
+                        <option value="hospital">Hospital</option>
+                        <option value="consulate">Consulate / Embassy</option>
+                        <option value="peak">Mountain Peak</option>
+                        <option value="park">Park</option>
+                    </select>
+                    <button onclick="window.loadPOIVoronoi()" style="background:#2196F3; color:white;">Load</button>
+                </div>
+                <select id="poiResultSelect">
+                    <option>Select a category and load...</option>
+                </select>
+                <button onclick="window.addPOILayer()" style="background:#4CAF50;">Add POI Zone</button>
             </div>
             
              <button onclick="clearAll()" style="background:#d9534f; margin-top:20px;">Clear Map Restrictions</button>
@@ -262,19 +490,29 @@
 
     <div id="map"></div>
 
+    <div id="kofi-container" class="kofi-support-container">
+        <a href="https://ko-fi.com/Jetlagpal" target="_blank" class="kofi-support-btn">
+            ☕ Buy me a coffee :) 
+        </a>
+        <button class="kofi-close-btn" onclick="document.getElementById('kofi-container').style.display='none'" aria-label="Close">
+            ✖
+        </button>
+    </div>  
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://unpkg.com/@turf/turf@6.5.0/turf.min.js"></script>
+    <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
+    <script src="https://unpkg.com/osmtogeojson@2.2.12/osmtogeojson.js"></script>
+    
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
         import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
-
-// === IMPORT FIREBASE CONFIGURATION ===
         import { firebaseConfig } from './firebase-config.js';
         import { setupTutorial } from './tutorial.js';
         import { questionData } from './questions.js';
-        import { allowedStations, stationAliases, tramLines, boroughStops, zoneStops, blacklistedStops} from './mapData.js';
-
+        import { cityProfiles} from './mapData.js';
+        // Universal pause function (time in milliseconds)
+        window.sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+        window.stationMap = {};
         // Initialize the tutorial right away
         setupTutorial();
 
@@ -288,15 +526,20 @@
         L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
             attribution: '&copy; CARTO', subdomains: 'abcd', maxZoom: 19
         }).addTo(map);
+        window.leafletEngine = map; // (Change 'map' to whatever variable name you used!)
 
         map.createPane('stations');
         map.getPane('stations').style.zIndex = 650;
 
-        var transportLayer = L.layerGroup().addTo(map); 
-        // FIX APPLIED HERE: Using featureGroup instead of layerGroup
+        // KEEP ORIGINAL LAYERS
         var logicLayer = L.featureGroup().addTo(map);     
         var guideLayer = L.layerGroup().addTo(map);     
         var gpsLayer = L.layerGroup().addTo(map);
+
+        // --- NEW MAP LAYERS FOR TOGGLING ---
+        var localLayer = L.featureGroup().addTo(map);
+        var railLayer = L.featureGroup().addTo(map);
+
 
         var stationMap = {};
         var myConstraints = []; 
@@ -351,13 +594,118 @@
         }
 
         // === MULTIPLAYER SYNC LOGIC ===
-        window.joinGame = function() {
-            const inputId = document.getElementById('gameIdInput').value.trim();
-            if (!inputId) { alert("Please enter a Game ID"); return; }
+        window.startCreateFlow = function() {
+            const region = document.getElementById('regionSelect').value;
             
-            window.currentGameId = inputId;
-            document.getElementById('connectionStatus').innerText = "Connected to Room: " + inputId;
-            document.getElementById('connectionStatus').style.color = "#28a745";
+            if (region === 'custom') {
+                // Hide setup screen temporarily
+                document.getElementById('setupScreen').style.opacity = '0';
+                setTimeout(() => { document.getElementById('setupScreen').style.display = 'none'; }, 300);
+                
+                alert("Click points on the map to outline your Custom Zone.\n\nYou can drag to pan the map between clicks.\nClick 'Finish Drawing' at the bottom when done.");
+                
+                document.getElementById('map').classList.add('crosshair-cursor');
+                
+                let points = [];
+                // Visual indicators of the drawing
+                let polygon = L.polygon([], {color: "#ff7800", weight: 2, fillOpacity: 0.1}).addTo(map);
+                let polyline = L.polyline([], {color: "#ff7800", weight: 2, dashArray: "5, 5"}).addTo(map);
+                
+                // Create a floating Finish button
+                const finishBtn = document.createElement('button');
+                finishBtn.innerText = "✅ Finish Drawing";
+                finishBtn.style.cssText = "position:absolute; bottom:30px; left:50%; transform:translateX(-50%); z-index:9999; padding:15px 30px; background:#28a745; color:white; border:none; border-radius:30px; font-size:1.1em; font-weight:bold; cursor:pointer; box-shadow:0 4px 10px rgba(0,0,0,0.3);";
+                document.body.appendChild(finishBtn);
+                
+                const onClick = function(e) {
+                    points.push(e.latlng);
+                    polygon.setLatLngs(points);
+                    polyline.setLatLngs(points);
+                };
+                
+                // We use standard 'click' now, so panning works normally!
+                map.on('click', onClick);
+                
+                finishBtn.onclick = function() {
+                    if (points.length < 3) {
+                        alert("Please click at least 3 points to make a shape.");
+                        return;
+                    }
+                    
+                    // Cleanup drawing state
+                    map.off('click', onClick);
+                    document.getElementById('map').classList.remove('crosshair-cursor');
+                    finishBtn.remove();
+                    
+                    // Convert Leaflet points to a Turf.js Polygon
+                    const turfPoints = points.map(p => [p.lng, p.lat]);
+                    turfPoints.push([points[0].lng, points[0].lat]); // Close the loop for Turf
+                    
+                    const customTurfPoly = turf.polygon([turfPoints]);
+                    const customTurfBbox = turf.bbox(customTurfPoly); // Get bounding box of the shape
+                    
+                    // Overpass format: south, west, north, east
+                    const customOverpassBbox = `${customTurfBbox[1]},${customTurfBbox[0]},${customTurfBbox[3]},${customTurfBbox[2]}`;
+                    
+                    setTimeout(() => { map.removeLayer(polygon); map.removeLayer(polyline); }, 1000);
+                    
+                    // Proceed to create the room, passing the exact shape!
+                    window.executeCreateGame('custom', customOverpassBbox, customTurfBbox, customTurfPoly);
+                };
+            } else {
+                // Standard city creation
+                window.executeCreateGame(region, null, null, null);
+            }
+        };
+
+        window.executeCreateGame = async function(region, customOverpass, customTurf, customPoly) {
+            let newRoomCode = ""; let isUnique = false; let attempts = 0;
+            const btn = document.querySelector('.btn-create');
+            const originalText = btn.innerText;
+            btn.innerText = "Generating..."; btn.disabled = true;
+
+            while (!isUnique && attempts < 10) {
+                newRoomCode = Math.floor(1000 + Math.random() * 90000).toString();
+                const checkRef = doc(db, "games", newRoomCode);
+                try {
+                    const { getDoc } = await import("https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js");
+                    const snap = await getDoc(checkRef);
+                    if (!snap.exists()) isUnique = true;
+                    else attempts++;
+                } catch (e) { break; }
+            }
+
+            if (isUnique) {
+                const gameRef = doc(db, "games", newRoomCode);
+                await setDoc(gameRef, { 
+                    region: region,
+                    customOverpassBbox: customOverpass || null,
+                    customTurfBbox: customTurf ? JSON.stringify(customTurf) : null,
+                    customTurfPoly: customPoly ? JSON.stringify(customPoly) : null, // Save the nuanced shape
+                    createdAt: new Date().toISOString(),
+                    constraints: [], logEntries: [], questionState: {}
+                });
+                window.startGameSession(newRoomCode, region);
+            } else {
+                alert("Could not generate a unique room code.");
+            }
+            btn.innerText = originalText; btn.disabled = false;
+        };
+        window.joinExistingGame = function() {
+            const roomCode = document.getElementById('joinRoomInput').value.trim();
+            if (roomCode.length !== 5) { alert("Please enter a valid 5-digit room code."); return; }
+            window.startGameSession(roomCode, null); 
+        };
+
+        window.startGameSession = function(roomCode, knownRegion) {
+            window.currentGameId = roomCode;
+            window.hasLoadedTransport = false; 
+            
+            document.getElementById('setupScreen').style.opacity = '0';
+            setTimeout(() => { document.getElementById('setupScreen').style.display = 'none'; }, 300);
+
+            document.getElementById('displayRoomCode').innerText = roomCode;
+            document.getElementById('displayRoomCode').style.color = "#28a745";
 
             const gameRef = doc(db, "games", window.currentGameId);
             
@@ -365,7 +713,72 @@
                 if (docSnap.exists()) {
                     const data = docSnap.data();
                     
-                    // 1. Map sync
+                    if (data.region) {
+                        window.currentRegion = data.region;
+                        
+                        if (data.region === 'custom') {
+                            document.getElementById('displayRegion').innerText = "Custom Zone";
+                            
+                            // Restore bounds AND nuanced shape from Firebase
+                            window.customOverpassBbox = data.customOverpassBbox;
+                            window.customTurfBbox = JSON.parse(data.customTurfBbox);
+                            
+                            // Load the exact drawn shape instead of a boring rectangle
+                            window.customBboxPoly = JSON.parse(data.customTurfPoly);
+                            
+                            // Center the camera on the custom shape
+                            const bounds = L.latLngBounds(
+                                [window.customTurfBbox[1], window.customTurfBbox[0]], // South-West
+                                [window.customTurfBbox[3], window.customTurfBbox[2]]  // North-East
+                            );
+                            map.fitBounds(bounds);
+                            
+                            // Disable standard borough/zone tools if custom
+                            if (!window.hasLoadedTransport) {
+                                // Only reset these on the very first load
+                                document.getElementById('boroughSelect').innerHTML = "<option>Loading Boroughs...</option>";
+                                document.getElementById('zoneSelect').innerHTML = "<option>N/A in Custom</option>";
+                                
+                                window.hasLoadedTransport = true;
+                                setTimeout(() => { window.loadTransportData(); }, 500);
+                            }
+
+                        } else {
+                            // ... Existing logic for London/Manchester ...
+                            // EXISTING CODE FOR STANDARD CITIES
+                            const profile = cityProfiles[data.region]; 
+                            if (profile) {
+                                document.getElementById('displayRegion').innerText = profile.name;
+                                map.setView(profile.center, profile.defaultZoom); 
+
+                                const bSelect = document.getElementById('boroughSelect');
+                                bSelect.innerHTML = "";
+                                Object.keys(profile.boroughs).forEach(b => {
+                                    bSelect.innerHTML += `<option value="${b}">${b}</option>`;
+                                });
+
+                                const zSelect = document.getElementById('zoneSelect');
+                                const zoneTool = document.getElementById('zoneToolSection');
+
+// Show the tool only if the city profile has zones defined
+                                if (profile && profile.zones && Object.keys(profile.zones).length > 0) {
+                                    zoneTool.style.display = 'block';
+                                    zSelect.innerHTML = "";
+                                    Object.keys(profile.zones).forEach(z => {
+                                        zSelect.innerHTML += `<option value="${z}">Zone ${z}</option>`;
+    });
+} else {
+    if (zoneTool) zoneTool.style.display = 'none';
+}
+                                if (!window.hasLoadedTransport) {
+                                    window.hasLoadedTransport = true;
+                                    setTimeout(() => { window.loadTransportData(); }, 500);
+                                }
+                            }
+                        }
+                    
+                    }
+
                     myConstraints = (data.constraints || []).map(c => ({
                         id: c.id, type: c.type, state: c.state, name: c.name,
                         geometry: JSON.parse(c.geometry),
@@ -378,16 +791,16 @@
                             c.leafletLayer = L.geoJSON(c.visualGeometry, { style: { color: 'black', weight: 2, dashArray: '5, 5', fill: false } }).addTo(guideLayer);
                         }
                     });
-                    
-                    updateLayerList(); 
-                    updateLogicMap(); 
 
-                    // 2. Question & Log sync
+                    updateLayerList(); updateLogicMap(); 
                     if (data.questionState) questionState = data.questionState;
                     if (data.logEntries) logEntries = data.logEntries;
-                    
-                    renderQuestions();
-                    renderLog();
+                    renderQuestions(); renderLog();
+                } else {
+                    alert("Room not found! Did you type the code correctly?");
+                    document.getElementById('setupScreen').style.opacity = '1';
+                    document.getElementById('setupScreen').style.display = 'flex';
+                    window.currentGameId = null;
                 }
             });
         };
@@ -400,8 +813,6 @@
             }
 
             const gameRef = doc(db, "games", window.currentGameId);
-            
-            // Stringify GeoJSON so Firestore accepts it
             const cleanConstraints = myConstraints.map(c => ({
                 id: c.id, 
                 type: c.type, 
@@ -422,27 +833,10 @@
             }
 
             const gameRef = doc(db, "games", window.currentGameId);
-            setDoc(gameRef, { 
-                questionState: questionState, 
-                logEntries: logEntries 
-            }, { merge: true });
+            setDoc(gameRef, { questionState: questionState, logEntries: logEntries }, { merge: true });
         };
 
         // === UI & GLOBAL FUNCTIONS ===
-        window.locateMe = function() {
-            if (!navigator.geolocation) { alert("GPS not supported"); return; }
-            var btn = document.querySelector('.gps-btn'); btn.style.background = "#d4edda"; btn.innerText = "⏳";
-            navigator.geolocation.getCurrentPosition(function(position) {
-                var lat = position.coords.latitude; var lng = position.coords.longitude;
-                gpsLayer.clearLayers(); map.setView([lat, lng], 15);
-                L.marker([lat, lng]).addTo(gpsLayer).bindPopup("You are here").openPopup();
-                L.circle([lat, lng], {radius: 40, color: '#0078A8', fillOpacity: 0.1, weight: 1, dashArray: '5,5'}).addTo(gpsLayer);
-                btn.style.background = "#f0f0f0"; btn.innerText = "◎";
-            }, function(error) {
-                alert("GPS Error. Note: Mobile browsers require HTTPS for GPS."); btn.style.background = "#f8d7da"; btn.innerText = "❌";
-            }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
-        };
-
         window.openPopup = function(url) { window.open(url, "TransitInfo", "width=400,height=600,resizable=yes,scrollbars=yes,status=yes"); };
 
         function addConstraint(type, geoJsonShape, label, visualGeoJSON) {
@@ -580,6 +974,630 @@
             addConstraint('radius', poly, `Radius ${r}km`, poly);
         }
 
+        // ==========================================
+        // VORONOI & CUSTOM ZONE LOGIC
+        // ==========================================
+        
+        window.customOverpassBbox = null; 
+        window.customTurfBbox = null;
+        window.customBboxPoly = null;
+        window.poiFeatureCollection = null;
+        window.poiVoronoiMap = {};
+
+        window.startCustomZoneDraw = function() {
+            document.getElementById('map').classList.add('crosshair-cursor');
+            let rect = null;
+            let bboxStart = null;
+
+            map.once('mousedown', function(eStart) {
+                bboxStart = eStart.latlng;
+                rect = L.rectangle([bboxStart, bboxStart], {color: "#ff7800", weight: 2, fillOpacity: 0.1}).addTo(map);
+                
+                const onMove = function(eMove) { rect.setBounds([bboxStart, eMove.latlng]); };
+                map.on('mousemove', onMove);
+                
+                map.once('mouseup', function(eEnd) {
+                    map.off('mousemove', onMove);
+                    document.getElementById('map').classList.remove('crosshair-cursor');
+                    
+                    const bounds = rect.getBounds();
+                    // Overpass format: south, west, north, east
+                    window.customOverpassBbox = `${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()}`;
+                    // Turf format: minX, minY, maxX, maxY
+                    window.customTurfBbox = [bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth()];
+                    window.customBboxPoly = turf.bboxPolygon(window.customTurfBbox);
+                    
+                    alert("Custom Game Zone Defined! You can now fetch POIs.");
+                    
+                    // Optional: remove the visual rectangle after drawing so it doesn't clutter the map
+                    setTimeout(() => map.removeLayer(rect), 1000); 
+                });
+            });
+        };
+
+        window.fetchPOIs = async function(poiType) {
+            if (!window.customOverpassBbox) {
+                alert("Please draw a custom game zone first (Step 1).");
+                return;
+            }
+            
+            const btn = document.querySelector(`button[onclick="window.fetchPOIs(document.getElementById('poiTypeInput').value)"]`);
+            const originalText = btn.innerText;
+            btn.innerText = "Fetching...";
+            btn.disabled = true;
+
+            const query = `[out:json][timeout:25]; node["amenity"="${poiType}"](${window.customOverpassBbox}); out body;>;out skel qt;`;
+            const url = "https://overpass-api.de/api/interpreter?data=" + encodeURIComponent(query);
+            
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error("Overpass API busy.");
+                const data = await response.json();
+                
+                const features = data.elements.filter(e => e.type === "node").map(e => {
+                    return turf.point([e.lon, e.lat], { name: e.tags.name || `Unnamed ${poiType}`, id: e.id });
+                });
+                    
+                window.poiFeatureCollection = turf.featureCollection(features);
+                console.log(`Fetched ${features.length} POIs.`);
+                
+                window.generateVoronoiConstraints();
+            } catch (error) {
+                console.error("Error fetching POIs:", error);
+                alert("Failed to load POIs.");
+            } finally {
+                btn.innerText = originalText;
+                btn.disabled = false;
+            }
+        };
+
+        window.generateVoronoiConstraints = function() {
+            if (!window.poiFeatureCollection || window.poiFeatureCollection.features.length === 0) {
+                alert("No POIs found in that area.");
+                return;
+            }
+
+            const voronoiPolygons = turf.voronoi(window.poiFeatureCollection, { bbox: window.customTurfBbox });
+            window.poiVoronoiMap = {};
+            const selectDropdown = document.getElementById('voronoiSelect');
+            selectDropdown.innerHTML = ""; // clear old options
+            
+            turf.featureEach(voronoiPolygons, function (currentPoly, index) {
+                if (currentPoly) {
+                    const poi = window.poiFeatureCollection.features[index];
+                    const clippedPoly = turf.intersect(currentPoly, window.customBboxPoly);
+                    
+                    if (clippedPoly) {
+                        window.poiVoronoiMap[poi.properties.id] = {
+                            name: poi.properties.name, point: poi, polygon: clippedPoly
+                        };
+                        
+                        // Add to UI Dropdown
+                        const opt = document.createElement('option');
+                        opt.value = poi.properties.id;
+                        opt.text = poi.properties.name;
+                        selectDropdown.appendChild(opt);
+                    }
+                }
+            });
+            alert("Voronoi cells generated and populated in the dropdown!");
+        };
+
+        window.addSelectedVoronoi = function() {
+            const poiId = document.getElementById('voronoiSelect').value;
+            if (!poiId) return;
+            
+            const cell = window.poiVoronoiMap[poiId];
+            if (cell) {
+                addConstraint('voronoi', cell.polygon, `Closest to ${cell.name}`, cell.polygon);
+            }
+        };
+        // ==========================================
+
+window.dynamicBoroughs = {};
+        window.dynamicCounties = {};
+        window.dynamicCountries = {};
+        window.adminPolygons = {}; 
+
+        window.loadDynamicAreas = async function() {
+            const bSelect = document.getElementById('boroughSelect');
+            const cSelect = document.getElementById('countySelect');
+            const nSelect = document.getElementById('countrySelect');
+            
+            try {
+                let bbox = "";
+                if (window.currentRegion === 'custom' && window.customOverpassBbox) {
+                    bbox = window.customOverpassBbox;
+                } else if (cityProfiles[window.currentRegion]) {
+                    bbox = cityProfiles[window.currentRegion].boundingBox;
+                } else { return; }
+
+                if (bSelect) bSelect.innerHTML = "<option>Loading...</option>";
+                if (cSelect) cSelect.innerHTML = "<option>Loading...</option>";
+                if (nSelect) nSelect.innerHTML = "<option>Loading...</option>";
+                
+                console.log("Fetching exact administrative and ceremonial boundaries...");
+                
+                // THE GOLDILOCKS QUERY: 
+                // 1. Fetch Admin 4, 6, 8 AND Ceremonial Counties.
+                // 2. Explicitly fetch their sub-relations so Super-Counties can be built.
+                const query = `[out:json][timeout:60];
+                (
+                  relation["admin_level"~"4|5|6|8"]["boundary"="administrative"](${bbox});
+                  relation["boundary"="ceremonial"](${bbox});
+                )->.targets;
+                (
+                  .targets;
+                  rel(r.targets);
+                );
+                out geom qt;`;
+                
+                const endpoints = [
+                    "https://overpass-api.de/api/interpreter?data=",
+                    "https://overpass.kumi.systems/api/interpreter?data="
+                ];
+
+                let data = null;
+                for (let url of endpoints) {
+                    try {
+                        const response = await fetch(url + encodeURIComponent(query));
+                        if (response.ok) { data = await response.json(); break; } 
+                    } catch(e) { console.warn("Server connection failed, trying next..."); }
+                }
+
+                if (!data) throw new Error("Servers are busy.");
+                
+                const adminFeatures = [];
+                const turfPolysById = {};
+                const superRelations = [];
+                
+                // PASS 1: Build the standard polygons from physical lines
+                data.elements.forEach(rel => {
+                    if (rel.type !== "relation") return;
+                    
+                    let outerWays = [];
+                    let hasChildRels = false;
+                    
+                    if (rel.members) {
+                        rel.members.forEach(m => {
+                            if (m.type === "way" && m.geometry && (m.role === "outer" || m.role === "")) {
+                                outerWays.push(m.geometry.map(g => [g.lon, g.lat]));
+                            } else if (m.type === "relation" && (m.role === "subarea" || m.role === "")) {
+                                hasChildRels = true;
+                            }
+                        });
+                    }
+                    
+                    if (hasChildRels && outerWays.length === 0) {
+                        superRelations.push(rel);
+                        return;
+                    }
+                    
+                    if (outerWays.length === 0) return;
+                    outerWays.sort((a, b) => b.length - a.length);
+                    
+                    let ring = [...outerWays[0]];
+                    outerWays.splice(0, 1);
+                    
+                    let added = true;
+                    while(added && outerWays.length > 0) {
+                        added = false;
+                        let lastPt = ring[ring.length - 1]; let firstPt = ring[0];
+                        for (let i = 0; i < outerWays.length; i++) {
+                            let w = outerWays[i]; let wFirst = w[0]; let wLast = w[w.length - 1];
+                            if (wFirst[0] === lastPt[0] && wFirst[1] === lastPt[1]) { ring.push(...w.slice(1)); outerWays.splice(i, 1); added = true; break; } 
+                            else if (wLast[0] === lastPt[0] && wLast[1] === lastPt[1]) { ring.push(...[...w].reverse().slice(1)); outerWays.splice(i, 1); added = true; break; } 
+                            else if (wLast[0] === firstPt[0] && wLast[1] === firstPt[1]) { ring.unshift(...w.slice(0, -1)); outerWays.splice(i, 1); added = true; break; } 
+                            else if (wFirst[0] === firstPt[0] && wFirst[1] === firstPt[1]) { ring.unshift(...[...w].reverse().slice(0, -1)); outerWays.splice(i, 1); added = true; break; }
+                        }
+                    }
+                    
+                    if (ring.length >= 4) {
+                        if (ring[0][0] !== ring[ring.length-1][0] || ring[0][1] !== ring[ring.length-1][1]) { ring.push([...ring[0]]); }
+                        try {
+                            const poly = turf.polygon([ring], { 
+                                name: rel.tags.name, 
+                                adminLevel: rel.tags.admin_level,
+                                boundaryType: rel.tags.boundary
+                            });
+                            turfPolysById[rel.id] = poly;
+                            
+                            if (rel.tags.name && (rel.tags.admin_level || rel.tags.boundary === "ceremonial")) {
+                                adminFeatures.push(poly);
+                            }
+                        } catch(e) {}
+                    }
+                });
+
+                // PASS 2: Assemble Super-Counties (like Greater Manchester) from their children
+                superRelations.forEach(rel => {
+                    let multiCoords = [];
+                    
+                    rel.members.forEach(m => {
+                        if (m.type === "relation" && turfPolysById[m.ref]) {
+                            const childPoly = turfPolysById[m.ref];
+                            if (childPoly.geometry.type === "Polygon") {
+                                multiCoords.push(childPoly.geometry.coordinates);
+                            } else if (childPoly.geometry.type === "MultiPolygon") {
+                                multiCoords.push(...childPoly.geometry.coordinates);
+                            }
+                        }
+                    });
+                    
+                    if (multiCoords.length > 0) {
+                        try {
+                            const mergedPoly = turf.multiPolygon(multiCoords, {
+                                name: rel.tags.name,
+                                adminLevel: rel.tags.admin_level,
+                                boundaryType: rel.tags.boundary
+                            });
+                            
+                            turfPolysById[rel.id] = mergedPoly;
+                            
+                            if (rel.tags.name && (rel.tags.admin_level || rel.tags.boundary === "ceremonial")) {
+                                adminFeatures.push(mergedPoly);
+                            }
+                        } catch(e) { console.warn("MultiPolygon failed for", rel.tags.name); }
+                    }
+                });
+                
+                adminFeatures.sort((a, b) => turf.area(a) - turf.area(b));
+                
+                window.adminPolygons = {};
+                adminFeatures.forEach(feature => {
+                    const name = feature.properties.name;
+                    const bType = feature.properties.boundaryType;
+                    // Prioritize Ceremonial counties in our shape dictionary so drawing them looks nice
+                    if (!window.adminPolygons[name] || bType === "ceremonial") {
+                        window.adminPolygons[name] = feature;
+                    }
+                });
+
+                window.dynamicBoroughs = {};
+                window.dynamicCounties = {};
+                window.dynamicCountries = {};
+                const seenCoords = new Set();
+                
+                for (const [stationKey, coords] of Object.entries(window.stationMap)) {
+                    const coordStr = `${coords[0]},${coords[1]}`;
+                    if (seenCoords.has(coordStr)) continue; 
+                    seenCoords.add(coordStr);
+                    
+                    const stationPt = turf.point([coords[1], coords[0]]); 
+                    let matchedBorough = null, matchedCountyCeremonial = null, matchedCountyAdmin = null, matchedCountry = null;
+                    
+                    for (const feature of adminFeatures) {
+                        if (turf.booleanPointInPolygon(stationPt, feature)) {
+                            const lvl = feature.properties.adminLevel;
+                            const bType = feature.properties.boundaryType;
+                            
+                            // Small local districts
+                            if (!matchedBorough && bType === "administrative" && (lvl === "8" || lvl === "6")) matchedBorough = feature.properties.name;
+                            
+                            // Historic / Ceremonial Counties
+                            if (!matchedCountyCeremonial && bType === "ceremonial") matchedCountyCeremonial = feature.properties.name;
+                            
+                            // Fallback Admin Counties
+                            if (!matchedCountyAdmin && bType === "administrative" && (lvl === "5" || lvl === "6") && feature.properties.name !== matchedBorough) matchedCountyAdmin = feature.properties.name;                            
+                            // Countries
+                            if (!matchedCountry && bType === "administrative" && lvl === "4") matchedCountry = feature.properties.name;
+                        }
+                    }
+                    
+                    const finalCounty = matchedCountyCeremonial || matchedCountyAdmin;
+                    if (finalCounty === matchedBorough) matchedBorough = null; 
+                    
+                    if (matchedBorough) { window.dynamicBoroughs[matchedBorough] = window.dynamicBoroughs[matchedBorough] || []; window.dynamicBoroughs[matchedBorough].push(stationKey); }
+                    if (finalCounty) { window.dynamicCounties[finalCounty] = window.dynamicCounties[finalCounty] || []; window.dynamicCounties[finalCounty].push(stationKey); }
+                    if (matchedCountry) { window.dynamicCountries[matchedCountry] = window.dynamicCountries[matchedCountry] || []; window.dynamicCountries[matchedCountry].push(stationKey); }
+                }
+                
+                const populateSelect = (selectElem, dataObj, emptyMsg) => {
+                    if (!selectElem) return;
+                    if (Object.keys(dataObj).length > 0) {
+                        selectElem.innerHTML = "";
+                        Object.keys(dataObj).sort().forEach(area => {
+                            selectElem.innerHTML += `<option value="${area}">${area} (${dataObj[area].length} stops)</option>`;
+                        });
+                    } else {
+                        selectElem.innerHTML = `<option>${emptyMsg}</option>`;
+                    }
+                };
+
+                populateSelect(bSelect, window.dynamicBoroughs, "No Boroughs Found");
+                populateSelect(cSelect, window.dynamicCounties, "No Counties Found");
+                populateSelect(nSelect, window.dynamicCountries, "No Countries Found");
+                
+            } catch(e) {
+                console.warn("Dynamic areas failed to load.", e);
+                if (bSelect) bSelect.innerHTML = "<option>Error Loading Data</option>";
+                if (cSelect) cSelect.innerHTML = "<option>Error Loading Data</option>";
+                if (nSelect) nSelect.innerHTML = "<option>Error Loading Data</option>";
+            }
+        };
+        
+window.dynamicZones = {};
+
+        window.loadFareZones = async function() {
+    const zSelect = document.getElementById('zoneSelect');
+    if (!zSelect) return;
+
+    let bbox = "";
+    let cacheKey = "";
+    if (window.currentRegion === 'custom' && window.customOverpassBbox) {
+        bbox = window.customOverpassBbox;
+        cacheKey = `gm_fare_zones_${window.customOverpassBbox}`;
+    } else if (cityProfiles[window.currentRegion]) {
+        bbox = cityProfiles[window.currentRegion].boundingBox;
+        cacheKey = `gm_fare_zones_${window.currentRegion}`;
+    } else { return; }
+
+    // Check Local Storage FIRST!
+    const cachedZones = localStorage.getItem(cacheKey);
+    if (cachedZones) {
+        window.dynamicZones = JSON.parse(cachedZones);
+        populateZoneDropdown(zSelect);
+        return;
+    }
+
+    zSelect.innerHTML = "<option>Fetching Fare Zones...</option>";
+
+    try {
+        // Bumped timeout from 25 to 60 seconds to prevent 504s
+        const query = `[out:json][timeout:60];
+        (
+          nwr["railway"~"station|tram_stop|halt"]["zone"](${bbox});
+          nwr["public_transport"~"station|stop_area|stop_position|platform"]["zone"](${bbox});
+          nwr["railway"~"station|tram_stop|halt"]["network:zone"](${bbox});
+          nwr["public_transport"~"station|stop_area|stop_position|platform"]["network:zone"](${bbox});
+          nwr["railway"~"station|tram_stop|halt"]["fare_zone"](${bbox});
+          nwr["public_transport"~"station|stop_area|stop_position|platform"]["fare_zone"](${bbox});
+        );
+        out center qt;`;
+
+        // The Backup Server Array
+        const endpoints = [
+            "https://overpass-api.de/api/interpreter?data=",
+            "https://overpass.kumi.systems/api/interpreter?data=",
+            "https://lz4.overpass-api.de/api/interpreter?data="
+        ];
+
+        let data = null;
+        
+        // Loop through the servers until one successfully answers
+        for (let i = 0; i < endpoints.length; i++) {
+            try {
+                zSelect.innerHTML = `<option>Fetching Zones (Server ${i+1}/${endpoints.length})...</option>`;
+                const response = await fetch(endpoints[i] + encodeURIComponent(query));
+                
+                if (response.ok) { 
+                    data = await response.json(); 
+                    break; // Success! Stop looping.
+                } else if (response.status === 429 || response.status === 504) {
+                    console.warn(`Server ${i+1} busy or timed out. Pausing before next attempt...`);
+                    await window.sleep(2000); // Pause for 2 seconds before hitting the next server
+                }
+            } catch(e) { 
+                console.warn(`Server ${i+1} failed to connect.`); 
+            }
+        }
+
+        if (!data) throw new Error("All Overpass servers timed out or are busy.");
+
+        window.dynamicZones = {};
+
+        data.elements.forEach(el => {
+            let rawZone = el.tags?.fare_zone || el.tags?.zone || el.tags?.["network:zone"];
+            if (el.tags && el.tags.name && rawZone) {
+                let zones = String(rawZone).split(/[\/\;\,\-\&\|]+/);
+                zones.forEach(z => {
+                    let zClean = z.trim();
+                    if (zClean !== "") {
+                        let zName = zClean.toLowerCase().includes('zone') ? zClean : `Zone ${zClean}`;
+                        zName = zName.charAt(0).toUpperCase() + zName.slice(1);
+                        if (!window.dynamicZones[zName]) window.dynamicZones[zName] = [];
+                        window.dynamicZones[zName].push(el.tags.name);
+                    }
+                });
+            }
+        });
+
+        // Clean up duplicates and save to Local Storage
+        Object.keys(window.dynamicZones).forEach(z => {
+            window.dynamicZones[z] = [...new Set(window.dynamicZones[z])];
+        });
+        localStorage.setItem(cacheKey, JSON.stringify(window.dynamicZones));
+        
+        populateZoneDropdown(zSelect);
+
+    } catch(e) {
+        console.error("Fare Zone load failed:", e);
+        zSelect.innerHTML = "<option>Error Loading Zones. Try again.</option>";
+    }
+};
+
+// Helper function to build the dropdown menu
+function populateZoneDropdown(zSelect) {
+    zSelect.innerHTML = "";
+    const sortedZones = Object.keys(window.dynamicZones).sort((a,b) => a.localeCompare(b, undefined, {numeric: true}));
+    
+    sortedZones.forEach(z => {
+        if (window.dynamicZones[z].length > 0) {
+            zSelect.innerHTML += `<option value="${z}">${z} (${window.dynamicZones[z].length} stops)</option>`;
+        }
+    });
+    if (zSelect.innerHTML === "") zSelect.innerHTML = "<option>No Fare Zones mapped</option>";
+}
+
+        
+
+        window.dynamicPOIs = {};
+        window.poiPolygons = {};
+
+        window.dynamicPOIs = {};
+        window.poiPolygons = {};
+        window.poiPreviewLayer = null; // Stores our temporary map lines
+
+window.dynamicPOIs = {};
+        window.poiPolygons = {};
+
+window.dynamicPOIs = {};
+        window.poiPolygons = {};
+        window.poiPreviewLayer = null; 
+
+        window.loadPOIVoronoi = async function() {
+            const catSelect = document.getElementById('poiCategorySelect');
+            const resSelect = document.getElementById('poiResultSelect');
+            if (!resSelect) return;
+
+            const poiTags = {
+                'theme_park': 'nwr["tourism"="theme_park"]',
+                'zoo': 'nwr["tourism"="zoo"]',
+                'aquarium': 'nwr["tourism"="aquarium"]',
+                'golf_course': 'nwr["leisure"="golf_course"]',
+                'museum': 'nwr["tourism"="museum"]',
+                'cinema': 'nwr["amenity"="cinema"]',
+                'library': 'nwr["amenity"="library"]',
+                'hospital': 'nwr["amenity"="hospital"]',
+                'consulate': 'nwr["office"="diplomatic"]["diplomatic"~"consulate|embassy"]',
+                'peak': 'node["natural"="peak"]',
+                'park': 'nwr["leisure"="park"]'
+            };
+
+            try {
+                let bbox = "";
+                if (window.currentRegion === 'custom' && window.customOverpassBbox) {
+                    bbox = window.customOverpassBbox;
+                } else if (cityProfiles[window.currentRegion]) {
+                    bbox = cityProfiles[window.currentRegion].boundingBox;
+                } else { return; }
+
+                resSelect.innerHTML = "<option>Fetching POIs...</option>";
+                
+                // 1. CLEAR OLD PREVIEWS (Using our new safe variable!)
+                if (window.poiPreviewLayer && window.leafletEngine) {
+                    window.leafletEngine.removeLayer(window.poiPreviewLayer);
+                }
+                window.poiPreviewLayer = L.layerGroup();
+                
+                const category = catSelect.value;
+                const tagQuery = poiTags[category];
+
+                const query = `[out:json][timeout:25]; ${tagQuery}(${bbox}); out center qt;`;
+                const url = "https://overpass-api.de/api/interpreter?data=" + encodeURIComponent(query);
+
+                const response = await fetch(url);
+                if (!response.ok) throw new Error("Overpass POI fetch failed");
+                const data = await response.json();
+
+                let poiPoints = [];
+                let seenNames = new Set();
+
+                data.elements.forEach(el => {
+                    if (el.tags && el.tags.name) {
+                        const name = el.tags.name;
+                        if (seenNames.has(name)) return; 
+                        
+                        let lat = el.lat || (el.center && el.center.lat);
+                        let lon = el.lon || (el.center && el.center.lon);
+                        
+                        if (lat && lon) {
+                            seenNames.add(name);
+                            poiPoints.push(turf.point([lon, lat], { name: name }));
+                        }
+                    }
+                });
+
+                if (poiPoints.length < 2) {
+                    resSelect.innerHTML = `<option>Need at least 2 POIs for Voronoi (Found ${poiPoints.length})</option>`;
+                    return;
+                }
+
+                resSelect.innerHTML = "<option>Calculating Catchments...</option>";
+                
+                const b = bbox.split(',').map(Number);
+                const turfBbox = [b[1], b[0], b[3], b[2]]; 
+                
+                const collection = turf.featureCollection(poiPoints);
+                const voronoiPolygons = turf.voronoi(collection, { bbox: turfBbox });
+
+                window.dynamicPOIs = {};
+                window.poiPolygons = {};
+
+                poiPoints.forEach((pt, i) => {
+                    const poly = voronoiPolygons.features[i];
+                    if (poly) { 
+                        const poiName = pt.properties.name;
+                        poly.properties = { name: poiName };
+                        window.poiPolygons[poiName] = poly;
+                        window.dynamicPOIs[poiName] = [];
+
+                        // 2. DRAW NEW PREVIEWS
+                        const previewShape = L.geoJSON(poly, {
+                            style: {
+                                color: '#2196F3',
+                                weight: 2,
+                                opacity: 0.8,
+                                fillColor: '#2196F3',
+                                fillOpacity: 0.1,
+                                dashArray: '5, 5'
+                            }
+                        });
+                        previewShape.bindTooltip(`<strong>${poiName}</strong>`, { direction: 'center', sticky: true });
+                        window.poiPreviewLayer.addLayer(previewShape);
+                    }
+                });
+
+                // 3. ADD PREVIEWS TO MAP
+                if (window.leafletEngine) {
+                    window.poiPreviewLayer.addTo(window.leafletEngine);
+                }
+
+                for (const [stationKey, coords] of Object.entries(window.stationMap)) {
+                    const stationPt = turf.point([coords[1], coords[0]]); 
+                    for (const [poiName, poly] of Object.entries(window.poiPolygons)) {
+                        if (turf.booleanPointInPolygon(stationPt, poly)) {
+                            window.dynamicPOIs[poiName].push(stationKey);
+                            break; 
+                        }
+                    }
+                }
+
+                resSelect.innerHTML = "";
+                const sortedPOIs = Object.keys(window.dynamicPOIs).sort();
+                sortedPOIs.forEach(poi => {
+                    const count = window.dynamicPOIs[poi].length;
+                    if (count > 0) {
+                        resSelect.innerHTML += `<option value="${poi}">${poi} (${count} stops)</option>`;
+                    }
+                });
+
+                if (resSelect.innerHTML === "") resSelect.innerHTML = "<option>No stations captured by POIs</option>";
+
+            } catch(e) {
+                console.error("POI Voronoi failed:", e);
+                resSelect.innerHTML = "<option>Error loading POIs</option>";
+            }
+        };
+
+        window.addPOILayer = function() {
+            const poiName = document.getElementById('poiResultSelect').value;
+            if (!poiName || poiName.includes("Error") || poiName.includes("Need") || poiName.includes("Fetching")) return;
+            
+            if (window.poiPolygons && window.poiPolygons[poiName]) {
+                const targetPoly = window.poiPolygons[poiName];
+                
+                // 4. CLEAN UP PREVIEWS ONCE SELECTED
+                if (window.poiPreviewLayer && window.leafletEngine) {
+                    window.leafletEngine.removeLayer(window.poiPreviewLayer);
+                    window.poiPreviewLayer = null; 
+                }
+                
+                addConstraint('borough', targetPoly, `${poiName} Catchment`, targetPoly);
+            } else {
+                alert("Could not find boundary for this POI.");
+            }
+        };
         window.switchTab = function(t) {
             document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active')); document.getElementById('tab-'+t).classList.add('active');
             document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active')); document.getElementById('btn-tab-'+t).classList.add('active');
@@ -652,98 +1670,461 @@
             renderLog();
         };
 
-
-        function resolveCoords(name, missingList) {
-            var cleanName = name.toLowerCase().replace(" (for trafford palazzo)", "").trim();
-            if (cleanName === "bury interchange") cleanName = "bury"; 
-            if (cleanName === "rochdale railway station") cleanName = "rochdale"; 
-            var normalize = (str) => str.replace(/\./g, "").replace(/\s+/g, " ").trim();
-            var target = normalize(cleanName); var coords = stationMap[target]; 
-            if (!coords) { var key = Object.keys(stationMap).find(k => { var nk = normalize(k); return nk.includes(target) || target.includes(nk); }); if(key) coords = stationMap[key]; }
-            if(!coords && missingList) missingList.push(name);
-            return coords;
+function resolveCoords(name, missingList) {
+    // 1. Unified cleaning function
+    const clean = (s) => s ? s.toLowerCase().replace(/\s+/g, "").replace("station", "").replace("underground", "").replace("metrolink", "").replace(/[^a-z0-9]/g, "") : "";
+    
+    const target = clean(name);
+    
+    // 2. Direct Lookup
+    let coords = window.stationMap[target]; 
+    
+    // 3. Fuzzy Lookup (if direct fails)
+    if (!coords) { 
+        // Find a key that contains the target name, or is contained within the target name
+        const fuzzyKey = Object.keys(window.stationMap).find(k => 
+            (k.length > 3 && (k.includes(target) || target.includes(k)))
+        ); 
+        if (fuzzyKey) {
+            coords = window.stationMap[fuzzyKey];
         }
+    }
+    
+    if (!coords && missingList) {
+        missingList.push(name);
+        console.warn("❌ Match Failed:", name, "-> Cleaned as:", target);
+    }
+    return coords;
+}
 
-        window.addBorough = function() {
-            var borough = document.getElementById('boroughSelect').value; if (Object.keys(stationMap).length === 0) { alert("Load Stations first!"); return; }
-            var stops = boroughStops[borough]; var circles = []; var missing = [];
-            stops.forEach(name => { var coords = resolveCoords(name, missing); if (coords) circles.push(turf.circle([coords[1], coords[0]], 0.5, {steps: 64, units: 'kilometers'})); });
-            if (circles.length === 0) { alert("No stops found for " + borough); return; }
-            var unionPoly = circles[0]; for (var i = 1; i < circles.length; i++) { try { unionPoly = turf.union(unionPoly, circles[i]); } catch(e) {} }
-            addConstraint('borough', unionPoly, `${borough} (Stops 500m)`, unionPoly);
-        };
+window.addZoneLayer = function() {
+    const zSelect = document.getElementById('zoneSelect');
+    if (!zSelect) return;
 
-        window.addZoneLayer = function() {
-            var zone = document.getElementById('zoneSelect').value; if (Object.keys(stationMap).length === 0) { alert("Load Stations first!"); return; }
-            var stops = [];
-            if (zone === "4") {
-                stops = [...zoneStops["4"]]; var allBoroughStops = new Set(); Object.values(boroughStops).forEach(list => list.forEach(s => allBoroughStops.add(s)));
-                allBoroughStops.forEach(s => { var found = false; for(var z=1; z<=3; z++) { if(zoneStops[z].includes(s)) found = true; } if(!found) stops.push(s); });
-            } else { stops = zoneStops[zone]; }
-            var circles = []; var missing = [];
-            stops.forEach(name => { var coords = resolveCoords(name, missing); if (coords) circles.push(turf.circle([coords[1], coords[0]], 0.5, {steps: 64, units: 'kilometers'})); });
-            if (circles.length === 0) { alert("No stops found for Zone " + zone); return; }
-            var unionPoly = circles[0]; for (var i = 1; i < circles.length; i++) { try { unionPoly = turf.union(unionPoly, circles[i]); } catch(e) {} }
-            addConstraint('zone', unionPoly, `Zone ${zone} (500m)`, unionPoly);
-        };
+    let zName = zSelect.value;
+    const profile = cityProfiles[window.currentRegion];
+
+    // Safety check
+    if (!profile || !profile.zones || !profile.zones[zName]) {
+        alert(`No predefined zones found for ${window.currentRegion}.`);
+        return;
+    }
+
+    let stops = profile.zones[zName];
+    
+    if (!stops || stops.length === 0) { 
+        alert(`No stops found for Zone ${zName}.`); 
+        return; 
+    }
+
+    let circles = [];
+    let missing = [];
+
+    // Draw reliable 500m (0.5km) bubbles around each station
+    stops.forEach(name => { 
+        const coords = window.stationMap[name] || resolveCoords(name, missing); 
+        if (coords) {
+            circles.push(turf.circle([coords[1], coords[0]], 0.5, {steps: 64, units: 'kilometers'}));
+        }
+    });
+
+    if (circles.length > 0) {
+        let targetPoly = circles[0]; 
+        for (let i = 1; i < circles.length; i++) { 
+            try { targetPoly = turf.union(targetPoly, circles[i]); } catch(e) {} 
+        }
         
+        let cleanLabel = zName.includes('Zone') ? zName : `Zone ${zName}`;
+        
+        try {
+            // THE FIX: Lowered tolerance to stop the circles from turning into octagons
+            let simplifiedPoly = turf.simplify(targetPoly, { tolerance: 0.00005, highQuality: true });
+            let cleanPoly = turf.buffer(simplifiedPoly, 0); 
+            addConstraint('zone', cleanPoly, cleanLabel, cleanPoly);
+        } catch(e) {
+            addConstraint('zone', targetPoly, cleanLabel, targetPoly);
+        }
+    } else {
+        alert("Could not map the stations for this zone.");
+    }
+};
         window.loadTransportData = async function() {
-            var btn = document.getElementById('btnLoadTransport'); var loader = document.getElementById('loader');
-            btn.disabled = true; loader.style.display = 'block';
-            var savedData = localStorage.getItem('gm_transport_data');
-            if (savedData) { processData(JSON.parse(savedData)); loader.style.display = 'none'; document.getElementById('legend').style.display = 'block'; return; }
-            var bbox="53.30,-2.75,53.68,-1.90";
-            var q=`[out:json][timeout:25];(node["railway"="tram_stop"](${bbox});node["railway"="station"](${bbox});way["railway"="rail"]["usage"="main"](${bbox});way["railway"="rail"]["usage"="branch"](${bbox}););out body;>;out skel qt;`;
-            try {
-                const r = await fetch("https://overpass-api.de/api/interpreter?data="+encodeURIComponent(q)); const d = await r.json();
-                try { localStorage.setItem('gm_transport_data', JSON.stringify(d)); } catch(e) {}
-                processData(d); loader.style.display = 'none'; document.getElementById('legend').style.display = 'block';
-            } catch(e) { alert("Data Load Error. Check connection."); btn.disabled = false; loader.style.display = 'none'; }
+            const loader = document.getElementById('loader');
+            if (loader) loader.style.display = 'block'; 
+            
+            let profile;
+            let fullQuery = "";
+            let actualCacheKey = "";
+            
+            if (window.currentRegion === 'custom') {
+                // 1. Create a dummy profile for custom zones so processData doesn't crash
+                profile = {
+                    name: "Custom Zone",
+                    allowedRail: "ALL", // Show all national rail stations in the drawn box
+                    colorOverrides: {},
+                    blacklistedStops: [],
+                    zones: {},
+                    boroughs: {}
+                };
+                
+                // 2. Build the Overpass query using the drawn bounding box
+                const customQueryBody = `
+                        nwr["railway"~"station|tram_stop|subway_entrance|light_rail_station|halt"](${window.customOverpassBbox});
+                        nwr["station"~"subway|light_rail|tram"](${window.customOverpassBbox});
+                        rel["route"~"subway|light_rail|tram"](${window.customOverpassBbox});
+                        way["railway"~"rail|subway|light_rail|tram"](${window.customOverpassBbox});
+                    `;
+                fullQuery = `[out:json][timeout:90];(${customQueryBody});out body;>;out skel qt;`;
+                
+                // Cache custom queries based on their specific coordinates
+                actualCacheKey = `gm_transport_data_v3_custom_${window.customOverpassBbox}`;
+                
+            } else {
+                // Standard logic for predefined cities (London, Manchester, etc.)
+                profile = cityProfiles[window.currentRegion];
+                const queryBody = profile.overpassQuery.replace(/{{bbox}}/g, profile.boundingBox);
+                fullQuery = `[out:json][timeout:90];(${queryBody});out body;>;out skel qt;`;
+                
+                actualCacheKey = `gm_transport_data_v3_${window.currentRegion}`;
+            }
+            
+            // Check Local Storage Cache First
+            const savedData = localStorage.getItem(actualCacheKey);
+            if (savedData) { 
+                processData(JSON.parse(savedData), profile); 
+                if (loader) loader.style.display = 'none'; 
+                const legend = document.getElementById('legend');
+                window.loadDynamicAreas();
+                if (legend) legend.style.display = 'block'; 
+                return; 
+            }
+            
+            const endpoints = [
+                "https://overpass-api.de/api/interpreter?data=",
+                "https://overpass.kumi.systems/api/interpreter?data="
+            ];
+
+            let data = null;
+            for (let url of endpoints) {
+                try {
+                    const response = await fetch(url + encodeURIComponent(fullQuery));
+                    if (response.ok) { data = await response.json(); break; }
+                } catch(e) { console.warn("Server busy, trying next..."); }
+            }
+
+            if (!data) {
+                alert("Data Load Error: All map servers are busy."); 
+                if (loader) loader.style.display = 'none'; 
+                return;
+            }
+            
+try { localStorage.setItem(actualCacheKey, JSON.stringify(data)); } catch(e) {}
+    
+    // 1. Process the main station data instantly
+    processData(data, profile); 
+    
+    // 2. Wrap the follow-up queries in an async sequence so they wait in line
+    (async () => {
+        if (loader) loader.innerText = "Pausing for Overpass API (1/2)...";
+        await window.sleep(2500); // Wait 2.5 seconds
+        
+        await window.loadDynamicAreas();
+        
+        if (loader) loader.innerText = "Pausing for Overpass API (2/2)...";
+        await window.sleep(2500); // Wait another 2.5 seconds
+        // Hide loader when completely finished
+        if (loader) loader.style.display = 'none'; 
+        const legend = document.getElementById('legend');
+        if (legend) legend.style.display = 'block';
+    })();
+
         };
+		
+        window.forceRefreshData = function(){ localStorage.removeItem(`gm_transport_data_v3_${window.currentRegion}`); document.getElementById('btnLoadTransport').disabled = false; window.loadTransportData(); };
 
-        window.toggleTransport = function(){if(map.hasLayer(transportLayer))map.removeLayer(transportLayer);else map.addLayer(transportLayer);};
-        window.forceRefreshData = function(){ localStorage.removeItem('gm_transport_data'); document.getElementById('btnLoadTransport').disabled = false; window.loadTransportData(); };
+function processData(d, profile) {
+    if (!d || !d.elements) return;
+    
+    // 1. Clear existing map visual layers
+    localLayer.clearLayers(); 
+    railLayer.clearLayers();
 
-        function processData(d){
-            stationMap = {}; var n={}; var sm={}; if(!d.elements) return;
-            d.elements.forEach(e=>{ if(e.type==="node") n[e.id]=[e.lat,e.lon]; });
-            d.elements.forEach(e=>{ if(e.type==="way" && e.tags.railway==="rail"){ var c=e.nodes.map(id=>n[id]).filter(x=>x); L.polyline(c,{color:'#444',weight:2,dashArray:'5,8',opacity:0.6}).addTo(transportLayer); }});
-            var tempNameMap = {};
-            d.elements.forEach(e=>{
-                if(e.type==="node" && e.tags && e.tags.name){
-                     var clean = e.tags.name.toLowerCase().trim(); tempNameMap[clean] = [e.lat, e.lon];
-                     var simple = clean.replace(" metrolink","").replace(" station","").trim(); tempNameMap[simple] = [e.lat, e.lon];
-                     if(clean.includes("st peter")) tempNameMap["st peter's square"] = [e.lat, e.lon];
+    // 2. IMPORTANT: Reset/Initialize the global station map
+    // We use window. to ensure it's accessible by addBorough() and addZoneLayer()
+    window.stationMap = {}; 
+    
+    var nodes = {}; 
+    var ways = {};
+
+    // Standardized cleaning function to use for keys
+    const clean = (s) => s ? s.toLowerCase().replace(/\s+/g, "").replace("station", "").replace("underground", "").replace("metrolink", "").replace(/[^a-z0-9]/g, "") : "";
+
+    // Map Nodes (Coordinates)
+    d.elements.forEach(e => { 
+        if (e.type === "node") nodes[e.id] = [e.lat, e.lon]; 
+    });
+
+    // Map Ways (Physical track segments)
+    d.elements.forEach(e => {
+        if (e.type === "way" && e.nodes) {
+            var coords = e.nodes.map(id => nodes[id]).filter(x => x);
+            if (coords.length > 1) ways[e.id] = coords;
+        }
+    });
+
+    const drawnWays = new Set();
+
+    // 3. Draw Curved Routes (Relations)
+    d.elements.forEach(e => {
+        if (e.type === "relation" && e.tags && e.tags.type === "route") {
+            const isLocalRoute = e.tags.route === "subway" || e.tags.route === "light_rail" || e.tags.route === "tram";
+            if (!isLocalRoute) return;
+
+            let routeColor = e.tags.colour || e.tags.color || '#0078A8';
+            const routeName = e.tags.name || "";
+            
+            if (profile.colorOverrides) {
+                for (const [key, hex] of Object.entries(profile.colorOverrides)) {
+                    if (routeName.includes(key)) { routeColor = hex; break; }
                 }
-            });
-            tramLines.forEach(l=>{
-                var lc=[];
-                l.stops.forEach(rn=>{
-                    var sn=rn.toLowerCase().trim(); if(stationAliases[sn]) sn=stationAliases[sn];
-                    var coord = tempNameMap[sn]; if(!coord) { var k = Object.keys(tempNameMap).find(key => key.includes(sn)); if(k) coord = tempNameMap[k]; }
-                    if(coord) lc.push(coord);
-                });
-                if(lc.length>1) L.polyline(lc,{color:l.color,weight:l.weight,opacity:0.6}).addTo(transportLayer);
-            });
-            d.elements.forEach(e=>{
-                if(e.type==="node" && e.tags && e.tags.name){
-                    var rawName = e.tags.name.toLowerCase(); var cn = rawName.replace(" station","").replace(" rail station","").replace(" metrolink","").trim();
-                    var isBlacklisted = blacklistedStops.some(b => e.tags.name.includes(b)); if(isBlacklisted) return;
-                    var searchKey = cn.replace(/\./g, "").replace(/\s+/g, " "); stationMap[searchKey] = [e.lat, e.lon];
-                    var isTram = e.tags.railway==="tram_stop"; var isRail = e.tags.railway==="station"; var crs = e.tags["ref:crs"] || e.tags["ref"] || null; 
-                    if(isTram){
-                        var slug = cn.replace(/[^a-z0-9\s-]/g, "").replace(/\s+/g, "-") + "-tram"; var tramUrl = `https://tfgm.com/travel-updates/live-departures/tram/${slug}`;
-                        L.circleMarker([e.lat,e.lon],{radius:4,fillColor:"#FFC107",color:"#333",weight:1,fillOpacity:1, pane: 'stations'}).addTo(transportLayer).bindPopup(`<b>${e.tags.name}</b><br><button class='popup-link' onclick='window.openPopup("${tramUrl}")'>Live Trams</button>`);
-                    } else if(isRail){
-                        if(allowedStations.some(s=>cn.includes(s))){
-                            var trainLink = `https://www.realtimetrains.co.uk/search/detailed/gb-nr:${crs ? crs : e.tags.name}`;
-                            L.circleMarker([e.lat,e.lon],{radius:5,fillColor:"#333",color:"#fff",weight:1.5,fillOpacity:1, pane: 'stations'}).addTo(transportLayer).bindPopup(`<b>${e.tags.name}</b><br><button class='popup-link' onclick='window.openPopup("${trainLink}")'>Realtime Trains</button>`);
-                        }
+            }
+
+            if (e.members) {
+                e.members.forEach(m => {
+                    if (m.type === "way" && ways[m.ref]) {
+                        L.polyline(ways[m.ref], { 
+                            color: routeColor, weight: 4, opacity: 0.85, lineCap: 'round', lineJoin: 'round' 
+                        }).addTo(localLayer);
+                        drawnWays.add(m.ref);
                     }
+                });
+            }
+        }
+    });
+
+    // 4. Draw Background "Ghost" Lines
+    d.elements.forEach(e => {
+        if (e.type === "way" && !drawnWays.has(e.id) && e.tags) {
+            const isRail = e.tags.railway === "rail";
+            const isSubway = e.tags.railway === "subway" || e.tags.railway === "light_rail" || e.tags.railway === "tram";
+            
+            if (isRail || isSubway) {
+                let line = L.polyline(ways[e.id], { 
+                    color: '#444', weight: 2, dashArray: '5,8', opacity: 0.4, interactive: false 
+                });
+                if (isSubway) line.addTo(localLayer);
+                else if (isRail) line.addTo(railLayer);
+            }
+        }
+    });
+
+    // 5. Draw Stations and Populate the GLOBAL window.stationMap
+    const drawnStations = new Set();
+
+    d.elements.forEach(e => {
+        if (e.type === "node" && e.tags && e.tags.name) {
+            const rawName = e.tags.name;
+            const stationKey = clean(rawName);
+            
+            if (drawnStations.has(stationKey)) return; 
+            if (profile.blacklistedStops && profile.blacklistedStops.some(b => rawName.includes(b))) return;
+
+            const isLocal = e.tags.railway === 'tram_stop' || 
+                            e.tags.railway === 'subway_entrance' || 
+                            e.tags.railway === 'light_rail_station' || 
+                            e.tags.station === 'subway' || 
+                            e.tags.station === 'light_rail';
+            const isNational = e.tags.railway === 'station' && !isLocal; 
+
+            let wasDrawn = false;
+
+            if (isLocal) {
+                L.circleMarker([e.lat, e.lon], { 
+                    radius: 4, fillColor: "#FFC107", color: "#333", weight: 1, fillOpacity: 1, pane: 'stations' 
+                }).addTo(localLayer).bindPopup(`<b>${rawName}</b>`);
+                wasDrawn = true;
+            } else if (isNational) {
+                const isAllowed = profile.allowedRail === "ALL" || (Array.isArray(profile.allowedRail) && profile.allowedRail.some(s => rawName.toLowerCase().includes(s.toLowerCase())));
+                if (isAllowed) {
+                    const crs = e.tags["ref:crs"] || e.tags["ref"] || "";
+                    const link = `https://www.realtimetrains.co.uk/search/detailed/gb-nr:${crs}`;
+                    L.circleMarker([e.lat, e.lon], { 
+                        radius: 5, fillColor: "#333", color: "#fff", weight: 1.5, fillOpacity: 1, pane: 'stations' 
+                    }).addTo(railLayer).bindPopup(`<b>${rawName}</b><br><button class='popup-link' onclick='window.openPopup("${link}")'>Realtime Trains</button>`);
+                    
+                    // If we have a CRS code (like HID for Hall-i'-th'-Wood), save it too!
+                    if (crs) {
+                        window.stationMap[crs.toLowerCase()] = [e.lat, e.lon];
+                    }
+                    wasDrawn = true;
                 }
-            });
+            }
+
+            if (wasDrawn) {
+                drawnStations.add(stationKey);
+                // This line stores the coordinates for the Borough/Zone tools
+                window.stationMap[stationKey] = [e.lat, e.lon];
+            }
+        }
+    });
+    
+    console.log(`✅ Loaded ${Object.keys(window.stationMap).length} stations into Logic Engine.`);
+}
+
+// Universal function to handle Boroughs, Counties, and Countries
+        // Universal function to handle Boroughs, Counties, and Countries
+        function addAdministrativeConstraint(dropdownId, labelSuffix, dynamicDataDict) {
+            const name = document.getElementById(dropdownId).value;
+            if (!name || name.includes("Found") || name.includes("Loading") || name.includes("Error")) return;
+            if (Object.keys(window.stationMap).length === 0) { alert("Load Stations first!"); return; }
+
+            let targetPoly = null;
+
+            // 1. Try to use the exact true geographic boundary we saved!
+            if (window.adminPolygons && window.adminPolygons[name]) {
+                targetPoly = window.adminPolygons[name];
+            } 
+            // 2. FALLBACK: If boundaries failed, draw 500m circles
+            else {
+                let stops = [];
+                if (dynamicDataDict && dynamicDataDict[name]) {
+                    stops = dynamicDataDict[name];
+                } else if (cityProfiles[window.currentRegion] && cityProfiles[window.currentRegion].boroughs[name]) {
+                    stops = cityProfiles[window.currentRegion].boroughs[name];
+                }
+
+                if (stops.length === 0) { alert("No stops found for " + name); return; }
+
+                let circles = []; let missing = [];
+                stops.forEach(nameOrKey => { 
+                    const coords = window.stationMap[nameOrKey] || resolveCoords(nameOrKey, missing); 
+                    if (coords) circles.push(turf.circle([coords[1], coords[0]], 0.5, {steps: 64, units: 'kilometers'}));
+                });
+                
+                if (circles.length > 0) {
+                    targetPoly = circles[0]; 
+                    for (let i = 1; i < circles.length; i++) { try { targetPoly = turf.union(targetPoly, circles[i]); } catch(e) {} }
+                }
+            }
+
+            // Apply it to the map engine
+            if (targetPoly) {
+                try {
+                    // THE MAGIC FIX: Shrink the polygon's file size by 99% so Firebase accepts it!
+                    // Tolerance 0.001 smooths out microscopic jagged edges while keeping the core shape
+                    let simplifiedPoly = turf.simplify(targetPoly, { tolerance: 0.001, highQuality: false });
+                    
+                    // turf.buffer(0) mathematically cleans up any looping lines caused by the simplification
+                    let cleanPoly = turf.buffer(simplifiedPoly, 0);
+                    
+                    addConstraint('borough', cleanPoly, `${name} ${labelSuffix}`, cleanPoly);
+                } catch(e) {
+                    console.error("Math engine failed to simplify the shape:", e);
+                    alert("This boundary is too complex to draw. Try a smaller area!");
+                }
+            }
         }
 
+        // Link the UI buttons to the new universal function
+        window.addBorough = function() { addAdministrativeConstraint('boroughSelect', 'Borough', window.dynamicBoroughs); };
+        window.addCounty = function() { addAdministrativeConstraint('countySelect', 'County', window.dynamicCounties); };
+        window.addCountry = function() { addAdministrativeConstraint('countrySelect', 'Nation', window.dynamicCountries); };
+
+
+        // --- SETTINGS MODAL LOGIC ---
+        window.openSettings = function() {
+            document.getElementById('settingsModal').style.display = 'block';
+        };
+
+        window.closeSettings = function() {
+            document.getElementById('settingsModal').style.display = 'none';
+        };
+
+        window.toggleMapLayer = function(layerType, isChecked) {
+            if (layerType === 'local') {
+                if (isChecked) map.addLayer(localLayer);
+                else map.removeLayer(localLayer);
+            } else if (layerType === 'rail') {
+                if (isChecked) map.addLayer(railLayer);
+                else map.removeLayer(railLayer);
+            }
+        };
+
+        window.leaveRoom = function() {
+            if(confirm("Are you sure you want to leave this room?")) {
+                // The safest way to cleanly unbind Firebase listeners and reset the UI is to reload the page
+                window.location.reload(); 
+            }
+        };
+
+        // --- LOCAL LIVE GPS TRACKING ---
+        window.gpsWatchId = null;
+        window.liveGpsMarker = null;
+        window.liveGpsCircle = null;
+        window.hasCenteredLiveGPS = false;
+
+        window.toggleLiveGPS = function(isTracking) {
+            if (isTracking) {
+                if (!navigator.geolocation) { 
+                    alert("GPS not supported by your browser."); 
+                    document.getElementById('toggleLiveGPS').checked = false;
+                    return; 
+                }
+                
+                // Start continuously tracking
+                window.gpsWatchId = navigator.geolocation.watchPosition(
+                    function(position) {
+                        const lat = position.coords.latitude;
+                        const lng = position.coords.longitude;
+                        const accuracy = position.coords.accuracy; // Gets the GPS accuracy radius
+
+                        if (!window.liveGpsMarker) {
+                            // First time getting a lock: Create the marker and accuracy circle
+                            window.liveGpsMarker = L.circleMarker([lat, lng], {
+                                radius: 7, fillColor: '#0078A8', color: '#fff', weight: 2, fillOpacity: 1
+                            }).addTo(gpsLayer);
+                            
+                            window.liveGpsCircle = L.circle([lat, lng], {
+                                radius: accuracy, color: '#0078A8', fillOpacity: 0.15, weight: 1, dashArray: '5,5'
+                            }).addTo(gpsLayer);
+                        } else {
+                            // Already locked: Just move the existing markers smoothly
+                            window.liveGpsMarker.setLatLng([lat, lng]);
+                            window.liveGpsCircle.setLatLng([lat, lng]);
+                            window.liveGpsCircle.setRadius(accuracy);
+                        }
+                        
+                        // Optional: Center map on the very first GPS lock
+                        if (!window.hasCenteredLiveGPS) {
+                            map.setView([lat, lng], 14);
+                            window.hasCenteredLiveGPS = true;
+                        }
+                    },
+                    function(error) { 
+                        console.error("GPS Watch Error", error); 
+                        if (error.code === 1) alert("Please allow location permissions in your browser to use Live GPS.");
+                    },
+                    { enableHighAccuracy: true, maximumAge: 2000, timeout: 10000 }
+                );
+            } else {
+                // Stop tracking
+                if (window.gpsWatchId !== null) {
+                    navigator.geolocation.clearWatch(window.gpsWatchId);
+                    window.gpsWatchId = null;
+                }
+                window.hasCenteredLiveGPS = false;
+                
+                // Remove the markers from the map
+                if (window.liveGpsMarker) {
+                    gpsLayer.removeLayer(window.liveGpsMarker);
+                    window.liveGpsMarker = null;
+                }
+                if (window.liveGpsCircle) {
+                    gpsLayer.removeLayer(window.liveGpsCircle);
+                    window.liveGpsCircle = null;
+                }
+            }
+        };
         // === INITIALIZE ===
         renderLog(); 
         renderQuestions(); 
