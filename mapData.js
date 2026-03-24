@@ -7,7 +7,6 @@ export const cityProfiles = {
         defaultZoom: 11,
         boundingBox: "53.30,-2.75,53.68,-1.90",
         
-        // NEW: We now ask for "relation" (official routes) instead of trying to draw them manually
         overpassQuery: `node["railway"~"station|tram_stop"]({{bbox}}); way["railway"~"rail|tram|light_rail"]({{bbox}}); relation["type"="route"]["route"~"tram|light_rail"]({{bbox}});`,
  
         boroughs: { 
@@ -30,7 +29,7 @@ export const cityProfiles = {
         },
         stationAliases: {"trafford palazzo":"barton dock road", "deansgate-castlefield ( deansgate)":"deansgate-castlefield"},
         blacklistedStops: ["Lakeside", "Whitegate", "Tram Museum", "Middleton Road"],
-        // Paste your massive list back in here!
+      
      allowedRail: [
             "Altrincham", "Appley Bridge", "Ardwick", "Ashburys", "Ashton-under-Lyne", "Atherton",
             "Belle Vue", "Blackrod", "Bolton", "Bramhall", "Bredbury", "Brinnington", "Broadbottom", "Bromley Cross", "Bryn", "Burnage",
@@ -58,7 +57,7 @@ export const cityProfiles = {
         center: [51.5074, -0.1278],
         defaultZoom: 12,
         boundingBox: "51.28,-0.51,51.69,0.33",
-        // NEW: Fetch all the Tube relations in London!
+        
 overpassQuery: `node["railway"~"station|subway_entrance"]({{bbox}}); way["railway"~"rail|subway|light_rail"]({{bbox}}); relation["type"="route"]["route"~"subway|light_rail"]({{bbox}});`,        
         boroughs: {
             "Camden": ["Euston", "King's Cross St. Pancras", "Camden Town", "Chalk Farm", "Kentish Town"],
@@ -105,10 +104,8 @@ zones: {
         name: "Birmingham & West Midlands",
         center: [52.4814, -1.8998],
         defaultZoom: 11,
-        // Captures from Wolverhampton in the West to Coventry in the East
         boundingBox: "52.329,-2.193,52.634,-1.458",
         overpassQuery: `node["railway"~"station|tram_stop"]({{bbox}}); way["railway"~"rail|tram|light_rail"]({{bbox}}); relation["type"="route"]["route"~"tram|light_rail"]({{bbox}});`,
-        // THE MASTER FILTER LIST
     strictStopList: [
         "bloxwichnorth", "bloxwich", "walsall", "bescotstadium", "tamebridgeparkway", 
         "hamstead", "perrybarr", "witton", "aston", "duddeston", "birminghamnewstreet", 
@@ -129,7 +126,7 @@ zones: {
         "westbromwichcentral", "lodgeroad", "dartmouthstreet", "dudleystreetgunsvillage", 
         "blacklake", "wednesburygreatwesternstreet", "wednesburyparkway", "bradleylane", 
         "loxdale", "bilstoncentral", "thecrescent", "priestfield", "theroyal", 
-        "pipersrow", "wolverhamptonstation", "wolverhamptonstgeorges","gravelly hill","erdington", "chesterroad", "wyldegreen", "suttoncoldfield", "fouroaks", "butlerslane", "blakestreet","PineappleRoad","Kingsheath","moseleyVillage", "BirminghamAirport", "birminghaminternational"
+        "pipersrow", "wolverhamptonstation", "wolverhamptonstgeorges","gravellyhill","erdington", "chesterroad", "wyldegreen", "suttoncoldfield", "fouroaks", "butlerslane", "blakestreet","PineappleRoad","Kingsheath","moseleyVillage", "BirminghamAirport", "birminghaminternational"
     ],
         boroughs: {
             "Birmingham": [
@@ -196,7 +193,6 @@ zones: {
                 "Wolverhampton Station", "Wolverhampton St. George's"
             ],
             "5": [
-                // Rail (The outer ring per your linked map)
                 "Tipton", "Coseley", "Wolverhampton", "Bloxwich", "Bloxwich North", "Willenhall", "Darlaston",
                 "Solihull", "Widney Manor", "Dorridge", "Shirley", "Whitlocks End", "Wythall", "Earlswood",
                 "Marston Green", "Birmingham International", "Hampton-in-Arden", "Berkswell", "Tile Hill", 
