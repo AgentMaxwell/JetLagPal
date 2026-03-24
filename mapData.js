@@ -100,5 +100,121 @@ zones: {
         stationAliases: {"kings cross": "king's cross st. pancras", "st pancras": "king's cross st. pancras"},
         blacklistedStops: [],
         allowedRail: "ALL" 
+    },
+    "west_midlands": {
+        name: "Birmingham & West Midlands",
+        center: [52.4814, -1.8998],
+        defaultZoom: 11,
+        // Captures from Wolverhampton in the West to Coventry in the East
+        boundingBox: "52.329,-2.193,52.634,-1.458",
+        overpassQuery: `node["railway"~"station|tram_stop"]({{bbox}}); way["railway"~"rail|tram|light_rail"]({{bbox}}); relation["type"="route"]["route"~"tram|light_rail"]({{bbox}});`,
+        // THE MASTER FILTER LIST
+    strictStopList: [
+        "bloxwichnorth", "bloxwich", "walsall", "bescotstadium", "tamebridgeparkway", 
+        "hamstead", "perrybarr", "witton", "aston", "duddeston", "birminghamnewstreet", 
+        "birminghammoorstreet", "birminghamsnowhill", "adderleypark", "stechford", 
+        "leahall", "marstongreen", "birminghaminternational", "hamptoninarden", 
+        "coventry", "coventryarena", "canley", "tilehill", "berkswell", "bordesley", 
+        "smallheath", "tyseley", "springroad", "hallgreen", "acocksgreen", "olton", 
+        "solihull", "widneymanor", "dorridge", "yardleywood", "shirley", "whitlocksend", 
+        "wythall", "earlswood", "fiveways", "university", "sellyoak", "bournville", 
+        "kingsnorton", "northfield", "longbridge", "pineappleroad", "kingsheath", 
+        "moseleyvillage", "jewelleryquarter", "thehawthorns", "smethwickgaltonbridge", 
+        "langleygreen", "rowleyregis", "oldhill", "cradleyheath", "lye", "stourbridgejunction", 
+        "stourbridgetown", "smethwickrolfestreet", "sandwelldudley", "dudleyport", 
+        "tipton", "coseley", "wolverhampton", "willenhall", "darlaston", "edgbastonvillage", 
+        "brindleyplace", "librarycentenarysquare", "townhall", "grandcentral", 
+        "corporationstreet", "bullstreet", "stchads", "stpauls", "sohobensonroad", 
+        "winsongreenoutercircle", "handsworthboothstreet", "kenrickpark", "trinityway", 
+        "westbromwichcentral", "lodgeroad", "dartmouthstreet", "dudleystreetgunsvillage", 
+        "blacklake", "wednesburygreatwesternstreet", "wednesburyparkway", "bradleylane", 
+        "loxdale", "bilstoncentral", "thecrescent", "priestfield", "theroyal", 
+        "pipersrow", "wolverhamptonstation", "wolverhamptonstgeorges","gravelly hill","erdington", "chester road", "wylde Green", "sutton coldfield", "four oaks", 
+        "butlers lane", "blake street",
+    ],
+        boroughs: {
+            "Birmingham": [
+                "Birmingham New Street", "Birmingham Moor Street", "Birmingham Snow Hill", 
+                "Five Ways", "University", "Selly Oak", "Bournville", "Kings Norton", 
+                "Northfield", "Longbridge", "Pineapple Road", "Kings Heath", "Moseley Village",
+                "Duddeston", "Aston", "Witton", "Perry Barr", "Hamstead", "Bordesley", 
+                "Small Heath", "Tyseley", "Spring Road", "Hall Green", "Yardley Wood", 
+                "Acocks Green", "Stechford", "Lea Hall", "Adderley Park", "Jewellery Quarter"
+            ],
+            "Sandwell": [
+                "Smethwick Galton Bridge", "Smethwick Rolfe Street", "The Hawthorns", 
+                "Langley Green", "Rowley Regis", "Old Hill", "Sandwell & Dudley", 
+                "Dudley Port", "Tipton", "Coseley", "Kenrick Park", "Trinity Way", 
+                "West Bromwich Central", "Lodge Road", "Dartmouth Street", "Guns Village", "Black Lake"
+            ],
+            "Wolverhampton": [
+                "Wolverhampton", "Wolverhampton Station", "Wolverhampton St. George's", 
+                "The Royal", "Pipers Row", "Priestfield", "The Crescent", "Bilston Central", 
+                "Loxdale", "Bradley Lane", "Willenhall"
+            ],
+            "Walsall": [
+                "Walsall", "Bescot Stadium", "Tame Bridge Parkway", "Bloxwich", 
+                "Bloxwich North", "Darlaston"
+            ],
+            "Dudley": [
+                "Cradley Heath", "Lye", "Stourbridge Junction", "Stourbridge Town"
+            ],
+            "Solihull": [
+                "Solihull", "Widney Manor", "Dorridge", "Shirley", "Whitlocks End", 
+                "Wythall", "Earlswood", "Olton", "Marston Green", "Birmingham International", 
+                "Hampton-in-Arden"
+            ],
+            "Coventry": [
+                "Coventry", "Coventry Arena", "Canley", "Tile Hill", "Berkswell"
+            ]
+        },
+        zones: {
+            "1": [
+                // Rail
+                "Birmingham New Street", "Birmingham Moor Street", "Birmingham Snow Hill", "Five Ways", "Jewellery Quarter", "Duddeston",
+                // Tram
+                "Edgbaston Village", "Five Ways", "Brindleyplace", "Library Centenary Square", "Town Hall", "Grand Central", 
+                "Corporation Street", "Bull Street", "St Chads", "St Paul's", "Jewellery Quarter", "Soho Benson Road"
+            ],
+            "2": [
+                // Rail
+                "University", "Selly Oak", "Aston", "Witton", "Bordesley", "Small Heath", "Tyseley", "Smethwick Galton Bridge", "Smethwick Rolfe Street", "The Hawthorns","Adderley Park",
+                // Tram
+                "Winson Green Outer Circle", "Handsworth Booth Street", "The Hawthorns", "Kenrick Park", "Trinity Way", "West Bromwich Central"
+            ],
+            "3": [
+                // Rail
+                "Bournville", "Kings Norton", "Stechford", "Hall Green", "Spring Road", "Yardley Wood", "Sandwell & Dudley", "Perry Barr", "Hamstead"," Erdington",
+                // Tram
+                "Lodge Road", "Dartmouth Street", "Dudley Street Guns Village", "Black Lake", 
+                "Wednesbury Great Western Street", "Wednesbury Parkway", "Bradley Lane", "Loxdale"
+            ],
+            "4": [
+                // Rail
+                "Northfield", "Longbridge", "Acocks Green", "Olton", "Lea Hall", "Dudley Port", "Walsall", "Bescot Stadium", "Tame Bridge Parkway",
+                // Tram
+                "Bilston Central", "The Crescent", "Priestfield", "The Royal", "Pipers Row", 
+                "Wolverhampton Station", "Wolverhampton St. George's"
+            ],
+            "5": [
+                // Rail (The outer ring per your linked map)
+                "Tipton", "Coseley", "Wolverhampton", "Bloxwich", "Bloxwich North", "Willenhall", "Darlaston",
+                "Solihull", "Widney Manor", "Dorridge", "Shirley", "Whitlocks End", "Wythall", "Earlswood",
+                "Marston Green", "Birmingham International", "Hampton-in-Arden", "Berkswell", "Tile Hill", 
+                "Canley", "Coventry", "Coventry Arena", "Stourbridge Junction", "Stourbridge Town", "Lye", "Cradley Heath", "Old Hill", "Rowley Regis", "Langley Green"
+            ]
+        },
+        stationAliases: {
+            "tiptop": "tipton",
+            "five way": "five ways",
+            "solihill": "solihull",
+            "tysely": "tyseley",
+            "mosely village": "moseley village",
+            "addersly park": "adderley park"
+        },
+        blacklistedStops: [],
+        allowedRail: "ALL"
     }
+
+    
 };
