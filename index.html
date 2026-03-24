@@ -323,6 +323,7 @@
                 <select id="regionSelect">
                     <option value="manchester">Greater Manchester</option>
                     <option value="london">London</option>
+                    <option value="west_midlands">West Midlands & B'ham </option>
                     <option value="custom">Custom (Draw Map)</option> </select>
                 <button class="btn-create" onclick="window.startCreateFlow()">Create Room</button>
             </div>
@@ -1925,7 +1926,15 @@ function processData(d, profile) {
         if (e.type === "node" && e.tags && e.tags.name) {
             const rawName = e.tags.name;
             const stationKey = clean(rawName);
+            // --- THE STRICT FILTER START ---
+        if (profile.strictStopList) {
+            // Check if the station name (or its aliases) exists in your list
+            const isAllowed = profile.strictStopList.includes(stationKey) || 
+                             (profile.stationAliases && profile.strictStopList.includes(clean(profile.stationAliases[stationKey])));
             
+            if (!isAllowed) return; // Skip if it's not in your list
+        }
+        // --- THE STRICT FILTER END ---
             if (drawnStations.has(stationKey)) return; 
             if (profile.blacklistedStops && profile.blacklistedStops.some(b => rawName.includes(b))) return;
 
