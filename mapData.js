@@ -121,7 +121,7 @@ zones: {
         "kingsnorton", "northfield", "longbridge", "pineappleroad", "kingsheath", 
         "moseleyvillage", "jewelleryquarter", "thehawthorns", "smethwickgaltonbridge", 
         "langleygreen", "rowleyregis", "oldhill", "cradleyheath", "lye", "stourbridgejunction", 
-        "stourbridgetown", "smethwickrolfestreet", "sandwelldudley", "dudleyport", 
+        "stourbridgetown", "smethwickrolfestreet", "sandwellanddudley", "dudleyport", 
         "tipton", "coseley", "wolverhampton", "willenhall", "darlaston", "edgbastonvillage", 
         "brindleyplace", "librarycentenarysquare", "townhall", "grandcentral", 
         "corporationstreet", "bullstreet", "stchads", "stpauls", "sohobensonroad", 
@@ -129,8 +129,7 @@ zones: {
         "westbromwichcentral", "lodgeroad", "dartmouthstreet", "dudleystreetgunsvillage", 
         "blacklake", "wednesburygreatwesternstreet", "wednesburyparkway", "bradleylane", 
         "loxdale", "bilstoncentral", "thecrescent", "priestfield", "theroyal", 
-        "pipersrow", "wolverhamptonstation", "wolverhamptonstgeorges","gravelly hill","erdington", "chester road", "wylde Green", "sutton coldfield", "four oaks", 
-        "butlers lane", "blake street",
+        "pipersrow", "wolverhamptonstation", "wolverhamptonstgeorges","gravelly hill","erdington", "chesterroad", "wyldegreen", "suttoncoldfield", "fouroaks", "butlerslane", "blakestreet","PineappleRoad","Kingsheath","moseleyVillage", "BirminghamAirport", "birminghaminternational"
     ],
         boroughs: {
             "Birmingham": [
@@ -187,11 +186,11 @@ zones: {
                 "Bournville", "Kings Norton", "Stechford", "Hall Green", "Spring Road", "Yardley Wood", "Sandwell & Dudley", "Perry Barr", "Hamstead"," Erdington",
                 // Tram
                 "Lodge Road", "Dartmouth Street", "Dudley Street Guns Village", "Black Lake", 
-                "Wednesbury Great Western Street", "Wednesbury Parkway", "Bradley Lane", "Loxdale"
+                "Wednesbury Great Western Street", "Wednesbury Parkway", "Bradley Lane", "Loxdale","Chester Road"
             ],
             "4": [
                 // Rail
-                "Northfield", "Longbridge", "Acocks Green", "Olton", "Lea Hall", "Dudley Port", "Walsall", "Bescot Stadium", "Tame Bridge Parkway",
+                "Northfield", "Longbridge", "Acocks Green", "Olton", "Lea Hall", "Dudley Port", "Walsall", "Bescot Stadium", "Tame Bridge Parkway", "Wylde Green", "Sutton Coldfield", 
                 // Tram
                 "Bilston Central", "The Crescent", "Priestfield", "The Royal", "Pipers Row", 
                 "Wolverhampton Station", "Wolverhampton St. George's"
@@ -201,7 +200,7 @@ zones: {
                 "Tipton", "Coseley", "Wolverhampton", "Bloxwich", "Bloxwich North", "Willenhall", "Darlaston",
                 "Solihull", "Widney Manor", "Dorridge", "Shirley", "Whitlocks End", "Wythall", "Earlswood",
                 "Marston Green", "Birmingham International", "Hampton-in-Arden", "Berkswell", "Tile Hill", 
-                "Canley", "Coventry", "Coventry Arena", "Stourbridge Junction", "Stourbridge Town", "Lye", "Cradley Heath", "Old Hill", "Rowley Regis", "Langley Green"
+                "Canley", "Coventry", "Coventry Arena", "Stourbridge Junction", "Stourbridge Town", "Lye", "Cradley Heath", "Old Hill", "Rowley Regis", "Langley Green", "Four Oaks", "Butlers Lane", "Blake Street"
             ]
         },
         stationAliases: {
@@ -210,7 +209,12 @@ zones: {
             "solihill": "solihull",
             "tysely": "tyseley",
             "mosely village": "moseley village",
-            "addersly park": "adderley park"
+            "addersly park": "adderley park",
+            "sandwellanddudley": "sandwellanddudley",
+            "sandwell": "sandwellanddudley",
+             "sandwelldudley": "sandwellanddudley",
+             "bhx": "birminghaminternational",
+            "airport": "birminghaminternational"
         },
         blacklistedStops: [],
         allowedRail: "ALL"
