@@ -3,259 +3,32 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval'; script-src * 'unsafe-inline' 'unsafe-eval'; connect-src * 'unsafe-inline'; img-src * data: blob: 'unsafe-inline'; style-src * 'unsafe-inline';">
+    <!-- CSP allowlists only the hosts this app actually uses:
+         scripts/styles from unpkg (Leaflet, Turf, osmtogeojson) + gstatic (Firebase),
+         data from Overpass mirrors and Firebase/Firestore (*.googleapis.com),
+         and map tiles from CARTO. 'unsafe-inline'/'unsafe-eval' remain because the
+         app relies on inline onclick handlers, an inline module, and the Firebase SDK. -->
+    <meta http-equiv="Content-Security-Policy" content="
+        default-src 'self';
+        script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://www.gstatic.com;
+        connect-src 'self' https://*.googleapis.com https://*.gstatic.com https://overpass-api.de https://overpass.kumi.systems https://lz4.overpass-api.de;
+        img-src 'self' data: blob: https://*.basemaps.cartocdn.com https://unpkg.com;
+        style-src 'self' 'unsafe-inline' https://unpkg.com;
+        worker-src 'self' blob:;
+    ">
     <title>JetLagPal - Multiplayer</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <style>
-        body { margin: 0; padding: 0; font-family: sans-serif; overflow: hidden; }
-        #map { height: 100vh; width: 100%; z-index: 1; }
-        
-        .crosshair-cursor { cursor: crosshair !important; }
-        #map.crosshair-cursor .leaflet-interactive { pointer-events: none !important; }
-        
-        #controls {
-            position: absolute; top: 10px; right: 10px; background: white;
-            padding: 15px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-            z-index: 1000; width: 340px; max-width: 90vw; max-height: 90vh; overflow-y: auto;
-            display: flex; flex-direction: column; transition: all 0.2s ease;
-        }
-
-        .controls-header { 
-            display: flex; justify-content: space-between; align-items: center; 
-            border-bottom: 2px solid #0078A8; padding-bottom: 8px; margin-bottom: 10px;
-        }
-        h3 { margin: 0; font-size: 1.1em; color: #333; }
-        
-        .header-btns { display: flex; gap: 5px; }
-        
-        .icon-btn-header { 
-            width: 32px; height: 32px; padding: 0; margin: 0; 
-            background: #f0f0f0; color: #333; font-size: 1.2em; font-weight: bold;
-            border: 1px solid #ccc; border-radius: 4px; cursor: pointer;
-            display: flex; align-items: center; justify-content: center;
-        }
-        .gps-btn { color: #0078A8; font-size: 1.4em; }
-        .help-btn { color: #28a745; font-weight: bold; font-family: serif; }
-
-        #controls.minimized {
-            width: auto; min-width: 140px; height: auto; max-height: 60px; overflow: hidden;
-        }
-        #controls.minimized .tab-bar, 
-        #controls.minimized .tab-content { display: none !important; }
-        #controls.minimized .controls-header { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
-
-        .tab-bar { display: flex; border-bottom: 1px solid #ddd; margin-bottom: 15px; background: #f4f4f4; border-radius: 4px 4px 0 0; }
-        
-        .tab-btn { 
-            flex: 1; padding: 12px 5px; border: none; background: transparent; 
-            cursor: pointer; color: #666; font-size: 0.9em; border-bottom: 3px solid transparent; 
-            transition: all 0.2s;
-        }
-        .tab-btn:hover { background: #e9e9e9; }
-        .tab-btn.active { 
-            background: #fff; border-bottom: 3px solid #0078A8; color: #0078A8; 
-            font-weight: bold; border-radius: 4px 4px 0 0;
-        }
-
-        .tab-content { display: none; }
-        .tab-content.active { display: block; animation: fadeIn 0.2s; }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-
-        .tool-section { margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 15px; }
-        label { display: block; margin-top: 8px; font-size: 0.9em; font-weight: bold;}
-        input[type="number"], input[type="text"], select { width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px;}
-        
-        button { width: 100%; padding: 10px; margin-top: 10px; background-color: #0078A8; color: white; border: none; border-radius: 4px; cursor: pointer; transition: background 0.2s; }
-        button:hover { opacity: 0.9; }
-        button:disabled { background-color: #ccc; cursor: not-allowed; }
-        .active-tool-btn { background-color: #d9534f !important; border-color: #d43f3a !important; }
-
-        .toggle-btn { flex: 1; padding: 6px; font-size: 0.8em; border: 1px solid #ccc; background: white; cursor: pointer; }
-        .toggle-btn.is-hit { background: #d4edda; color: #155724; border-color: #c3e6cb; }
-        .toggle-btn.is-miss { background: #f8d7da; color: #721c24; border-color: #f5c6cb; }
-        
-        #layerList { list-style: none; padding: 0; margin: 0; }
-        .layer-item { padding: 10px; border-bottom: 1px solid #eee; background: #fafafa; margin-bottom: 5px; border-radius: 4px; }
-        .layer-header { display: flex; align-items: center; margin-bottom: 8px; }
-        
-        .layer-name { font-weight: bold; color: #333; font-size: 0.95em; cursor: pointer; border-bottom: 1px dashed #ccc; flex-grow: 1; margin-right: 10px; }
-        .icon-group { display: flex; gap: 8px; }
-        .icon-btn { background: none; border: none; color: #888; font-size: 1.1em; width: auto; padding: 0; margin: 0; cursor: pointer; }
-        .del-btn:hover { color: #d9534f; }
-        .layer-controls { display: flex; gap: 5px; }
-        .input-group { display: flex; gap: 5px; margin-top: 5px; }
-        .input-group button { margin-top: 0; width: auto; padding: 8px 15px; }
-        
-        #loader { display: none; text-align: center; margin-top: 10px; color: #0078A8; }
-        .legend-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-top: 10px; font-size: 0.85em; }
-        .legend-item { display: flex; align-items: center; }
-        .dot { width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; }
-        .line-box { width: 15px; height: 4px; margin-right: 5px; }
-
-        .log-list-item { padding: 10px; border-bottom: 1px solid #eee; font-size: 0.9em; color: #333; display: flex; justify-content: space-between; align-items: center; }
-        .log-index { font-weight: bold; color: #0078A8; margin-right: 10px; min-width: 20px; }
-        .log-meta { font-size: 0.85em; color: #888; margin-left: 5px; font-style: italic; }
-
-        .q-category { margin-bottom: 20px; }
-        .q-cat-title { font-size: 1.1em; font-weight: bold; color: #333; border-bottom: 2px solid #ddd; padding-bottom: 5px; margin-bottom: 10px; display:flex; justify-content: space-between; cursor: pointer; user-select: none;}
-        .q-subcat { margin-top: 10px; margin-bottom: 5px; font-weight: bold; color: #555; font-size: 0.95em; }
-        .q-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-        .q-btn { padding: 10px; background: #f0f0f0; border: 1px solid #ccc; border-radius: 4px; cursor: pointer; font-size: 0.9em; text-align: center; color: #333; user-select: none; transition: background 0.2s; }
-        .q-btn:hover { background: #e0e0e0; }
-        .q-btn.asked { background-color: #d9534f; color: white; border-color: #d43f3a; }
-        .q-content { display: none; }
-        .q-content.open { display: block; }
-        .arrow { font-size: 0.8em; color: #999; }
-        
-        .popup-link { display: inline-block; margin-top: 5px; color: white; background: #0078A8; padding: 6px 12px; text-decoration: none; border-radius: 4px; font-size: 0.9em; cursor: pointer; border:none; }
-        .popup-link:hover { background: #005a7d; }
-
-        #webModal, #tutorialModal {
-            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.6); z-index: 9999;
-        }
-        #modalContent, #tutorialContent {
-            background: white; width: 90%; max-width: 500px; max-height: 90%; margin: 5% auto;
-            display: flex; flex-direction: column; border-radius: 8px; overflow: hidden;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
-        }
-        #modalHeader, #tutorialHeader {
-            padding: 10px; background: #eee; border-bottom: 1px solid #ccc;
-            display: flex; justify-content: space-between; align-items: center;
-        }
-        #modalTitle, #tutorialTitle { font-weight: bold; font-size: 1.1em; color:#333; }
-        #modalFrame { flex: 1; border: none; background: #fff; }
-        #modalFallback { padding: 8px; text-align: center; font-size: 0.8em; background: #f8d7da; display:none; color: #721c24; }
-        
-        #tutorialBody { padding: 20px; overflow-y: auto; font-size: 0.95em; line-height: 1.5; color: #333; }
-        .tut-step { margin-bottom: 15px; display: flex; gap: 10px; }
-        .tut-icon { font-weight: bold; color: #0078A8; min-width: 25px; }
-        #closeTutBtn { width: 100%; background: #28a745; margin-top: 10px; padding: 12px; font-size: 1em; }
-        
-        #closeModalBtn { background: #d9534f; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; width: auto; margin:0;}
-        #extLinkBtn { background: #0078A8; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; text-decoration:none; font-size:0.8em; margin-right:5px;}
-        
-        /* --- GAME SETUP SCREEN --- */
-        #setupScreen {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: #0078A8; z-index: 10000; 
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            font-family: sans-serif; transition: opacity 0.3s ease;
-        }
-        .setup-container {
-            background: white; padding: 30px; border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-            width: 90%; max-width: 400px; text-align: center;
-        }
-        .setup-container h1 { color: #0078A8; margin-top: 0; margin-bottom: 5px; }
-        .setup-container p { color: #666; font-size: 0.9em; margin-bottom: 25px; }
-        .setup-box {
-            background: #f9f9f9; border: 1px solid #ddd; border-radius: 6px; padding: 15px; margin-bottom: 15px;
-        }
-        .setup-box h3 { margin-top: 0; color: #333; font-size: 1.1em; margin-bottom: 10px;}
-        .setup-box select, .setup-box input {
-            width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;
-            font-size: 1em;
-        }
-        .setup-box button { margin-top: 0; font-size: 1.05em; padding: 12px; }
-        .btn-create { background: #28a745; }
-        .btn-join { background: #0078A8; }
-    
-/* Ko-fi Floating Container - Definitively Fixed for a compact pill */
-        .kofi-support-container {
-            position: absolute;
-            bottom: 25px;
-            left: 7.5%;
-            transform: translateX(-50%);
-            z-index: 1000;
-            display: flex;
-            align-items: center;
-            background-color: #FF5E5B; /* Ko-fi Brand Red/Pink */
-            border-radius: 50px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-            transition: transform 0.2s, background-color 0.2s;
-            /* NEW: Direct fix for squishing and uneven rounding: ensures a proper minimum width */
-            min-width: max-content;
-        }
-
-        .kofi-support-container:hover {
-            transform: translateX(-50%) scale(1.05);
-            background-color: #E04C49; /* Darker red on hover */
-        }
-
-        /* The actual link text - compactified and forced onto one line */
-        .kofi-support-btn {
-            color: white !important;
-            padding: 10px 8px 10px 20px; /* Refined compact padding (Left is wider) */
-            font-family: Arial, sans-serif;
-            font-weight: bold;
-            font-size: 14px;
-            text-decoration: none;
-            display: flex;
-            align-items: center;
-            gap: 8px; /* Compact space between icon and text */
-            /* NEW: Direct fix for internal text wrapping (prevents the stacked look) */
-            white-space: nowrap;
-        }
-
-        .kofi-support-btn:hover {
-            text-decoration: none;
-        }
-
-        /* The Close 'X' Button - compactified and only right corners rounded */
-        .kofi-close-btn {
-            background: none;
-            border: none;
-            color: white;
-            padding: 10px 20px 10px 8px; /* Refined compact padding (Right is wider) */
-            font-size: 16px;
-            cursor: pointer;
-            opacity: 0.7;
-            border-radius: 0 50px 50px 0; /* Ensures only the right side is pill-rounded */
-            transition: opacity 0.2s;
-            line-height: 1; /* Helps vertically center the 'X' */
-        }
-
-        .kofi-close-btn:hover {
-            opacity: 1;
-        }
-
-        /* Ko-fi Sidebar Button */
-        .kofi-sidebar-btn {
-            display: block;
-            width: 100%;
-            box-sizing: border-box;
-            background-color: #FF5E5B; /* Ko-fi Brand Red */
-            color: white !important;
-            padding: 12px 15px;
-            border-radius: 6px;
-            font-family: Arial, sans-serif;
-            font-weight: bold;
-            font-size: 15px;
-            text-align: center;
-            text-decoration: none;
-            transition: background-color 0.2s, transform 0.1s;
-            margin-top: 15px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-        }
-
-        .kofi-sidebar-btn:hover {
-            background-color: #E04C49;
-            text-decoration: none;
-            transform: translateY(-1px);
-        }
-
-        /* Specific styling for the Undo button */
-.undo-btn {
-    background-color: #f44336; /* A subtle red to indicate 'reverting' */
-    color: white;
-}
-
-.undo-btn:hover {
-    background-color: #d32f2f;
-}
-    </style>
+    <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
+
+<div id="toastContainer"></div>
+<div id="appModalOverlay">
+    <div class="app-modal-box">
+        <div class="app-modal-body" id="appModalBody"></div>
+        <div class="app-modal-actions" id="appModalActions"></div>
+    </div>
+</div>
 
 <div id="settingsModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:10001;">
         <div style="background:white; width:90%; max-width:400px; margin:4% auto; border-radius:8px; overflow:hidden; box-shadow:0 5px 15px rgba(0,0,0,0.5);">
@@ -264,7 +37,18 @@
                 <button onclick="window.closeSettings()" style="background:#d9534f; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; width:auto; margin:0;">X</button>
             </div>
             <div style="padding:20px;">
-                
+
+                <div style="margin-bottom:20px; text-align: left;">
+                    <strong style="font-size: 1.1em;">Your Role</strong>
+                    <label style="display:flex; align-items:center; margin-top:10px; cursor:pointer;">
+                        <input type="checkbox" id="toggleHider" onchange="window.setHiderMode(this.checked)" style="width:20px; height:20px; margin-right:10px;">
+                        🙈 Hider view (read-only)
+                    </label>
+                    <p style="font-size:12px; color:#666; margin:5px 0 0 0;">Hides all editing controls so you can watch the seekers' deductions without changing anything. This setting is per-device and not shared.</p>
+                </div>
+
+                <hr style="border:0; border-top:1px solid #ddd; margin:20px 0;">
+
                 <div style="margin-bottom:20px; text-align: left;">
                     <strong style="font-size: 1.1em;">Map Layers</strong>
                     <label style="display:flex; align-items:center; margin-top:10px; cursor:pointer;">
@@ -291,7 +75,8 @@
 
                 <div style="margin-bottom:20px; text-align: left;">
                     <strong style="font-size: 1.1em;">Data Management</strong>
-                    <button id="btnLoadTransport" onclick="window.loadTransportData()" style="background:#0078A8; color:white; border:none; padding:10px; border-radius:4px; width:100%; margin-top:10px; cursor:pointer;">Load Map Stations</button>
+                    <p style="font-size:12px; color:#666; margin:5px 0 10px 0;">Map data loads automatically when you join. Use these if you need to reload it.</p>
+                    <button id="btnLoadTransport" onclick="window.loadTransportData()" style="background:#0078A8; color:white; border:none; padding:10px; border-radius:4px; width:100%; margin-top:10px; cursor:pointer;">↻ Reload Map Data</button>
                     <div id="loader" style="display:none; text-align:center; color:#0078A8; margin-top:5px; font-weight:bold;">Fetching Data...</div>
                     <button onclick="window.forceRefreshData()" style="background:#999; color:white; border:none; padding:10px; border-radius:4px; width:100%; margin-top:10px; cursor:pointer;">↻ Force Re-download</button>
                 </div>
@@ -341,20 +126,33 @@
 
 
     <div id="controls">
+        <div id="sheetHandle" title="Drag or tap to resize">
+            <div class="sheet-grip"></div>
+            <div id="sheetSummary"></div>
+        </div>
         <div class="controls-header">
             <h3>JetLagPal</h3>
             <div class="header-btns">
                 <button class="icon-btn-header" onclick="window.openSettings()" title="Settings">⚙️</button>
                 <button class="icon-btn-header help-btn" onclick="openTutorial()" title="Help">?</button>
-                <button class="icon-btn-header" onclick="undoLast()" title="Undo last action"> ↩ </button>
+                <button class="icon-btn-header" id="btnUndoHeader" onclick="undoLast()" title="Undo last action"> ↩ </button>
                 <button class="icon-btn-header" id="minBtn" onclick="toggleControls()">−</button>
             </div>
         </div>
 
-        <div id="connectionStatus" style="padding: 8px; background: #eef; margin-bottom: 10px; border-radius: 4px; font-size: 0.9em; color: #333; text-align: center; font-weight: bold;">
-            Room: <span id="displayRoomCode">Not Connected</span> | Region: <span id="displayRegion">N/A</span>
+        <div id="hiderBadge">🙈 Hider view — read only</div>
+
+        <div id="connectionStatus">
+            <div class="conn-row">
+                <span class="conn-dot" id="connDot" title="Connection status"></span>
+                <span>Room: <span id="displayRoomCode">Not Connected</span></span>
+                <button class="conn-copy" id="btnCopyCode" onclick="window.copyRoomCode()" title="Copy room code">⧉</button>
+                <button class="conn-copy" id="btnCopyLink" onclick="window.copyInviteLink()" title="Copy invite link">🔗</button>
+            </div>
+            <div class="conn-region">Region: <span id="displayRegion">N/A</span> · <span id="connState">connecting…</span></div>
         </div>
-        
+
+        <div id="sheetScroll">
         <div class="tab-bar">
             <button id="btn-tab-tools" class="tab-btn active" onclick="switchTab('tools')">Tools</button>
             <button id="btn-tab-layers" class="tab-btn" onclick="switchTab('layers')">Layers</button>
@@ -379,6 +177,15 @@
                 <strong>1. Radar</strong>
                 <label>Radius (km):</label>
                 <input type="number" id="radiusInput" value="5" min="0.1" step="0.1">
+                <div class="chip-row" id="radarChips">
+                    <button type="button" class="chip" onclick="window.setRadius(0.5)">500m</button>
+                    <button type="button" class="chip" onclick="window.setRadius(1)">1km</button>
+                    <button type="button" class="chip" onclick="window.setRadius(2)">2km</button>
+                    <button type="button" class="chip" onclick="window.setRadius(5)">5km</button>
+                    <button type="button" class="chip" onclick="window.setRadius(10)">10km</button>
+                    <button type="button" class="chip" onclick="window.setRadius(25)">25km</button>
+                    <button type="button" class="chip" onclick="window.setRadius(50)">50km</button>
+                </div>
                 <div class="input-group">
                     <input type="text" id="radiusCoords" placeholder="53.48, -2.24">
                     <button onclick="manualRadius()" style="background:#4CAF50;">Go</button>
@@ -398,7 +205,32 @@
 
             <div class="tool-section">
                 <strong>3. Bisect Line</strong>
-                <button id="btnBisect" onclick="startBisectTool(event)">Click Two Points</button>
+                <button id="btnBisect" onclick="startBisectTool(event)">Tap Two Points</button>
+            </div>
+
+            <div class="tool-section">
+                <strong>3b. Thermometer</strong>
+                <p style="font-size:12px; color:#666; margin:5px 0;">Tap the start point, then the point it got <em>warmer</em> toward.</p>
+                <button id="btnThermo" onclick="startThermometerTool(event)">Tap Start → Warm End</button>
+            </div>
+
+            <div class="tool-section">
+                <strong>3c. Tentacles</strong>
+                <p style="font-size:12px; color:#666; margin:5px 0;">Union of circles around every POI of a category in the game zone.</p>
+                <select id="tentacleCategory">
+                    <option value="museum">Museums</option>
+                    <option value="library">Libraries</option>
+                    <option value="cinema">Cinemas</option>
+                    <option value="hospital">Hospitals</option>
+                    <option value="zoo">Zoos</option>
+                    <option value="aquarium">Aquariums</option>
+                    <option value="theme_park">Amusement Parks</option>
+                </select>
+                <select id="tentacleRadius">
+                    <option value="2">2 km (Medium/Large)</option>
+                    <option value="25">25 km (Large)</option>
+                </select>
+                <button onclick="window.addTentacleLayer()" style="background:#00897b;">Draw Tentacles</button>
             </div>
 
             <div class="tool-section">
@@ -487,6 +319,7 @@
             <div id="logList"></div>
             <button onclick="clearLog()" style="background:#d9534f; margin-top:20px;">Clear Log</button>
         </div>
+        </div><!-- /#sheetScroll -->
     </div>
 
     <div id="map"></div>
@@ -506,21 +339,69 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, getDoc, onSnapshot, runTransaction, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
         import { firebaseConfig } from './firebase-config.js';
         import { setupTutorial } from './tutorial.js';
         import { questionData } from './questions.js';
         import { cityProfiles} from './mapData.js';
+        import { installNotifications } from './ui.js';
         // Universal pause function (time in milliseconds)
         window.sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+        // Guarded localStorage write. Overpass responses can exceed the storage
+        // quota; when that happens we degrade gracefully (caching off) and tell the
+        // user once, rather than throwing. Returns true on success.
+        window._cacheWarned = false;
+        window.saveToLocalStorage = function(key, value) {
+            try {
+                localStorage.setItem(key, value);
+                return true;
+            } catch (e) {
+                console.warn("localStorage write failed (caching off):", e && e.name);
+                if (!window._cacheWarned && window.showToast) {
+                    window._cacheWarned = true;
+                    window.showToast("Storage full — data caching is off. The app still works but will re-download data.", "warn", { duration: 6000 });
+                }
+                return false;
+            }
+        };
+
+        // Notification helpers (toast / progress / confirm / prompt) live in ui.js.
+        // Install them onto window.* before anything else runs so inline onclick
+        // handlers and the load/sync flows can call them.
+        installNotifications();
+
         window.stationMap = {};
         // Initialize the tutorial right away
         setupTutorial();
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
-        
+
+        // Offline persistence: keep state through tunnels / patchy mobile data.
+        // Must run before any other Firestore call; may fail with multiple open
+        // tabs (failed-precondition) or unsupported browsers — that's non-fatal.
+        enableIndexedDbPersistence(db).catch((err) => {
+            console.warn("Offline persistence unavailable:", err && err.code);
+        });
+
         window.currentGameId = null;
+
+        // === CONNECTION STATUS INDICATOR ===
+        // 'connecting' (amber) → 'online' (green) once a snapshot arrives from the
+        // server, 'offline' (red) when the browser loses connectivity or snapshots
+        // are being served from cache with pending writes.
+        window.setConnState = function(state) {
+            const dot = document.getElementById('connDot');
+            const label = document.getElementById('connState');
+            if (!dot || !label) return;
+            dot.classList.remove('online', 'offline');
+            if (state === 'online') { dot.classList.add('online'); label.textContent = 'synced'; }
+            else if (state === 'offline') { dot.classList.add('offline'); label.textContent = 'offline — changes will sync when back'; }
+            else { label.textContent = 'connecting…'; }
+        };
+        window.addEventListener('online',  () => { if (window.currentGameId) window.setConnState('online'); });
+        window.addEventListener('offline', () => { window.setConnState('offline'); });
 
         // === LEAFLET SETUP ===
         var map = L.map('map').setView([53.4808, -2.2426], 11); 
@@ -543,7 +424,10 @@
 
 
         var stationMap = {};
-        var myConstraints = []; 
+        var myConstraints = [];
+        // Ids removed locally but possibly still present on the server; used by the
+        // merge-on-write sync so a delete isn't resurrected by a concurrent writer.
+        var recentlyDeleted = new Set();
         var worldBbox = [-15.0, 48.0, 5.0, 62.0]; 
         var worldPoly = turf.bboxPolygon(worldBbox);
 
@@ -562,7 +446,7 @@
                 for (let c of myConstraints) {
                     try {
                         var constraintGreenShape = null;
-                        if (c.type === 'radius' || c.type === 'borough' || c.type === 'zone' || c.type === 'angle' || c.type === 'bisect') {
+                        if (c.type === 'radius' || c.type === 'borough' || c.type === 'zone' || c.type === 'angle' || c.type === 'bisect' || c.type === 'thermo' || c.type === 'tentacle') {
                             if (c.state === 'hit') constraintGreenShape = c.geometry;
                             else constraintGreenShape = turf.difference(worldPoly, c.geometry);
                         } 
@@ -603,7 +487,7 @@
                 document.getElementById('setupScreen').style.opacity = '0';
                 setTimeout(() => { document.getElementById('setupScreen').style.display = 'none'; }, 300);
                 
-                alert("Click points on the map to outline your Custom Zone.\n\nYou can drag to pan the map between clicks.\nClick 'Finish Drawing' at the bottom when done.");
+                window.showToast("Tap points on the map to outline your Custom Zone. Drag to pan between taps. Tap 'Finish Drawing' when done.", "info", { duration: 8000 });
                 
                 document.getElementById('map').classList.add('crosshair-cursor');
                 
@@ -629,7 +513,7 @@
                 
                 finishBtn.onclick = function() {
                     if (points.length < 3) {
-                        alert("Please click at least 3 points to make a shape.");
+                        window.showToast("Please tap at least 3 points to make a shape.", "warn");
                         return;
                     }
                     
@@ -666,10 +550,10 @@
             btn.innerText = "Generating..."; btn.disabled = true;
 
             while (!isUnique && attempts < 10) {
-                newRoomCode = Math.floor(1000 + Math.random() * 90000).toString();
+                // Strictly 10000–99999 so every code is exactly 5 digits and joinable.
+                newRoomCode = Math.floor(10000 + Math.random() * 90000).toString();
                 const checkRef = doc(db, "games", newRoomCode);
                 try {
-                    const { getDoc } = await import("https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js");
                     const snap = await getDoc(checkRef);
                     if (!snap.exists()) isUnique = true;
                     else attempts++;
@@ -688,14 +572,14 @@
                 });
                 window.startGameSession(newRoomCode, region);
             } else {
-                alert("Could not generate a unique room code.");
+                window.showToast("Could not generate a unique room code. Please try again.", "error");
             }
             btn.innerText = originalText; btn.disabled = false;
         };
         window.joinExistingGame = function() {
             const roomCode = document.getElementById('joinRoomInput').value.trim();
-            if (roomCode.length !== 5) { alert("Please enter a valid 5-digit room code."); return; }
-            window.startGameSession(roomCode, null); 
+            if (!/^\d{5}$/.test(roomCode)) { window.showToast("Please enter a valid 5-digit room code.", "warn"); return; }
+            window.startGameSession(roomCode, null);
         };
 
         window.startGameSession = function(roomCode, knownRegion) {
@@ -707,10 +591,29 @@
 
             document.getElementById('displayRoomCode').innerText = roomCode;
             document.getElementById('displayRoomCode').style.color = "#28a745";
+            window.setConnState('connecting');
+            if (window.updateSheetSummary) window.updateSheetSummary();
+            // Reflect the room in the URL so a refresh rejoins and the link is shareable.
+            try {
+                const url = new URL(window.location.href);
+                url.searchParams.set('room', roomCode);
+                window.history.replaceState({}, '', url);
+            } catch (e) {}
 
             const gameRef = doc(db, "games", window.currentGameId);
-            
-            onSnapshot(gameRef, (docSnap) => {
+
+            // Detach any previous listener before attaching a new one so a failed
+            // join (or a re-join) never leaves a stale onSnapshot subscription live.
+            if (window.unsubscribeSnapshot) { window.unsubscribeSnapshot(); window.unsubscribeSnapshot = null; }
+
+            window.unsubscribeSnapshot = onSnapshot(gameRef, { includeMetadataChanges: true }, (docSnap) => {
+                // Metadata tells us whether this update came from the server or the
+                // local cache, which drives the connection dot.
+                if (!navigator.onLine || (docSnap.metadata.fromCache && docSnap.metadata.hasPendingWrites)) {
+                    window.setConnState('offline');
+                } else if (!docSnap.metadata.fromCache) {
+                    window.setConnState('online');
+                }
                 if (docSnap.exists()) {
                     const data = docSnap.data();
                     
@@ -795,10 +698,13 @@
 
                     updateLayerList(); updateLogicMap(); 
                     if (data.questionState) questionState = data.questionState;
-                    if (data.logEntries) logEntries = data.logEntries;
+                    if (data.logEntries) logEntries = normalizeLog(data.logEntries);
                     renderQuestions(); renderLog();
                 } else {
-                    alert("Room not found! Did you type the code correctly?");
+                    // Room doesn't exist — detach the listener so it doesn't stay live
+                    // and interfere with a later create/join.
+                    if (window.unsubscribeSnapshot) { window.unsubscribeSnapshot(); window.unsubscribeSnapshot = null; }
+                    window.showToast("Room not found. Did you type the code correctly?", "error");
                     document.getElementById('setupScreen').style.opacity = '1';
                     document.getElementById('setupScreen').style.display = 'flex';
                     window.currentGameId = null;
@@ -806,24 +712,96 @@
             });
         };
 
-        window.saveConstraints = function() {
+        // --- SHARE / INVITE ---
+        async function copyText(text) {
+            try {
+                if (navigator.clipboard && window.isSecureContext) {
+                    await navigator.clipboard.writeText(text);
+                    return true;
+                }
+            } catch (e) { /* fall through to legacy path */ }
+            try {
+                const ta = document.createElement('textarea');
+                ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+                document.body.appendChild(ta); ta.focus(); ta.select();
+                const ok = document.execCommand('copy');
+                ta.remove();
+                return ok;
+            } catch (e) { return false; }
+        }
+
+        function flashCopied(btnId) {
+            const btn = document.getElementById(btnId);
+            if (!btn) return;
+            const original = btn.textContent;
+            btn.textContent = '✓';
+            btn.disabled = true;
+            setTimeout(() => { btn.textContent = original; btn.disabled = false; }, 1200);
+        }
+
+        window.copyRoomCode = async function() {
+            if (!window.currentGameId) return;
+            const ok = await copyText(window.currentGameId);
+            if (ok) { flashCopied('btnCopyCode'); window.showToast("Room code copied.", "success", { duration: 2000 }); }
+            else window.showToast(`Room code: ${window.currentGameId}`, "info");
+        };
+
+        window.copyInviteLink = async function() {
+            if (!window.currentGameId) return;
+            const url = new URL(window.location.href);
+            url.searchParams.set('room', window.currentGameId);
+            const link = url.toString();
+            const ok = await copyText(link);
+            if (ok) { flashCopied('btnCopyLink'); window.showToast("Invite link copied — share it with your team.", "success", { duration: 2500 }); }
+            else window.showToast(link, "info", { duration: 8000 });
+        };
+
+        // Persist constraints. When online, a Firestore transaction re-reads the
+        // server list and merges by id (local wins on conflict, locally-deleted ids
+        // are dropped) so two players adding layers in the same second don't clobber
+        // each other. Pass { overwrite: true } for an intentional full replace (Clear).
+        //
+        // Known limitation: this resolves concurrent ADDs and DELETEs correctly, but
+        // if two players toggle HIT/MISS on the SAME layer within one round-trip, the
+        // last transaction to commit wins for that layer (acceptable for this game).
+        window.saveConstraints = async function(opts = {}) {
+            const cleanLocal = myConstraints.map(c => ({
+                id: c.id,
+                type: c.type,
+                state: c.state,
+                name: c.name,
+                geometry: JSON.stringify(c.geometry),
+                visualGeometry: c.visualGeometry ? JSON.stringify(c.visualGeometry) : null
+            }));
+
             if (!window.currentGameId) {
-                var toSave = myConstraints.map(c => ({ id: c.id, type: c.type, geometry: c.geometry, state: c.state, name: c.name, visualGeometry: c.visualGeometry }));
-                localStorage.setItem('gm_constraints_v53', JSON.stringify(toSave));
+                localStorage.setItem('gm_constraints_v53', JSON.stringify(cleanLocal));
                 return;
             }
 
             const gameRef = doc(db, "games", window.currentGameId);
-            const cleanConstraints = myConstraints.map(c => ({
-                id: c.id, 
-                type: c.type, 
-                state: c.state, 
-                name: c.name, 
-                geometry: JSON.stringify(c.geometry), 
-                visualGeometry: c.visualGeometry ? JSON.stringify(c.visualGeometry) : null
-            }));
 
-            setDoc(gameRef, { constraints: cleanConstraints }, { merge: true });
+            if (opts.overwrite) {
+                recentlyDeleted.clear();
+                setDoc(gameRef, { constraints: cleanLocal }, { merge: true });
+                return;
+            }
+
+            try {
+                await runTransaction(db, async (tx) => {
+                    const snap = await tx.get(gameRef);
+                    const serverList = (snap.exists() && snap.data().constraints) ? snap.data().constraints : [];
+                    const byId = new Map();
+                    serverList.forEach(c => byId.set(String(c.id), c));   // start from server truth
+                    cleanLocal.forEach(c => byId.set(String(c.id), c));   // overlay our changes
+                    recentlyDeleted.forEach(id => byId.delete(String(id))); // honour local deletes
+                    tx.set(gameRef, { constraints: Array.from(byId.values()) }, { merge: true });
+                });
+                recentlyDeleted.clear();
+            } catch (e) {
+                console.warn("Constraint merge transaction failed; writing directly.", e);
+                setDoc(gameRef, { constraints: cleanLocal }, { merge: true });
+            }
         };
 
         window.saveQuestionsToCloud = function() {
@@ -844,38 +822,93 @@
             var id = Date.now(); var layer = null;
             if (visualGeoJSON) layer = L.geoJSON(visualGeoJSON, { style: { color: 'black', weight: 2, dashArray: '5, 5', fill: false } }).addTo(guideLayer);
             myConstraints.push({ id: id, type: type, geometry: fixGeometry(geoJsonShape), state: 'hit', name: label, leafletLayer: layer, visualGeometry: visualGeoJSON });
-            window.saveConstraints(); updateLayerList(); updateLogicMap(); window.switchTab('layers'); 
+            window.saveConstraints(); updateLayerList(); updateLogicMap(); window.switchTab('layers');
+            // If this layer resulted from a "Draw it" question shortcut, link them.
+            if (window.pendingQuestionLink && typeof linkConstraintToLog === 'function') linkConstraintToLog(id, label);
         }
 
         window.removeConstraint = function(id) {
             var idx = myConstraints.findIndex(c => c.id === id);
             if (idx > -1) {
                 if (myConstraints[idx].leafletLayer) guideLayer.removeLayer(myConstraints[idx].leafletLayer);
+                recentlyDeleted.add(id);
                 myConstraints.splice(idx, 1); window.saveConstraints(); updateLayerList(); updateLogicMap();
             }
         };
 
-        window.renameConstraint = function(id) {
+        window.renameConstraint = async function(id) {
             var c = myConstraints.find(c => c.id === id);
-            if (c) { var newName = prompt("Rename:", c.name); if (newName && newName.trim() !== "") { c.name = newName.trim(); window.saveConstraints(); updateLayerList(); } }
+            if (!c) return;
+            var newName = await window.showPrompt("Rename layer:", c.name, { confirmLabel: 'Rename' });
+            if (newName && newName.trim() !== "") { c.name = newName.trim(); window.saveConstraints(); updateLayerList(); }
         };
 
         window.toggleConstraintState = function(id, newState) {
             var c = myConstraints.find(c => c.id === id);
-            if (c) { c.state = newState; window.saveConstraints(); updateLayerList(); updateLogicMap(); }
+            if (c) { c.state = newState; window.saveConstraints(); updateLayerList(); updateLogicMap(); flashHighlight(c); }
         };
+
+        // Briefly flash the affected region on the map for immediate visual feedback.
+        function flashHighlight(c) {
+            var geo = c.visualGeometry || c.geometry;
+            if (!geo) return;
+            try {
+                var hl = L.geoJSON(geo, { style: { color: '#ffca28', weight: 4, fillColor: '#ffca28', fillOpacity: 0.25, interactive: false } }).addTo(map);
+                setTimeout(() => { try { map.removeLayer(hl); } catch(e){} }, 850);
+            } catch (e) {}
+        }
+
+        // Icon + accent colour per constraint type, for the Layers list.
+        function typeMeta(type) {
+            switch (type) {
+                case 'radius':   return { icon: '🎯', color: '#0078A8' };
+                case 'angle':    return { icon: '📐', color: '#333' };
+                case 'bisect':   return { icon: '📐', color: '#3949ab' };
+                case 'thermo':   return { icon: '🌡️', color: '#e53935' };
+                case 'zone':     return { icon: '🎟️', color: '#8e24aa' };
+                case 'tentacle': return { icon: '🐙', color: '#00897b' };
+                case 'borough':  return { icon: '🗺️', color: '#2e7d32' };
+                default:         return { icon: '📍', color: '#555' };
+            }
+        }
+
+        // 8-point compass label from a bearing in degrees.
+        function bearingToCompass(b) {
+            var dirs = ['N','NE','E','SE','S','SW','W','NW'];
+            return dirs[Math.round((((b % 360) + 360) % 360) / 45) % 8];
+        }
+
+        // For directional constraints, derive human "which side" labels from the
+        // persisted guide line so both players see the same spatial wording.
+        function directionalSides(c) {
+            try {
+                var g = c.visualGeometry, coords = null;
+                if (g && g.geometry && g.geometry.type === 'LineString') coords = g.geometry.coordinates;
+                else if (g && g.type === 'LineString') coords = g.coordinates;
+                if (!coords || coords.length < 2) return { a: 'Side A', b: 'Side B' };
+                var bearing = turf.bearing(turf.point(coords[0]), turf.point(coords[coords.length - 1]));
+                // The kept half-plane (state 'hit') faces bearing - 90 (see drawAngleAt).
+                return { a: `${bearingToCompass(bearing - 90)} side`, b: `${bearingToCompass(bearing + 90)} side` };
+            } catch (e) { return { a: 'Side A', b: 'Side B' }; }
+        }
 
         function updateLayerList() {
             var list = document.getElementById('layerList'); list.innerHTML = "";
+            if (myConstraints.length === 0) {
+                list.innerHTML = "<div style='padding:10px; color:#999; font-style:italic;'>No layers yet. Add one from the Tools tab.</div>";
+                return;
+            }
             myConstraints.slice().reverse().forEach(c => {
+                var meta = typeMeta(c.type);
                 var li = document.createElement('li'); li.className = 'layer-item';
                 var controlsHtml = "";
-                if (c.type === 'radius' || c.type === 'borough' || c.type === 'zone') {
+                if (c.type === 'angle' || c.type === 'bisect' || c.type === 'thermo') {
+                    var sides = c.type === 'thermo' ? { a: '🔥 Warmer', b: '❄️ Colder' } : directionalSides(c);
+                    controlsHtml = `<button class="toggle-btn ${c.state==='hit'?'is-hit':''}" onclick="window.toggleConstraintState(${c.id}, 'hit')">${sides.a}</button><button class="toggle-btn ${c.state==='miss'?'is-miss':''}" onclick="window.toggleConstraintState(${c.id}, 'miss')">${sides.b}</button>`;
+                } else {
                     controlsHtml = `<button class="toggle-btn ${c.state==='hit'?'is-hit':''}" onclick="window.toggleConstraintState(${c.id}, 'hit')">HIT</button><button class="toggle-btn ${c.state==='miss'?'is-miss':''}" onclick="window.toggleConstraintState(${c.id}, 'miss')">MISS</button>`;
-                } else if (c.type === 'angle' || c.type === 'bisect') {
-                    controlsHtml = `<button class="toggle-btn ${c.state==='hit'?'is-hit':''}" onclick="window.toggleConstraintState(${c.id}, 'hit')">Side A</button><button class="toggle-btn ${c.state==='miss'?'is-miss':''}" onclick="window.toggleConstraintState(${c.id}, 'miss')">Side B</button>`;
                 }
-                li.innerHTML = `<div class="layer-header"><span class="layer-name" onclick="window.renameConstraint(${c.id})">${c.name}</span><div class="icon-group"><button class="icon-btn" onclick="window.renameConstraint(${c.id})">✎</button><button class="icon-btn del-btn" onclick="window.removeConstraint(${c.id})">×</button></div></div><div class="layer-controls">${controlsHtml}</div>`;
+                li.innerHTML = `<div class="layer-header"><span class="layer-icon" style="color:${meta.color}">${meta.icon}</span><span class="layer-name" onclick="window.renameConstraint(${c.id})">${c.name}</span><div class="icon-group"><button class="icon-btn" onclick="window.renameConstraint(${c.id})">✎</button><button class="icon-btn del-btn" onclick="window.removeConstraint(${c.id})">×</button></div></div><div class="layer-controls">${controlsHtml}</div>`;
                 list.appendChild(li);
             });
         }
@@ -886,57 +919,130 @@
         };
 
         function resetTools() {
-            ['btnRadius', 'btnAngle', 'btnBisect'].forEach(id => document.getElementById(id).classList.remove('active-tool-btn'));
+            ['btnRadius', 'btnAngle', 'btnBisect', 'btnThermo'].forEach(id => { var el = document.getElementById(id); if (el) el.classList.remove('active-tool-btn'); });
             document.getElementById('map').classList.remove('crosshair-cursor');
             if(angleGhost) { map.removeLayer(angleGhost); angleGhost = null; }
             if(angleMoveHandler) { map.off('mousemove', angleMoveHandler); angleMoveHandler = null; }
+            if(angleMapMoveHandler) { map.off('move', angleMapMoveHandler); angleMapMoveHandler = null; }
+            if(centerMarker) { map.removeLayer(centerMarker); centerMarker = null; }
         }
 
         window.startRadiusTool = function(e) {
-            e.stopPropagation(); resetTools();
+            if (e) e.stopPropagation();
+            resetTools();
             document.getElementById('btnRadius').classList.add('active-tool-btn'); document.getElementById('map').classList.add('crosshair-cursor');
             if (!document.getElementById('controls').classList.contains('minimized')) window.toggleControls();
             map.once('click', function(ev) { drawRadiusAt(ev.latlng.lat, ev.latlng.lng); resetTools(); if (document.getElementById('controls').classList.contains('minimized')) window.toggleControls(); });
         };
 
-        var angleGhost = null; var angleMoveHandler = null;
-        window.startAngleTool = function(e) {
-            e.stopPropagation(); resetTools();
-            document.getElementById('btnAngle').classList.add('active-tool-btn'); document.getElementById('map').classList.add('crosshair-cursor');
+        var angleGhost = null; var angleMoveHandler = null; var angleMapMoveHandler = null; var centerMarker = null;
+
+        // Shared tap-based two-point picker that works with touch (no hover events).
+        // Tap point 1 -> a dashed preview is drawn from point 1 to the map centre and
+        // follows both the mouse (desktop) and map panning (touch: pan to aim, then tap).
+        // Tap point 2 -> onComplete(p1, p2) fires. Falls back gracefully on mouse too.
+        function startTwoPointTool(btnId, ghostColor, hint, onComplete) {
+            resetTools();
+            var btn = document.getElementById(btnId);
+            if (btn) btn.classList.add('active-tool-btn');
+            document.getElementById('map').classList.add('crosshair-cursor');
             if (!document.getElementById('controls').classList.contains('minimized')) window.toggleControls();
+            window.showToast("Tap the first point on the map.", "info", { duration: 3000 });
+
             map.once('click', function(startEv) {
-                var origin = startEv.latlng; angleGhost = L.polyline([origin, origin], {color:'black', dashArray:'5,5'}).addTo(map);
-                angleMoveHandler = function(moveEv) { angleGhost.setLatLngs([origin, moveEv.latlng]); }; map.on('mousemove', angleMoveHandler);
+                var origin = startEv.latlng;
+                angleGhost = L.polyline([origin, map.getCenter()], { color: ghostColor, dashArray: '5,5', weight: 2 }).addTo(map);
+                // Marker at the fixed first point so it stays visible while aiming.
+                centerMarker = L.circleMarker(origin, { radius: 5, color: ghostColor, fillColor: ghostColor, fillOpacity: 1, weight: 1 }).addTo(map);
+                // Desktop: follow the cursor.
+                angleMoveHandler = function(moveEv) { angleGhost.setLatLngs([origin, moveEv.latlng]); };
+                map.on('mousemove', angleMoveHandler);
+                // Touch: follow the map centre as the user pans to aim.
+                angleMapMoveHandler = function() { angleGhost.setLatLngs([origin, map.getCenter()]); };
+                map.on('move', angleMapMoveHandler);
+
+                window.showToast(hint, "info", { duration: 4000 });
+
                 map.once('click', function(endEv) {
-                    var b = turf.rhumbBearing([origin.lng, origin.lat], [endEv.latlng.lng, endEv.latlng.lat]);
-                    drawAngleAt(origin.lat, origin.lng, b); resetTools(); if (document.getElementById('controls').classList.contains('minimized')) window.toggleControls();
+                    var wasMinimized = document.getElementById('controls').classList.contains('minimized');
+                    resetTools();
+                    if (wasMinimized) window.toggleControls();
+                    onComplete(origin, endEv.latlng);
                 });
+            });
+        }
+
+        window.startAngleTool = function(e) {
+            if (e) e.stopPropagation();
+            startTwoPointTool('btnAngle', 'black', "Tap the second point to set the line direction.", function(origin, end) {
+                var b = turf.rhumbBearing([origin.lng, origin.lat], [end.lng, end.lat]);
+                drawAngleAt(origin.lat, origin.lng, b);
             });
         };
 
         window.startBisectTool = function(e) {
-            e.stopPropagation(); resetTools();
-            document.getElementById('btnBisect').classList.add('active-tool-btn'); document.getElementById('map').classList.add('crosshair-cursor');
-            if (!document.getElementById('controls').classList.contains('minimized')) window.toggleControls();
-            map.once('click', function(p1Ev) {
-                var p1 = p1Ev.latlng; angleGhost = L.polyline([p1, p1], {color:'blue', dashArray:'5,5'}).addTo(map);
-                angleMoveHandler = function(moveEv) { angleGhost.setLatLngs([p1, moveEv.latlng]); }; map.on('mousemove', angleMoveHandler);
-                map.once('click', function(p2Ev) { drawBisector(p1, p2Ev.latlng); resetTools(); if (document.getElementById('controls').classList.contains('minimized')) window.toggleControls(); });
+            if (e) e.stopPropagation();
+            startTwoPointTool('btnBisect', 'blue', "Tap the second point to bisect between the two.", function(p1, p2) {
+                drawBisector(p1, p2);
             });
         };
 
-        window.undoLast = function() { if(myConstraints.length>0) window.removeConstraint(myConstraints[myConstraints.length-1].id); };
-        window.clearAll = function() { 
-            if(confirm("Are you sure you want to clear all map restrictions?")) {
-                myConstraints = []; 
-                guideLayer.clearLayers(); 
-                window.saveConstraints(); 
-                updateLayerList(); 
-                updateLogicMap(); 
-                }       
-            };
+        // Thermometer: tap start, then the point it got warmer toward. Warmer (HIT)
+        // keeps the half nearer the second point; colder the half nearer the first.
+        window.startThermometerTool = function(e) {
+            if (e) e.stopPropagation();
+            startTwoPointTool('btnThermo', '#e53935', "Tap the WARM end — where it got warmer.", function(start, end) {
+                drawThermometer(start, end);
+            });
+        };
+
+        // Quick-select radius chips.
+        window.setRadius = function(km) {
+            var input = document.getElementById('radiusInput');
+            if (input) input.value = km;
+            document.querySelectorAll('#radarChips .chip').forEach(chip => {
+                chip.classList.toggle('selected', parseFloat(chip.textContent) === km ||
+                    (chip.textContent === '500m' && km === 0.5));
+            });
+        };
+
+        // Undo the newest layer, but keep a snapshot so the toast can restore it.
+        window.undoLast = function() {
+            if (myConstraints.length === 0) { window.showToast("Nothing to undo.", "info", { duration: 2000 }); return; }
+            var last = myConstraints[myConstraints.length - 1];
+            var snap = { id: last.id, type: last.type, state: last.state, name: last.name, geometry: last.geometry, visualGeometry: last.visualGeometry };
+            window.removeConstraint(last.id);
+            window.showToast(`Removed “${snap.name}”.`, "info", { actionLabel: "Restore", onAction: () => restoreConstraint(snap) });
+        };
+
+        function restoreConstraint(snap) {
+            recentlyDeleted.delete(snap.id); // it's back — don't let the merge drop it
+            var layer = null;
+            if (snap.visualGeometry) layer = L.geoJSON(snap.visualGeometry, { style: { color: 'black', weight: 2, dashArray: '5, 5', fill: false } }).addTo(guideLayer);
+            myConstraints.push({ id: snap.id, type: snap.type, geometry: snap.geometry, state: snap.state, name: snap.name, leafletLayer: layer, visualGeometry: snap.visualGeometry });
+            window.saveConstraints(); updateLayerList(); updateLogicMap();
+            window.showToast(`Restored “${snap.name}”.`, "success", { duration: 2000 });
+        }
+        window.clearAll = async function() {
+            const ok = await window.showConfirm(
+                "Clear <strong>all</strong> map restrictions? This affects every player in the room.",
+                { danger: true, confirmLabel: 'Clear all' }
+            );
+            if (!ok) return;
+            myConstraints.forEach(c => recentlyDeleted.add(c.id));
+            myConstraints = [];
+            guideLayer.clearLayers();
+            window.saveConstraints({ overwrite: true });
+            updateLayerList();
+            updateLogicMap();
+        };
         window.manualRadius = function() { var c=document.getElementById('radiusCoords').value.split(','); if(c.length===2) drawRadiusAt(parseFloat(c[0]), parseFloat(c[1])); };
-        window.manualAngle = function() { var c=document.getElementById('angleCoords').value.split(','); if(c.length===2) { var b=prompt("Bearing:", "90"); drawAngleAt(parseFloat(c[0]), parseFloat(c[1]), parseFloat(b)); }};
+        window.manualAngle = async function() {
+            var c=document.getElementById('angleCoords').value.split(',');
+            if(c.length!==2) return;
+            var b = await window.showPrompt("Bearing (degrees):", "90", { confirmLabel: 'Draw' });
+            if (b !== null && b.trim() !== "") drawAngleAt(parseFloat(c[0]), parseFloat(c[1]), parseFloat(b));
+        };
         window.radiusAtGPS = function() {
             if (!navigator.geolocation) return; var btn = document.getElementById('btnGpsRadius'); var oldText = btn.innerText; btn.innerText = "Locating...";
             navigator.geolocation.getCurrentPosition(function(position) { drawRadiusAt(position.coords.latitude, position.coords.longitude); btn.innerText = oldText; }, function(error) { btn.innerText = oldText; }, { enableHighAccuracy: true });
@@ -966,7 +1072,23 @@
                 var pt1 = turf.point([p1.lng, p1.lat]); var pt2 = turf.point([p2.lng, p2.lat]);
                 var mid = turf.midpoint(pt1, pt2); var bearing = turf.rhumbBearing(pt1, pt2); var perpBearing = (bearing + 90) % 360;
                 drawAngleAt(mid.geometry.coordinates[1], mid.geometry.coordinates[0], perpBearing);
-                if(myConstraints.length > 0) { myConstraints[myConstraints.length-1].name = "Bisection Line"; myConstraints[myConstraints.length-1].type = "bisect"; updateLayerList(); }
+                if(myConstraints.length > 0) { myConstraints[myConstraints.length-1].name = "Bisection Line"; myConstraints[myConstraints.length-1].type = "bisect"; window.saveConstraints(); updateLayerList(); }
+            } catch(e) { console.error(e); }
+        }
+
+        // The perpendicular bisector of start→end, reusing the bisect geometry but
+        // typed 'thermo'. drawAngleAt builds the kept half facing (perpBearing - 90) =
+        // bearing(start→end), i.e. toward the warm end — so HIT = warmer. Correct.
+        function drawThermometer(start, end) {
+            try {
+                var pt1 = turf.point([start.lng, start.lat]); var pt2 = turf.point([end.lng, end.lat]);
+                var mid = turf.midpoint(pt1, pt2); var bearing = turf.rhumbBearing(pt1, pt2); var perpBearing = (bearing + 90) % 360;
+                drawAngleAt(mid.geometry.coordinates[1], mid.geometry.coordinates[0], perpBearing);
+                if (myConstraints.length > 0) {
+                    var last = myConstraints[myConstraints.length - 1];
+                    last.name = "Thermometer"; last.type = "thermo";
+                    window.saveConstraints(); updateLayerList();
+                }
             } catch(e) { console.error(e); }
         }
 
@@ -976,123 +1098,14 @@
         }
 
         // ==========================================
-        // VORONOI & CUSTOM ZONE LOGIC
+        // CUSTOM ZONE STATE
         // ==========================================
-        
-        window.customOverpassBbox = null; 
+        // Set when a room is created/joined as a "custom" region (see startCreateFlow
+        // and startGameSession). Consumed by loadTransportData / loadDynamicAreas /
+        // loadFareZones / loadPOIVoronoi to scope Overpass queries to the drawn area.
+        window.customOverpassBbox = null;
         window.customTurfBbox = null;
         window.customBboxPoly = null;
-        window.poiFeatureCollection = null;
-        window.poiVoronoiMap = {};
-
-        window.startCustomZoneDraw = function() {
-            document.getElementById('map').classList.add('crosshair-cursor');
-            let rect = null;
-            let bboxStart = null;
-
-            map.once('mousedown', function(eStart) {
-                bboxStart = eStart.latlng;
-                rect = L.rectangle([bboxStart, bboxStart], {color: "#ff7800", weight: 2, fillOpacity: 0.1}).addTo(map);
-                
-                const onMove = function(eMove) { rect.setBounds([bboxStart, eMove.latlng]); };
-                map.on('mousemove', onMove);
-                
-                map.once('mouseup', function(eEnd) {
-                    map.off('mousemove', onMove);
-                    document.getElementById('map').classList.remove('crosshair-cursor');
-                    
-                    const bounds = rect.getBounds();
-                    // Overpass format: south, west, north, east
-                    window.customOverpassBbox = `${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()}`;
-                    // Turf format: minX, minY, maxX, maxY
-                    window.customTurfBbox = [bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth()];
-                    window.customBboxPoly = turf.bboxPolygon(window.customTurfBbox);
-                    
-                    alert("Custom Game Zone Defined! You can now fetch POIs.");
-                    
-                    // Optional: remove the visual rectangle after drawing so it doesn't clutter the map
-                    setTimeout(() => map.removeLayer(rect), 1000); 
-                });
-            });
-        };
-
-        window.fetchPOIs = async function(poiType) {
-            if (!window.customOverpassBbox) {
-                alert("Please draw a custom game zone first (Step 1).");
-                return;
-            }
-            
-            const btn = document.querySelector(`button[onclick="window.fetchPOIs(document.getElementById('poiTypeInput').value)"]`);
-            const originalText = btn.innerText;
-            btn.innerText = "Fetching...";
-            btn.disabled = true;
-
-            const query = `[out:json][timeout:25]; node["amenity"="${poiType}"](${window.customOverpassBbox}); out body;>;out skel qt;`;
-            const url = "https://overpass-api.de/api/interpreter?data=" + encodeURIComponent(query);
-            
-            try {
-                const response = await fetch(url);
-                if (!response.ok) throw new Error("Overpass API busy.");
-                const data = await response.json();
-                
-                const features = data.elements.filter(e => e.type === "node").map(e => {
-                    return turf.point([e.lon, e.lat], { name: e.tags.name || `Unnamed ${poiType}`, id: e.id });
-                });
-                    
-                window.poiFeatureCollection = turf.featureCollection(features);
-                console.log(`Fetched ${features.length} POIs.`);
-                
-                window.generateVoronoiConstraints();
-            } catch (error) {
-                console.error("Error fetching POIs:", error);
-                alert("Failed to load POIs.");
-            } finally {
-                btn.innerText = originalText;
-                btn.disabled = false;
-            }
-        };
-
-        window.generateVoronoiConstraints = function() {
-            if (!window.poiFeatureCollection || window.poiFeatureCollection.features.length === 0) {
-                alert("No POIs found in that area.");
-                return;
-            }
-
-            const voronoiPolygons = turf.voronoi(window.poiFeatureCollection, { bbox: window.customTurfBbox });
-            window.poiVoronoiMap = {};
-            const selectDropdown = document.getElementById('voronoiSelect');
-            selectDropdown.innerHTML = ""; // clear old options
-            
-            turf.featureEach(voronoiPolygons, function (currentPoly, index) {
-                if (currentPoly) {
-                    const poi = window.poiFeatureCollection.features[index];
-                    const clippedPoly = turf.intersect(currentPoly, window.customBboxPoly);
-                    
-                    if (clippedPoly) {
-                        window.poiVoronoiMap[poi.properties.id] = {
-                            name: poi.properties.name, point: poi, polygon: clippedPoly
-                        };
-                        
-                        // Add to UI Dropdown
-                        const opt = document.createElement('option');
-                        opt.value = poi.properties.id;
-                        opt.text = poi.properties.name;
-                        selectDropdown.appendChild(opt);
-                    }
-                }
-            });
-            alert("Voronoi cells generated and populated in the dropdown!");
-        };
-
-        window.addSelectedVoronoi = function() {
-            const poiId = document.getElementById('voronoiSelect').value;
-            if (!poiId) return;
-            
-            const cell = window.poiVoronoiMap[poiId];
-            if (cell) {
-                addConstraint('voronoi', cell.polygon, `Closest to ${cell.name}`, cell.polygon);
-            }
-        };
         // ==========================================
 
 window.dynamicBoroughs = {};
@@ -1407,8 +1420,8 @@ window.dynamicZones = {};
         Object.keys(window.dynamicZones).forEach(z => {
             window.dynamicZones[z] = [...new Set(window.dynamicZones[z])];
         });
-        localStorage.setItem(cacheKey, JSON.stringify(window.dynamicZones));
-        
+        window.saveToLocalStorage(cacheKey, JSON.stringify(window.dynamicZones));
+
         populateZoneDropdown(zSelect);
 
     } catch(e) {
@@ -1434,44 +1447,88 @@ function populateZoneDropdown(zSelect) {
 
         window.dynamicPOIs = {};
         window.poiPolygons = {};
+        window.poiPreviewLayer = null; // Stores our temporary map preview lines
 
-        window.dynamicPOIs = {};
-        window.poiPolygons = {};
-        window.poiPreviewLayer = null; // Stores our temporary map lines
+        // Overpass tag filters per POI category, shared by the Voronoi and Tentacles tools.
+        window.POI_TAGS = {
+            'theme_park': 'nwr["tourism"="theme_park"]',
+            'zoo': 'nwr["tourism"="zoo"]',
+            'aquarium': 'nwr["tourism"="aquarium"]',
+            'golf_course': 'nwr["leisure"="golf_course"]',
+            'museum': 'nwr["tourism"="museum"]',
+            'cinema': 'nwr["amenity"="cinema"]',
+            'library': 'nwr["amenity"="library"]',
+            'hospital': 'nwr["amenity"="hospital"]',
+            'consulate': 'nwr["office"="diplomatic"]["diplomatic"~"consulate|embassy"]',
+            'peak': 'node["natural"="peak"]',
+            'park': 'nwr["leisure"="park"]'
+        };
 
-window.dynamicPOIs = {};
-        window.poiPolygons = {};
+        // Resolve the Overpass bbox for the current region (custom or predefined).
+        window.currentBbox = function() {
+            if (window.currentRegion === 'custom' && window.customOverpassBbox) return window.customOverpassBbox;
+            if (cityProfiles[window.currentRegion]) return cityProfiles[window.currentRegion].boundingBox;
+            return null;
+        };
 
-window.dynamicPOIs = {};
-        window.poiPolygons = {};
-        window.poiPreviewLayer = null; 
+        // Tentacles: union of radius circles around every POI of a category in the
+        // game zone, added as one HIT/MISS constraint.
+        window.addTentacleLayer = async function() {
+            const category = document.getElementById('tentacleCategory').value;
+            const label = document.getElementById('tentacleCategory').selectedOptions[0].textContent;
+            const radiusKm = parseFloat(document.getElementById('tentacleRadius').value);
+            const bbox = window.currentBbox();
+            if (!bbox) { window.showToast("No game region set.", "warn"); return; }
+
+            const prog = window.showProgress(`Finding ${label.toLowerCase()}…`);
+            try {
+                const query = `[out:json][timeout:25]; ${window.POI_TAGS[category]}(${bbox}); out center qt;`;
+                const url = "https://overpass-api.de/api/interpreter?data=" + encodeURIComponent(query);
+                const response = await fetch(url);
+                if (!response.ok) throw new Error("Overpass busy");
+                const data = await response.json();
+
+                const circles = [];
+                const seen = new Set();
+                data.elements.forEach(el => {
+                    const lat = el.lat || (el.center && el.center.lat);
+                    const lon = el.lon || (el.center && el.center.lon);
+                    if (lat == null || lon == null) return;
+                    const k = `${lat.toFixed(5)},${lon.toFixed(5)}`;
+                    if (seen.has(k)) return; seen.add(k);
+                    circles.push(turf.circle([lon, lat], radiusKm, { steps: 24, units: 'kilometers' }));
+                });
+
+                if (circles.length === 0) { prog.fail(`No ${label.toLowerCase()} found in this zone.`); return; }
+
+                prog.update(`Merging ${circles.length} tentacles…`);
+                let union = circles[0];
+                for (let i = 1; i < circles.length; i++) { try { union = turf.union(union, circles[i]); } catch(e) {} }
+                try { union = turf.buffer(turf.simplify(union, { tolerance: 0.001, highQuality: false }), 0); } catch(e) {}
+
+                addConstraint('tentacle', union, `${label} within ${radiusKm}km`, null);
+                prog.done(`${circles.length} ${label.toLowerCase()} — tentacles drawn`);
+            } catch (e) {
+                console.error("Tentacles failed:", e);
+                prog.fail("Overpass busy — couldn't load tentacles. Try again.");
+            }
+        };
 
         window.loadPOIVoronoi = async function() {
             const catSelect = document.getElementById('poiCategorySelect');
             const resSelect = document.getElementById('poiResultSelect');
             if (!resSelect) return;
 
-            const poiTags = {
-                'theme_park': 'nwr["tourism"="theme_park"]',
-                'zoo': 'nwr["tourism"="zoo"]',
-                'aquarium': 'nwr["tourism"="aquarium"]',
-                'golf_course': 'nwr["leisure"="golf_course"]',
-                'museum': 'nwr["tourism"="museum"]',
-                'cinema': 'nwr["amenity"="cinema"]',
-                'library': 'nwr["amenity"="library"]',
-                'hospital': 'nwr["amenity"="hospital"]',
-                'consulate': 'nwr["office"="diplomatic"]["diplomatic"~"consulate|embassy"]',
-                'peak': 'node["natural"="peak"]',
-                'park': 'nwr["leisure"="park"]'
-            };
+            const poiTags = window.POI_TAGS;
 
+            const prog = window.showProgress("Loading POI catchments…");
             try {
                 let bbox = "";
                 if (window.currentRegion === 'custom' && window.customOverpassBbox) {
                     bbox = window.customOverpassBbox;
                 } else if (cityProfiles[window.currentRegion]) {
                     bbox = cityProfiles[window.currentRegion].boundingBox;
-                } else { return; }
+                } else { prog.fail("No game region set."); return; }
 
                 resSelect.innerHTML = "<option>Fetching POIs...</option>";
                 
@@ -1511,9 +1568,11 @@ window.dynamicPOIs = {};
 
                 if (poiPoints.length < 2) {
                     resSelect.innerHTML = `<option>Need at least 2 POIs for Voronoi (Found ${poiPoints.length})</option>`;
+                    prog.fail(`Only ${poiPoints.length} found — need at least 2 for catchments.`);
                     return;
                 }
 
+                prog.update("Calculating catchments…");
                 resSelect.innerHTML = "<option>Calculating Catchments...</option>";
                 
                 const b = bbox.split(',').map(Number);
@@ -1574,10 +1633,12 @@ window.dynamicPOIs = {};
                 });
 
                 if (resSelect.innerHTML === "") resSelect.innerHTML = "<option>No stations captured by POIs</option>";
+                prog.done(`${sortedPOIs.length} ${catSelect.value.replace('_',' ')} catchments ready`);
 
             } catch(e) {
                 console.error("POI Voronoi failed:", e);
                 resSelect.innerHTML = "<option>Error loading POIs</option>";
+                prog.fail("Overpass busy — couldn't load POIs. Try again.");
             }
         };
 
@@ -1596,40 +1657,55 @@ window.dynamicPOIs = {};
                 
                 addConstraint('borough', targetPoly, `${poiName} Catchment`, targetPoly);
             } else {
-                alert("Could not find boundary for this POI.");
+                window.showToast("Could not find a boundary for this POI.", "warn");
             }
         };
         window.switchTab = function(t) {
             document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active')); document.getElementById('tab-'+t).classList.add('active');
             document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active')); document.getElementById('btn-tab-'+t).classList.add('active');
+            if (window.updateSheetSummary) window.updateSheetSummary();
         };
 
         // --- QUESTION & LOG LOGIC ---
+        // Log entries are objects { id, questionKey, text, ts, layerName? } with stable
+        // ids so un-toggling removes the right entry even when the same item was asked
+        // twice. Legacy string entries are normalised on load for backward compat.
+        function normalizeLog(arr) {
+            if (!Array.isArray(arr)) return [];
+            return arr.map(e => {
+                if (typeof e === 'string') return { id: 'legacy_' + Math.random().toString(36).slice(2), questionKey: null, text: e, ts: null };
+                return e;
+            });
+        }
+        function newLogId() { return 'log_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7); }
+
         var questionState = JSON.parse(localStorage.getItem('gm_question_state')) || {};
         var openSections = JSON.parse(localStorage.getItem('gm_open_sections')) || {"1. Matching - Draw 3 Pick 1": true};
-        var logEntries = JSON.parse(localStorage.getItem('gm_question_log')) || [];
+        var logEntries = normalizeLog(JSON.parse(localStorage.getItem('gm_question_log')) || []);
 
         function renderLog() {
             var list = document.getElementById('logList'); list.innerHTML = "";
             if (logEntries.length === 0) { list.innerHTML = "<div style='padding:10px; color:#999; font-style:italic;'>No tasks completed yet.</div>"; return; }
-            logEntries.forEach((entryName, index) => {
+            logEntries.forEach((entry, index) => {
                 var div = document.createElement('div'); div.className = 'log-list-item';
-                div.innerHTML = `<div style="display:flex; align-items:center;"><span class="log-index">${index + 1}.</span><span>${entryName}</span></div>`;
+                var time = entry.ts ? new Date(entry.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+                var layer = entry.layerName ? `<span class="log-meta">→ ${entry.layerName}</span>` : '';
+                div.innerHTML = `<div style="display:flex; align-items:center; flex-wrap:wrap;"><span class="log-index">${index + 1}.</span><span>${entry.text} ${layer}</span></div>${time ? `<span class="log-meta">${time}</span>` : ''}`;
                 list.appendChild(div);
             });
         }
 
-        window.clearLog = function() {
-            if(confirm("Clear completion history?")) { 
-                logEntries = []; 
+        window.clearLog = async function() {
+            if (await window.showConfirm("Clear the completion history for everyone?", { danger: true, confirmLabel: 'Clear log' })) {
+                logEntries = [];
                 window.saveQuestionsToCloud();
                 renderLog();
             }
         };
 
-        window.resetQuestions = function() {
-            if(confirm("Reset all questions?")) {
-                questionState = {}; 
+        window.resetQuestions = async function() {
+            if (await window.showConfirm("Reset all questions for everyone in the room?", { danger: true, confirmLabel: 'Reset' })) {
+                questionState = {};
                 window.saveQuestionsToCloud();
                 renderQuestions();
             }
@@ -1660,16 +1736,65 @@ window.dynamicPOIs = {};
         }
 
         window.toggleQuestion = function(key, itemName, subName, catName, btnElement) {
-            questionState[key] = !questionState[key]; 
+            questionState[key] = !questionState[key];
             var logText = `${itemName} <span class="log-meta">(${catName})</span>`;
-            if (questionState[key]) { 
-                btnElement.classList.add('asked'); logEntries.push(logText); 
-            } else { 
-                btnElement.classList.remove('asked'); var idx = logEntries.indexOf(logText); if (idx > -1) logEntries.splice(idx, 1); 
+            if (questionState[key]) {
+                btnElement.classList.add('asked');
+                var entry = { id: newLogId(), questionKey: key, text: logText, ts: Date.now() };
+                logEntries.push(entry);
+                offerDrawShortcut(catName, itemName, entry.id);
+            } else {
+                btnElement.classList.remove('asked');
+                // Remove by stable questionKey (unique per question) — robust even when
+                // the same item text was asked in two categories.
+                var idx = logEntries.findIndex(e => e.questionKey === key);
+                if (idx > -1) logEntries.splice(idx, 1);
             }
             window.saveQuestionsToCloud();
             renderLog();
         };
+
+        // Parse a radius in km from a question label like "500m" / "15km (Medium)".
+        function parseRadiusKm(s) {
+            var km = s.match(/([\d.]+)\s*km/i); if (km) return parseFloat(km[1]);
+            var m = s.match(/([\d.]+)\s*m\b/i); if (m) return parseFloat(m[1]) / 1000;
+            return null;
+        }
+
+        // When a question maps to a drawing tool, offer a one-tap "Draw it" shortcut.
+        // The resulting layer is linked back to the log entry via pendingQuestionLink.
+        function offerDrawShortcut(catName, itemName, logId) {
+            var run = null;
+            if (/Radar/i.test(catName)) {
+                var km = parseRadiusKm(itemName);
+                run = function() {
+                    window.switchTab('tools');
+                    if (km) window.setRadius(km);
+                    window.pendingQuestionLink = logId;
+                    window.startRadiusTool();
+                };
+            } else if (/Thermometer/i.test(catName)) {
+                run = function() {
+                    window.switchTab('tools');
+                    window.pendingQuestionLink = logId;
+                    window.startThermometerTool();
+                };
+            }
+            if (run) {
+                // Auto-expire the link so a much-later manual layer isn't mislinked.
+                window.showToast(`Marked: ${itemName}`, "info", { actionLabel: "Draw it", onAction: () => {
+                    run();
+                    setTimeout(() => { if (window.pendingQuestionLink === logId) window.pendingQuestionLink = null; }, 90000);
+                }});
+            }
+        }
+
+        function linkConstraintToLog(constraintId, label) {
+            if (!window.pendingQuestionLink) return;
+            var e = logEntries.find(en => en.id === window.pendingQuestionLink);
+            if (e) { e.layerName = label; e.layerId = constraintId; window.saveQuestionsToCloud(); renderLog(); }
+            window.pendingQuestionLink = null;
+        }
 
 function resolveCoords(name, missingList) {
     // 1. Unified cleaning function
@@ -1707,15 +1832,15 @@ window.addZoneLayer = function() {
 
     // Safety check
     if (!profile || !profile.zones || !profile.zones[zName]) {
-        alert(`No predefined zones found for ${window.currentRegion}.`);
+        window.showToast(`No predefined zones found for ${window.currentRegion}.`, "warn");
         return;
     }
 
     let stops = profile.zones[zName];
-    
-    if (!stops || stops.length === 0) { 
-        alert(`No stops found for Zone ${zName}.`); 
-        return; 
+
+    if (!stops || stops.length === 0) {
+        window.showToast(`No stops found for Zone ${zName}.`, "warn");
+        return;
     }
 
     let circles = [];
@@ -1746,13 +1871,14 @@ window.addZoneLayer = function() {
             addConstraint('zone', targetPoly, cleanLabel, targetPoly);
         }
     } else {
-        alert("Could not map the stations for this zone.");
+        window.showToast("Could not map the stations for this zone.", "warn");
     }
 };
         window.loadTransportData = async function() {
             const loader = document.getElementById('loader');
-            if (loader) loader.style.display = 'block'; 
-            
+            if (loader) loader.style.display = 'block';
+            const prog = window.showProgress("Loading map stations…");
+
             let profile;
             let fullQuery = "";
             let actualCacheKey = "";
@@ -1791,57 +1917,84 @@ window.addZoneLayer = function() {
             
             // Check Local Storage Cache First
             const savedData = localStorage.getItem(actualCacheKey);
-            if (savedData) { 
-                processData(JSON.parse(savedData), profile); 
-                if (loader) loader.style.display = 'none'; 
-                const legend = document.getElementById('legend');
-                window.loadDynamicAreas();
-                if (legend) legend.style.display = 'block'; 
-                return; 
+            if (savedData) {
+                processData(JSON.parse(savedData), profile);
+                if (loader) loader.style.display = 'none';
+                prog.done(`${Object.keys(window.stationMap).length} stations loaded (cached)`);
+                const bProg = window.showProgress("Loading area boundaries…");
+                window.loadDynamicAreas().then(() => bProg.done("Boundaries loaded"));
+                return;
             }
-            
+
             const endpoints = [
                 "https://overpass-api.de/api/interpreter?data=",
                 "https://overpass.kumi.systems/api/interpreter?data="
             ];
 
             let data = null;
-            for (let url of endpoints) {
+            for (let i = 0; i < endpoints.length; i++) {
                 try {
-                    const response = await fetch(url + encodeURIComponent(fullQuery));
+                    prog.update(`Fetching stations (server ${i + 1}/${endpoints.length})…`);
+                    const response = await fetch(endpoints[i] + encodeURIComponent(fullQuery));
                     if (response.ok) { data = await response.json(); break; }
+                    prog.update(`Overpass busy — trying server ${i + 2}/${endpoints.length}…`);
                 } catch(e) { console.warn("Server busy, trying next..."); }
             }
 
             if (!data) {
-                alert("Data Load Error: All map servers are busy."); 
-                if (loader) loader.style.display = 'none'; 
+                prog.fail("Map servers are busy — please try again shortly.");
+                if (loader) loader.style.display = 'none';
                 return;
             }
-            
-try { localStorage.setItem(actualCacheKey, JSON.stringify(data)); } catch(e) {}
-    
-    // 1. Process the main station data instantly
-    processData(data, profile); 
-    
-    // 2. Wrap the follow-up queries in an async sequence so they wait in line
-    (async () => {
-        if (loader) loader.innerText = "Pausing for Overpass API (1/2)...";
-        await window.sleep(2500); // Wait 2.5 seconds
-        
-        await window.loadDynamicAreas();
-        
-        if (loader) loader.innerText = "Pausing for Overpass API (2/2)...";
-        await window.sleep(2500); // Wait another 2.5 seconds
-        // Hide loader when completely finished
-        if (loader) loader.style.display = 'none'; 
-        const legend = document.getElementById('legend');
-        if (legend) legend.style.display = 'block';
-    })();
+
+            window.saveToLocalStorage(actualCacheKey, JSON.stringify(data));
+
+            // 1. Process the main station data instantly
+            processData(data, profile);
+            prog.done(`${Object.keys(window.stationMap).length} stations loaded`);
+
+            // 2. Wrap the follow-up queries in an async sequence so they wait in line
+            (async () => {
+                const bProg = window.showProgress("Loading area boundaries…");
+                if (loader) loader.innerText = "Pausing for Overpass API (1/2)...";
+                await window.sleep(2500); // Wait 2.5 seconds
+
+                await window.loadDynamicAreas();
+                bProg.done("Boundaries loaded");
+
+                if (loader) loader.innerText = "Pausing for Overpass API (2/2)...";
+                await window.sleep(2500); // Wait another 2.5 seconds
+                // Hide loader when completely finished
+                if (loader) loader.style.display = 'none';
+            })();
 
         };
 		
-        window.forceRefreshData = function(){ localStorage.removeItem(`gm_transport_data_v3_${window.currentRegion}`); document.getElementById('btnLoadTransport').disabled = false; window.loadTransportData(); };
+        // Clear every cache relevant to the current room (station data for both the
+        // standard and custom key shapes, plus fare-zone caches), then re-download.
+        window.forceRefreshData = function() {
+            const region = window.currentRegion;
+            const bbox = window.customOverpassBbox;
+            const keysToRemove = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (!key) continue;
+                const matchesRegion = region && (
+                    key === `gm_transport_data_v3_${region}` ||
+                    key === `gm_fare_zones_${region}`
+                );
+                const matchesCustom = bbox && (
+                    key === `gm_transport_data_v3_custom_${bbox}` ||
+                    key === `gm_fare_zones_${bbox}`
+                );
+                if (matchesRegion || matchesCustom) keysToRemove.push(key);
+            }
+            keysToRemove.forEach(k => localStorage.removeItem(k));
+            const btn = document.getElementById('btnLoadTransport');
+            if (btn) btn.disabled = false;
+            window.showToast("Cleared cache — re-downloading map data…", "info");
+            window.loadTransportData();
+        };
 
 function processData(d, profile) {
     if (!d || !d.elements) return;
@@ -1980,12 +2133,11 @@ function processData(d, profile) {
     console.log(`✅ Loaded ${Object.keys(window.stationMap).length} stations into Logic Engine.`);
 }
 
-// Universal function to handle Boroughs, Counties, and Countries
         // Universal function to handle Boroughs, Counties, and Countries
         function addAdministrativeConstraint(dropdownId, labelSuffix, dynamicDataDict) {
             const name = document.getElementById(dropdownId).value;
             if (!name || name.includes("Found") || name.includes("Loading") || name.includes("Error")) return;
-            if (Object.keys(window.stationMap).length === 0) { alert("Load Stations first!"); return; }
+            if (Object.keys(window.stationMap).length === 0) { window.showToast("Map data is still loading — try again in a moment.", "warn"); return; }
 
             let targetPoly = null;
 
@@ -2002,7 +2154,7 @@ function processData(d, profile) {
                     stops = cityProfiles[window.currentRegion].boroughs[name];
                 }
 
-                if (stops.length === 0) { alert("No stops found for " + name); return; }
+                if (stops.length === 0) { window.showToast("No stops found for " + name, "warn"); return; }
 
                 let circles = []; let missing = [];
                 stops.forEach(nameOrKey => { 
@@ -2029,7 +2181,7 @@ function processData(d, profile) {
                     addConstraint('borough', cleanPoly, `${name} ${labelSuffix}`, cleanPoly);
                 } catch(e) {
                     console.error("Math engine failed to simplify the shape:", e);
-                    alert("This boundary is too complex to draw. Try a smaller area!");
+                    window.showToast("This boundary is too complex to draw. Try a smaller area.", "error");
                 }
             }
         }
@@ -2049,6 +2201,19 @@ function processData(d, profile) {
             document.getElementById('settingsModal').style.display = 'none';
         };
 
+        // Per-device read-only "Hider" view (not synced to the room).
+        window.setHiderMode = function(isHider) {
+            document.body.classList.toggle('hider-mode', !!isHider);
+            localStorage.setItem('gm_role', isHider ? 'hider' : 'seeker');
+            var cb = document.getElementById('toggleHider');
+            if (cb) cb.checked = !!isHider;
+            if (isHider) {
+                resetTools(); // cancel any in-progress drawing
+                window.switchTab('layers');
+                window.showToast("Hider view on — read only. Turn off in ⚙️ Settings.", "info", { duration: 3500 });
+            }
+        };
+
         window.toggleMapLayer = function(layerType, isChecked) {
             if (layerType === 'local') {
                 if (isChecked) map.addLayer(localLayer);
@@ -2059,10 +2224,11 @@ function processData(d, profile) {
             }
         };
 
-        window.leaveRoom = function() {
-            if(confirm("Are you sure you want to leave this room?")) {
-                // The safest way to cleanly unbind Firebase listeners and reset the UI is to reload the page
-                window.location.reload(); 
+        window.leaveRoom = async function() {
+            if (await window.showConfirm("Leave this room and return to the setup screen?", { confirmLabel: 'Leave' })) {
+                // Detach the live listener, then reload for a clean reset of all UI state.
+                if (window.unsubscribeSnapshot) { window.unsubscribeSnapshot(); window.unsubscribeSnapshot = null; }
+                window.location.reload();
             }
         };
 
@@ -2074,10 +2240,10 @@ function processData(d, profile) {
 
         window.toggleLiveGPS = function(isTracking) {
             if (isTracking) {
-                if (!navigator.geolocation) { 
-                    alert("GPS not supported by your browser."); 
+                if (!navigator.geolocation) {
+                    window.showToast("GPS is not supported by your browser.", "error");
                     document.getElementById('toggleLiveGPS').checked = false;
-                    return; 
+                    return;
                 }
                 
                 // Start continuously tracking
@@ -2111,7 +2277,7 @@ function processData(d, profile) {
                     },
                     function(error) { 
                         console.error("GPS Watch Error", error); 
-                        if (error.code === 1) alert("Please allow location permissions in your browser to use Live GPS.");
+                        if (error.code === 1) window.showToast("Please allow location permissions to use Live GPS.", "warn");
                     },
                     { enableHighAccuracy: true, maximumAge: 2000, timeout: 10000 }
                 );
@@ -2134,10 +2300,75 @@ function processData(d, profile) {
                 }
             }
         };
+        // === MOBILE BOTTOM SHEET ===
+        // On narrow viewports #controls becomes a bottom sheet with three states
+        // (collapsed pill / half / full). Tap the handle to cycle, or drag it.
+        (function initBottomSheet() {
+            const controls = document.getElementById('controls');
+            const handle = document.getElementById('sheetHandle');
+            if (!controls || !handle) return;
+            const states = ['sheet-collapsed', 'sheet-half', 'sheet-full'];
+            const mq = window.matchMedia('(max-width: 600px)');
+
+            function currentIndex() {
+                for (let i = 0; i < states.length; i++) if (controls.classList.contains(states[i])) return i;
+                return 1; // default: half
+            }
+            function apply(i) {
+                i = Math.max(0, Math.min(states.length - 1, i));
+                states.forEach(s => controls.classList.remove(s));
+                controls.classList.add(states[i]);
+                window.updateSheetSummary();
+            }
+            window.setSheetState = function(name) { const i = states.indexOf('sheet-' + name); if (i >= 0) apply(i); };
+            window.updateSheetSummary = function() {
+                const summary = document.getElementById('sheetSummary');
+                if (!summary) return;
+                const room = window.currentGameId || '—';
+                const activeTabBtn = document.querySelector('.tab-btn.active');
+                const tab = activeTabBtn ? activeTabBtn.textContent.trim() : '';
+                summary.textContent = `Room ${room} · ${tab} — tap to open`;
+            };
+
+            // Pointer drag / tap changes the state (pointer events cover touch).
+            let startY = null, startIdx = 1, moved = false;
+            handle.addEventListener('pointerdown', (e) => {
+                if (!mq.matches) return;
+                startY = e.clientY; startIdx = currentIndex(); moved = false;
+                try { handle.setPointerCapture(e.pointerId); } catch (err) {}
+            });
+            handle.addEventListener('pointermove', (e) => {
+                if (startY === null) return;
+                if (Math.abs(e.clientY - startY) > 8) moved = true;
+            });
+            handle.addEventListener('pointerup', (e) => {
+                if (startY === null) return;
+                const draggedUp = (startY - e.clientY) > 0;
+                if (!moved) apply((startIdx + 1) % states.length);   // tap cycles
+                else apply(startIdx + (draggedUp ? 1 : -1));          // drag by direction
+                startY = null;
+            });
+
+            function syncForViewport() {
+                if (mq.matches) {
+                    if (!states.some(s => controls.classList.contains(s))) apply(1);
+                    else window.updateSheetSummary();
+                } else {
+                    states.forEach(s => controls.classList.remove(s));
+                }
+            }
+            if (mq.addEventListener) mq.addEventListener('change', syncForViewport);
+            else if (mq.addListener) mq.addListener(syncForViewport);
+            syncForViewport();
+        })();
+
         // === INITIALIZE ===
-        renderLog(); 
-        renderQuestions(); 
-        window.checkTutorial(); 
+        renderLog();
+        renderQuestions();
+        window.checkTutorial();
+
+        // Restore per-device role (Seeker / Hider) — not synced to the room.
+        if (localStorage.getItem('gm_role') === 'hider') window.setHiderMode(true);
 
         // Load temporary local constraints if no game joined yet
         var saved = localStorage.getItem('gm_constraints_v53');
@@ -2153,6 +2384,18 @@ function processData(d, profile) {
                 updateLayerList(); updateLogicMap();
             } catch(e) { console.error("Failed to load saved constraints", e); }
         }
+
+        // --- AUTO-JOIN VIA INVITE LINK (?room=12345) ---
+        // If the page is opened with a valid room param, skip the setup screen and
+        // join that room directly. Invalid codes just fall through to setup.
+        (function autoJoinFromUrl() {
+            try {
+                const roomParam = new URLSearchParams(window.location.search).get('room');
+                if (roomParam && /^\d{5}$/.test(roomParam.trim())) {
+                    window.startGameSession(roomParam.trim(), null);
+                }
+            } catch (e) { console.warn("Auto-join failed:", e); }
+        })();
 
     </script>
 </body>

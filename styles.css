@@ -1,0 +1,407 @@
+        body { margin: 0; padding: 0; font-family: sans-serif; overflow: hidden; }
+        #map { height: 100vh; width: 100%; z-index: 1; }
+        
+        .crosshair-cursor { cursor: crosshair !important; }
+        #map.crosshair-cursor .leaflet-interactive { pointer-events: none !important; }
+        
+        #controls {
+            position: absolute; top: 10px; right: 10px; background: white;
+            padding: 15px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            z-index: 1000; width: 340px; max-width: 90vw; max-height: 90vh; overflow: hidden;
+            display: flex; flex-direction: column; transition: height 0.2s ease;
+        }
+        .controls-header, #connectionStatus { flex-shrink: 0; }
+        #sheetScroll { flex: 1 1 auto; overflow-y: auto; min-height: 0; }
+        /* Drag handle is desktop-hidden; the mobile media query reveals it. */
+        #sheetHandle { display: none; }
+        #sheetSummary { display: none; }
+
+        .controls-header { 
+            display: flex; justify-content: space-between; align-items: center; 
+            border-bottom: 2px solid #0078A8; padding-bottom: 8px; margin-bottom: 10px;
+        }
+        h3 { margin: 0; font-size: 1.1em; color: #333; }
+        
+        .header-btns { display: flex; gap: 5px; }
+        
+        .icon-btn-header { 
+            width: 32px; height: 32px; padding: 0; margin: 0; 
+            background: #f0f0f0; color: #333; font-size: 1.2em; font-weight: bold;
+            border: 1px solid #ccc; border-radius: 4px; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .gps-btn { color: #0078A8; font-size: 1.4em; }
+        .help-btn { color: #28a745; font-weight: bold; font-family: serif; }
+
+        #controls.minimized {
+            width: auto; min-width: 140px; height: auto; max-height: 60px; overflow: hidden;
+        }
+        #controls.minimized .tab-bar, 
+        #controls.minimized .tab-content { display: none !important; }
+        #controls.minimized .controls-header { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+
+        .tab-bar { display: flex; border-bottom: 1px solid #ddd; margin-bottom: 15px; background: #f4f4f4; border-radius: 4px 4px 0 0; }
+        
+        .tab-btn { 
+            flex: 1; padding: 12px 5px; border: none; background: transparent; 
+            cursor: pointer; color: #666; font-size: 0.9em; border-bottom: 3px solid transparent; 
+            transition: all 0.2s;
+        }
+        .tab-btn:hover { background: #e9e9e9; }
+        .tab-btn.active { 
+            background: #fff; border-bottom: 3px solid #0078A8; color: #0078A8; 
+            font-weight: bold; border-radius: 4px 4px 0 0;
+        }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; animation: fadeIn 0.2s; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        .tool-section { margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 15px; }
+        label { display: block; margin-top: 8px; font-size: 0.9em; font-weight: bold;}
+        input[type="number"], input[type="text"], select { width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px;}
+        
+        button { width: 100%; padding: 10px; margin-top: 10px; background-color: #0078A8; color: white; border: none; border-radius: 4px; cursor: pointer; transition: background 0.2s; }
+        button:hover { opacity: 0.9; }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
+        .active-tool-btn { background-color: #d9534f !important; border-color: #d43f3a !important; }
+
+        .chip-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+        .chip {
+            width: auto; margin: 0; padding: 8px 12px; font-size: 0.85em;
+            background: #eef4f7; color: #0078A8; border: 1px solid #b9dbe8;
+            border-radius: 16px; cursor: pointer; min-height: 36px;
+        }
+        .chip:hover { background: #d9ebf3; }
+        .chip.selected { background: #0078A8; color: #fff; border-color: #0078A8; }
+        .toggle-btn { flex: 1; padding: 6px; font-size: 0.8em; border: 1px solid #ccc; background: white; cursor: pointer; }
+        .toggle-btn.is-hit { background: #d4edda; color: #155724; border-color: #c3e6cb; }
+        .toggle-btn.is-miss { background: #f8d7da; color: #721c24; border-color: #f5c6cb; }
+        
+        #layerList { list-style: none; padding: 0; margin: 0; }
+        .layer-item { padding: 10px; border-bottom: 1px solid #eee; background: #fafafa; margin-bottom: 5px; border-radius: 4px; }
+        .layer-header { display: flex; align-items: center; margin-bottom: 8px; }
+        
+        .layer-icon { margin-right: 8px; font-size: 1.15em; flex-shrink: 0; }
+        .layer-name { font-weight: bold; color: #333; font-size: 0.95em; cursor: pointer; border-bottom: 1px dashed #ccc; flex-grow: 1; margin-right: 10px; }
+        .icon-group { display: flex; gap: 8px; }
+        .icon-btn { background: none; border: none; color: #888; font-size: 1.1em; width: auto; padding: 0; margin: 0; cursor: pointer; }
+        .del-btn:hover { color: #d9534f; }
+        .layer-controls { display: flex; gap: 5px; }
+        .input-group { display: flex; gap: 5px; margin-top: 5px; }
+        .input-group button { margin-top: 0; width: auto; padding: 8px 15px; }
+        
+        #loader { display: none; text-align: center; margin-top: 10px; color: #0078A8; }
+        .legend-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-top: 10px; font-size: 0.85em; }
+        .legend-item { display: flex; align-items: center; }
+        .dot { width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; }
+        .line-box { width: 15px; height: 4px; margin-right: 5px; }
+
+        .log-list-item { padding: 10px; border-bottom: 1px solid #eee; font-size: 0.9em; color: #333; display: flex; justify-content: space-between; align-items: center; }
+        .log-index { font-weight: bold; color: #0078A8; margin-right: 10px; min-width: 20px; }
+        .log-meta { font-size: 0.85em; color: #888; margin-left: 5px; font-style: italic; }
+
+        .q-category { margin-bottom: 20px; }
+        .q-cat-title { font-size: 1.1em; font-weight: bold; color: #333; border-bottom: 2px solid #ddd; padding-bottom: 5px; margin-bottom: 10px; display:flex; justify-content: space-between; cursor: pointer; user-select: none;}
+        .q-subcat { margin-top: 10px; margin-bottom: 5px; font-weight: bold; color: #555; font-size: 0.95em; }
+        .q-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .q-btn { padding: 10px; background: #f0f0f0; border: 1px solid #ccc; border-radius: 4px; cursor: pointer; font-size: 0.9em; text-align: center; color: #333; user-select: none; transition: background 0.2s; }
+        .q-btn:hover { background: #e0e0e0; }
+        .q-btn.asked { background-color: #d9534f; color: white; border-color: #d43f3a; }
+        .q-content { display: none; }
+        .q-content.open { display: block; }
+        .arrow { font-size: 0.8em; color: #999; }
+        
+        .popup-link { display: inline-block; margin-top: 5px; color: white; background: #0078A8; padding: 6px 12px; text-decoration: none; border-radius: 4px; font-size: 0.9em; cursor: pointer; border:none; }
+        .popup-link:hover { background: #005a7d; }
+
+        #webModal, #tutorialModal {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6); z-index: 9999;
+        }
+        #modalContent, #tutorialContent {
+            background: white; width: 90%; max-width: 500px; max-height: 90%; margin: 5% auto;
+            display: flex; flex-direction: column; border-radius: 8px; overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+        }
+        #modalHeader, #tutorialHeader {
+            padding: 10px; background: #eee; border-bottom: 1px solid #ccc;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        #modalTitle, #tutorialTitle { font-weight: bold; font-size: 1.1em; color:#333; }
+        #modalFrame { flex: 1; border: none; background: #fff; }
+        #modalFallback { padding: 8px; text-align: center; font-size: 0.8em; background: #f8d7da; display:none; color: #721c24; }
+        
+        #tutorialBody { padding: 20px; overflow-y: auto; font-size: 0.95em; line-height: 1.5; color: #333; }
+        .tut-step { margin-bottom: 15px; display: flex; gap: 10px; }
+        .tut-icon { font-weight: bold; color: #0078A8; min-width: 25px; }
+        #closeTutBtn { width: 100%; background: #28a745; margin-top: 10px; padding: 12px; font-size: 1em; }
+        
+        #closeModalBtn { background: #d9534f; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; width: auto; margin:0;}
+        #extLinkBtn { background: #0078A8; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; text-decoration:none; font-size:0.8em; margin-right:5px;}
+        
+        /* --- GAME SETUP SCREEN --- */
+        #setupScreen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #0078A8; z-index: 10000; 
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            font-family: sans-serif; transition: opacity 0.3s ease;
+        }
+        .setup-container {
+            background: white; padding: 30px; border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            width: 90%; max-width: 400px; text-align: center;
+        }
+        .setup-container h1 { color: #0078A8; margin-top: 0; margin-bottom: 5px; }
+        .setup-container p { color: #666; font-size: 0.9em; margin-bottom: 25px; }
+        .setup-box {
+            background: #f9f9f9; border: 1px solid #ddd; border-radius: 6px; padding: 15px; margin-bottom: 15px;
+        }
+        .setup-box h3 { margin-top: 0; color: #333; font-size: 1.1em; margin-bottom: 10px;}
+        .setup-box select, .setup-box input {
+            width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;
+            font-size: 1em;
+        }
+        .setup-box button { margin-top: 0; font-size: 1.05em; padding: 12px; }
+        .btn-create { background: #28a745; }
+        .btn-join { background: #0078A8; }
+    
+/* Ko-fi Floating Container - Definitively Fixed for a compact pill */
+        .kofi-support-container {
+            position: absolute;
+            bottom: 25px;
+            left: 7.5%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            background-color: #FF5E5B; /* Ko-fi Brand Red/Pink */
+            border-radius: 50px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            transition: transform 0.2s, background-color 0.2s;
+            /* NEW: Direct fix for squishing and uneven rounding: ensures a proper minimum width */
+            min-width: max-content;
+        }
+
+        .kofi-support-container:hover {
+            transform: translateX(-50%) scale(1.05);
+            background-color: #E04C49; /* Darker red on hover */
+        }
+
+        /* The actual link text - compactified and forced onto one line */
+        .kofi-support-btn {
+            color: white !important;
+            padding: 10px 8px 10px 20px; /* Refined compact padding (Left is wider) */
+            font-family: Arial, sans-serif;
+            font-weight: bold;
+            font-size: 14px;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 8px; /* Compact space between icon and text */
+            /* NEW: Direct fix for internal text wrapping (prevents the stacked look) */
+            white-space: nowrap;
+        }
+
+        .kofi-support-btn:hover {
+            text-decoration: none;
+        }
+
+        /* The Close 'X' Button - compactified and only right corners rounded */
+        .kofi-close-btn {
+            background: none;
+            border: none;
+            color: white;
+            padding: 10px 20px 10px 8px; /* Refined compact padding (Right is wider) */
+            font-size: 16px;
+            cursor: pointer;
+            opacity: 0.7;
+            border-radius: 0 50px 50px 0; /* Ensures only the right side is pill-rounded */
+            transition: opacity 0.2s;
+            line-height: 1; /* Helps vertically center the 'X' */
+        }
+
+        .kofi-close-btn:hover {
+            opacity: 1;
+        }
+
+        /* Ko-fi Sidebar Button */
+        .kofi-sidebar-btn {
+            display: block;
+            width: 100%;
+            box-sizing: border-box;
+            background-color: #FF5E5B; /* Ko-fi Brand Red */
+            color: white !important;
+            padding: 12px 15px;
+            border-radius: 6px;
+            font-family: Arial, sans-serif;
+            font-weight: bold;
+            font-size: 15px;
+            text-align: center;
+            text-decoration: none;
+            transition: background-color 0.2s, transform 0.1s;
+            margin-top: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .kofi-sidebar-btn:hover {
+            background-color: #E04C49;
+            text-decoration: none;
+            transform: translateY(-1px);
+        }
+
+        /* Specific styling for the Undo button */
+.undo-btn {
+    background-color: #f44336; /* A subtle red to indicate 'reverting' */
+    color: white;
+}
+
+.undo-btn:hover {
+    background-color: #d32f2f;
+}
+
+/* --- CONNECTION STATUS BAR --- */
+#connectionStatus {
+    padding: 8px; background: #eef; margin-bottom: 10px; border-radius: 4px;
+    font-size: 0.9em; color: #333; font-weight: bold;
+}
+.conn-row { display: flex; align-items: center; gap: 8px; justify-content: center; }
+.conn-dot {
+    width: 10px; height: 10px; border-radius: 50%; background: #f0ad4e;
+    flex-shrink: 0; transition: background 0.3s;
+}
+.conn-dot.online { background: #2e7d32; }
+.conn-dot.offline { background: #c62828; }
+.conn-copy {
+    width: auto; margin: 0; padding: 4px 8px; background: #0078A8; color: #fff;
+    border: none; border-radius: 4px; cursor: pointer; font-size: 0.95em; line-height: 1;
+    min-height: 32px;
+}
+.conn-copy:disabled { background: #ccc; }
+.conn-region { text-align: center; font-weight: normal; font-size: 0.85em; color: #666; margin-top: 4px; }
+
+/* --- TOAST NOTIFICATIONS (non-blocking) --- */
+#toastContainer {
+    position: fixed; top: 12px; left: 50%; transform: translateX(-50%);
+    z-index: 20000; display: flex; flex-direction: column; gap: 8px;
+    width: max-content; max-width: 92vw; pointer-events: none;
+}
+.toast {
+    background: #333; color: #fff; padding: 12px 16px; border-radius: 8px;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.3); font-size: 0.9em; line-height: 1.35;
+    display: flex; align-items: center; gap: 10px; pointer-events: auto;
+    animation: toastIn 0.2s ease; max-width: 92vw;
+}
+.toast.hide { animation: toastOut 0.2s ease forwards; }
+.toast.info { background: #0078A8; }
+.toast.success { background: #2e7d32; }
+.toast.error { background: #c62828; }
+.toast.warn { background: #e08600; }
+.toast-msg { flex: 1; }
+.toast-spinner {
+    width: 16px; height: 16px; border-radius: 50%; flex-shrink: 0;
+    border: 2px solid rgba(255,255,255,0.35); border-top-color: #fff;
+    animation: toastSpin 0.7s linear infinite;
+}
+@keyframes toastSpin { to { transform: rotate(360deg); } }
+.toast-action {
+    background: rgba(255,255,255,0.22); color: #fff; border: none;
+    padding: 6px 12px; border-radius: 5px; cursor: pointer; font-weight: bold;
+    width: auto; margin: 0; font-size: 0.9em; white-space: nowrap; min-height: 32px;
+}
+.toast-action:hover { background: rgba(255,255,255,0.35); }
+@keyframes toastIn { from { opacity: 0; transform: translateY(-12px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes toastOut { from { opacity: 1; } to { opacity: 0; transform: translateY(-12px); } }
+
+/* --- INLINE MODAL (confirm / prompt replacement for native dialogs) --- */
+#appModalOverlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55);
+    z-index: 20001; align-items: center; justify-content: center; padding: 20px;
+}
+#appModalOverlay.open { display: flex; }
+.app-modal-box {
+    background: #fff; border-radius: 10px; width: 100%; max-width: 360px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.4); overflow: hidden;
+}
+.app-modal-body { padding: 20px; color: #333; font-size: 0.98em; line-height: 1.45; }
+.app-modal-body input {
+    width: 100%; padding: 12px; margin-top: 12px; border: 1px solid #ccc;
+    border-radius: 6px; box-sizing: border-box; font-size: 1em;
+}
+.app-modal-actions { display: flex; gap: 8px; padding: 0 20px 20px; }
+.app-modal-actions button { margin-top: 0; min-height: 44px; }
+.app-modal-cancel { background: #eee !important; color: #333 !important; }
+.app-modal-confirm.danger { background: #d9534f !important; }
+
+/* --- HIDER (READ-ONLY) MODE --- */
+#hiderBadge { display: none; }
+body.hider-mode #hiderBadge {
+    display: block; background: #6a1b9a; color: #fff; text-align: center;
+    padding: 6px; border-radius: 4px; font-size: 0.85em; font-weight: bold;
+    margin-bottom: 10px; flex-shrink: 0;
+}
+/* Hide every control that would edit shared state; leave the map + layer list
+   readable so the hider can verify the seekers' deductions. */
+body.hider-mode #tab-tools .tool-section button,
+body.hider-mode #tab-tools .tool-section select,
+body.hider-mode #tab-tools .tool-section input,
+body.hider-mode #tab-tools .tool-section .chip-row,
+body.hider-mode #tab-tools > button,
+body.hider-mode .layer-controls,
+body.hider-mode .layer-item .icon-group,
+body.hider-mode #tab-layers > button,
+body.hider-mode #btnUndoHeader,
+body.hider-mode #tab-questions .q-btn,
+body.hider-mode #tab-questions > button,
+body.hider-mode #tab-log > button { display: none !important; }
+body.hider-mode .q-btn { pointer-events: none; opacity: 0.85; }
+
+/* --- BOTTOM SHEET on narrow viewports --- */
+@media (max-width: 600px) {
+    #controls {
+        top: auto; bottom: 0; left: 0; right: 0;
+        width: 100%; max-width: 100%; margin: 0; padding: 0;
+        max-height: none; border-radius: 16px 16px 0 0;
+        box-shadow: 0 -3px 14px rgba(0,0,0,0.28);
+        transition: height 0.25s ease;
+    }
+    /* The minimize button and desktop .minimized state don't apply on mobile. */
+    #minBtn { display: none; }
+    #controls.minimized { height: auto; max-height: none; }
+    #controls.minimized .tab-bar, #controls.minimized .tab-content { display: block !important; }
+
+    #sheetHandle {
+        display: flex; flex-direction: column; align-items: center;
+        padding: 8px 12px 4px; cursor: grab; flex-shrink: 0; touch-action: none;
+        user-select: none;
+    }
+    .sheet-grip { width: 42px; height: 5px; border-radius: 3px; background: #ccc; }
+    #sheetSummary { font-size: 0.85em; color: #555; font-weight: bold; margin-top: 4px; }
+
+    .controls-header, #connectionStatus { padding-left: 12px; padding-right: 12px; }
+    #sheetScroll { padding: 0 12px 16px; }
+
+    /* Three sheet states. */
+    #controls.sheet-collapsed { height: auto; }
+    #controls.sheet-collapsed .controls-header,
+    #controls.sheet-collapsed #connectionStatus,
+    #controls.sheet-collapsed #sheetScroll { display: none; }
+    #controls.sheet-collapsed #sheetSummary { display: block; }
+
+    #controls.sheet-half { height: 45vh; }
+    #controls.sheet-full { height: 88vh; }
+
+    /* Keep the floating Ko-fi pill from overlapping the sheet on phones. */
+    .kofi-support-container { display: none; }
+}
+
+/* --- BIGGER TOUCH TARGETS on touch devices (min 44px) --- */
+@media (pointer: coarse) {
+    .icon-btn-header { width: 44px; height: 44px; font-size: 1.35em; }
+    .toggle-btn { min-height: 44px; font-size: 0.9em; }
+    .q-btn { min-height: 48px; display: flex; align-items: center; justify-content: center; }
+    .tab-btn { min-height: 46px; }
+    .conn-copy, .toast-action { min-height: 44px; }
+    .icon-btn { min-width: 40px; min-height: 40px; }
+    button { min-height: 44px; }
+    input[type="number"], input[type="text"], select { min-height: 44px; font-size: 16px; }
+}
