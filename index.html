@@ -253,9 +253,64 @@
 .undo-btn:hover {
     background-color: #d32f2f;
 }
+
+/* --- TOAST NOTIFICATIONS (non-blocking) --- */
+#toastContainer {
+    position: fixed; top: 12px; left: 50%; transform: translateX(-50%);
+    z-index: 20000; display: flex; flex-direction: column; gap: 8px;
+    width: max-content; max-width: 92vw; pointer-events: none;
+}
+.toast {
+    background: #333; color: #fff; padding: 12px 16px; border-radius: 8px;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.3); font-size: 0.9em; line-height: 1.35;
+    display: flex; align-items: center; gap: 10px; pointer-events: auto;
+    animation: toastIn 0.2s ease; max-width: 92vw;
+}
+.toast.hide { animation: toastOut 0.2s ease forwards; }
+.toast.info { background: #0078A8; }
+.toast.success { background: #2e7d32; }
+.toast.error { background: #c62828; }
+.toast.warn { background: #e08600; }
+.toast-msg { flex: 1; }
+.toast-action {
+    background: rgba(255,255,255,0.22); color: #fff; border: none;
+    padding: 6px 12px; border-radius: 5px; cursor: pointer; font-weight: bold;
+    width: auto; margin: 0; font-size: 0.9em; white-space: nowrap; min-height: 32px;
+}
+.toast-action:hover { background: rgba(255,255,255,0.35); }
+@keyframes toastIn { from { opacity: 0; transform: translateY(-12px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes toastOut { from { opacity: 1; } to { opacity: 0; transform: translateY(-12px); } }
+
+/* --- INLINE MODAL (confirm / prompt replacement for native dialogs) --- */
+#appModalOverlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55);
+    z-index: 20001; align-items: center; justify-content: center; padding: 20px;
+}
+#appModalOverlay.open { display: flex; }
+.app-modal-box {
+    background: #fff; border-radius: 10px; width: 100%; max-width: 360px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.4); overflow: hidden;
+}
+.app-modal-body { padding: 20px; color: #333; font-size: 0.98em; line-height: 1.45; }
+.app-modal-body input {
+    width: 100%; padding: 12px; margin-top: 12px; border: 1px solid #ccc;
+    border-radius: 6px; box-sizing: border-box; font-size: 1em;
+}
+.app-modal-actions { display: flex; gap: 8px; padding: 0 20px 20px; }
+.app-modal-actions button { margin-top: 0; min-height: 44px; }
+.app-modal-cancel { background: #eee !important; color: #333 !important; }
+.app-modal-confirm.danger { background: #d9534f !important; }
     </style>
 </head>
 <body>
+
+<div id="toastContainer"></div>
+<div id="appModalOverlay">
+    <div class="app-modal-box">
+        <div class="app-modal-body" id="appModalBody"></div>
+        <div class="app-modal-actions" id="appModalActions"></div>
+    </div>
+</div>
 
 <div id="settingsModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:10001;">
         <div style="background:white; width:90%; max-width:400px; margin:4% auto; border-radius:8px; overflow:hidden; box-shadow:0 5px 15px rgba(0,0,0,0.5);">
@@ -506,13 +561,112 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, getDoc, onSnapshot, runTransaction } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
         import { firebaseConfig } from './firebase-config.js';
         import { setupTutorial } from './tutorial.js';
         import { questionData } from './questions.js';
         import { cityProfiles} from './mapData.js';
         // Universal pause function (time in milliseconds)
         window.sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+        // === NON-BLOCKING NOTIFICATIONS (replace native alert/confirm/prompt) ===
+        // showToast(message, type, opts) — type: info|success|error|warn.
+        // opts.duration ms (0 = sticky). opts.actionLabel + opts.onAction adds a button.
+        // Returns a dismiss() function.
+        window.showToast = function(message, type = 'info', opts = {}) {
+            const container = document.getElementById('toastContainer');
+            if (!container) { console.log(`[${type}] ${message}`); return () => {}; }
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            const msg = document.createElement('span');
+            msg.className = 'toast-msg';
+            msg.innerHTML = message;
+            toast.appendChild(msg);
+
+            let timer = null;
+            const dismiss = () => {
+                if (timer) clearTimeout(timer);
+                toast.classList.add('hide');
+                setTimeout(() => toast.remove(), 200);
+            };
+
+            if (opts.actionLabel && typeof opts.onAction === 'function') {
+                const btn = document.createElement('button');
+                btn.className = 'toast-action';
+                btn.textContent = opts.actionLabel;
+                btn.onclick = () => { opts.onAction(); dismiss(); };
+                toast.appendChild(btn);
+            }
+            container.appendChild(toast);
+
+            const duration = opts.duration !== undefined ? opts.duration : (opts.actionLabel ? 7000 : 3500);
+            if (duration > 0) timer = setTimeout(dismiss, duration);
+            return dismiss;
+        };
+
+        // Small inline confirm modal. Returns a Promise<boolean>.
+        window.showConfirm = function(message, opts = {}) {
+            return new Promise(resolve => {
+                const overlay = document.getElementById('appModalOverlay');
+                const body = document.getElementById('appModalBody');
+                const actions = document.getElementById('appModalActions');
+                body.innerHTML = `<div>${message}</div>`;
+                actions.innerHTML = '';
+
+                const cancelBtn = document.createElement('button');
+                cancelBtn.className = 'app-modal-cancel';
+                cancelBtn.textContent = opts.cancelLabel || 'Cancel';
+                cancelBtn.style.flex = '1';
+
+                const okBtn = document.createElement('button');
+                okBtn.className = 'app-modal-confirm' + (opts.danger ? ' danger' : '');
+                okBtn.textContent = opts.confirmLabel || 'Confirm';
+                okBtn.style.flex = '1';
+
+                const close = (val) => { overlay.classList.remove('open'); resolve(val); };
+                cancelBtn.onclick = () => close(false);
+                okBtn.onclick = () => close(true);
+                actions.appendChild(cancelBtn);
+                actions.appendChild(okBtn);
+                overlay.classList.add('open');
+                okBtn.focus();
+            });
+        };
+
+        // Small inline prompt modal. Returns a Promise<string|null>.
+        window.showPrompt = function(message, defaultValue = '', opts = {}) {
+            return new Promise(resolve => {
+                const overlay = document.getElementById('appModalOverlay');
+                const body = document.getElementById('appModalBody');
+                const actions = document.getElementById('appModalActions');
+                body.innerHTML = `<div>${message}</div>`;
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.value = defaultValue;
+                body.appendChild(input);
+                actions.innerHTML = '';
+
+                const cancelBtn = document.createElement('button');
+                cancelBtn.className = 'app-modal-cancel';
+                cancelBtn.textContent = 'Cancel';
+                cancelBtn.style.flex = '1';
+
+                const okBtn = document.createElement('button');
+                okBtn.className = 'app-modal-confirm';
+                okBtn.textContent = opts.confirmLabel || 'OK';
+                okBtn.style.flex = '1';
+
+                const close = (val) => { overlay.classList.remove('open'); resolve(val); };
+                cancelBtn.onclick = () => close(null);
+                okBtn.onclick = () => close(input.value);
+                input.onkeydown = (e) => { if (e.key === 'Enter') close(input.value); };
+                actions.appendChild(cancelBtn);
+                actions.appendChild(okBtn);
+                overlay.classList.add('open');
+                setTimeout(() => { input.focus(); input.select(); }, 50);
+            });
+        };
+
         window.stationMap = {};
         // Initialize the tutorial right away
         setupTutorial();
@@ -543,7 +697,10 @@
 
 
         var stationMap = {};
-        var myConstraints = []; 
+        var myConstraints = [];
+        // Ids removed locally but possibly still present on the server; used by the
+        // merge-on-write sync so a delete isn't resurrected by a concurrent writer.
+        var recentlyDeleted = new Set();
         var worldBbox = [-15.0, 48.0, 5.0, 62.0]; 
         var worldPoly = turf.bboxPolygon(worldBbox);
 
@@ -603,7 +760,7 @@
                 document.getElementById('setupScreen').style.opacity = '0';
                 setTimeout(() => { document.getElementById('setupScreen').style.display = 'none'; }, 300);
                 
-                alert("Click points on the map to outline your Custom Zone.\n\nYou can drag to pan the map between clicks.\nClick 'Finish Drawing' at the bottom when done.");
+                window.showToast("Tap points on the map to outline your Custom Zone. Drag to pan between taps. Tap 'Finish Drawing' when done.", "info", { duration: 8000 });
                 
                 document.getElementById('map').classList.add('crosshair-cursor');
                 
@@ -629,7 +786,7 @@
                 
                 finishBtn.onclick = function() {
                     if (points.length < 3) {
-                        alert("Please click at least 3 points to make a shape.");
+                        window.showToast("Please tap at least 3 points to make a shape.", "warn");
                         return;
                     }
                     
@@ -666,10 +823,10 @@
             btn.innerText = "Generating..."; btn.disabled = true;
 
             while (!isUnique && attempts < 10) {
-                newRoomCode = Math.floor(1000 + Math.random() * 90000).toString();
+                // Strictly 10000–99999 so every code is exactly 5 digits and joinable.
+                newRoomCode = Math.floor(10000 + Math.random() * 90000).toString();
                 const checkRef = doc(db, "games", newRoomCode);
                 try {
-                    const { getDoc } = await import("https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js");
                     const snap = await getDoc(checkRef);
                     if (!snap.exists()) isUnique = true;
                     else attempts++;
@@ -688,14 +845,14 @@
                 });
                 window.startGameSession(newRoomCode, region);
             } else {
-                alert("Could not generate a unique room code.");
+                window.showToast("Could not generate a unique room code. Please try again.", "error");
             }
             btn.innerText = originalText; btn.disabled = false;
         };
         window.joinExistingGame = function() {
             const roomCode = document.getElementById('joinRoomInput').value.trim();
-            if (roomCode.length !== 5) { alert("Please enter a valid 5-digit room code."); return; }
-            window.startGameSession(roomCode, null); 
+            if (!/^\d{5}$/.test(roomCode)) { window.showToast("Please enter a valid 5-digit room code.", "warn"); return; }
+            window.startGameSession(roomCode, null);
         };
 
         window.startGameSession = function(roomCode, knownRegion) {
@@ -709,8 +866,12 @@
             document.getElementById('displayRoomCode').style.color = "#28a745";
 
             const gameRef = doc(db, "games", window.currentGameId);
-            
-            onSnapshot(gameRef, (docSnap) => {
+
+            // Detach any previous listener before attaching a new one so a failed
+            // join (or a re-join) never leaves a stale onSnapshot subscription live.
+            if (window.unsubscribeSnapshot) { window.unsubscribeSnapshot(); window.unsubscribeSnapshot = null; }
+
+            window.unsubscribeSnapshot = onSnapshot(gameRef, (docSnap) => {
                 if (docSnap.exists()) {
                     const data = docSnap.data();
                     
@@ -798,7 +959,10 @@
                     if (data.logEntries) logEntries = data.logEntries;
                     renderQuestions(); renderLog();
                 } else {
-                    alert("Room not found! Did you type the code correctly?");
+                    // Room doesn't exist — detach the listener so it doesn't stay live
+                    // and interfere with a later create/join.
+                    if (window.unsubscribeSnapshot) { window.unsubscribeSnapshot(); window.unsubscribeSnapshot = null; }
+                    window.showToast("Room not found. Did you type the code correctly?", "error");
                     document.getElementById('setupScreen').style.opacity = '1';
                     document.getElementById('setupScreen').style.display = 'flex';
                     window.currentGameId = null;
@@ -806,24 +970,52 @@
             });
         };
 
-        window.saveConstraints = function() {
+        // Persist constraints. When online, a Firestore transaction re-reads the
+        // server list and merges by id (local wins on conflict, locally-deleted ids
+        // are dropped) so two players adding layers in the same second don't clobber
+        // each other. Pass { overwrite: true } for an intentional full replace (Clear).
+        //
+        // Known limitation: this resolves concurrent ADDs and DELETEs correctly, but
+        // if two players toggle HIT/MISS on the SAME layer within one round-trip, the
+        // last transaction to commit wins for that layer (acceptable for this game).
+        window.saveConstraints = async function(opts = {}) {
+            const cleanLocal = myConstraints.map(c => ({
+                id: c.id,
+                type: c.type,
+                state: c.state,
+                name: c.name,
+                geometry: JSON.stringify(c.geometry),
+                visualGeometry: c.visualGeometry ? JSON.stringify(c.visualGeometry) : null
+            }));
+
             if (!window.currentGameId) {
-                var toSave = myConstraints.map(c => ({ id: c.id, type: c.type, geometry: c.geometry, state: c.state, name: c.name, visualGeometry: c.visualGeometry }));
-                localStorage.setItem('gm_constraints_v53', JSON.stringify(toSave));
+                localStorage.setItem('gm_constraints_v53', JSON.stringify(cleanLocal));
                 return;
             }
 
             const gameRef = doc(db, "games", window.currentGameId);
-            const cleanConstraints = myConstraints.map(c => ({
-                id: c.id, 
-                type: c.type, 
-                state: c.state, 
-                name: c.name, 
-                geometry: JSON.stringify(c.geometry), 
-                visualGeometry: c.visualGeometry ? JSON.stringify(c.visualGeometry) : null
-            }));
 
-            setDoc(gameRef, { constraints: cleanConstraints }, { merge: true });
+            if (opts.overwrite) {
+                recentlyDeleted.clear();
+                setDoc(gameRef, { constraints: cleanLocal }, { merge: true });
+                return;
+            }
+
+            try {
+                await runTransaction(db, async (tx) => {
+                    const snap = await tx.get(gameRef);
+                    const serverList = (snap.exists() && snap.data().constraints) ? snap.data().constraints : [];
+                    const byId = new Map();
+                    serverList.forEach(c => byId.set(String(c.id), c));   // start from server truth
+                    cleanLocal.forEach(c => byId.set(String(c.id), c));   // overlay our changes
+                    recentlyDeleted.forEach(id => byId.delete(String(id))); // honour local deletes
+                    tx.set(gameRef, { constraints: Array.from(byId.values()) }, { merge: true });
+                });
+                recentlyDeleted.clear();
+            } catch (e) {
+                console.warn("Constraint merge transaction failed; writing directly.", e);
+                setDoc(gameRef, { constraints: cleanLocal }, { merge: true });
+            }
         };
 
         window.saveQuestionsToCloud = function() {
@@ -851,13 +1043,16 @@
             var idx = myConstraints.findIndex(c => c.id === id);
             if (idx > -1) {
                 if (myConstraints[idx].leafletLayer) guideLayer.removeLayer(myConstraints[idx].leafletLayer);
+                recentlyDeleted.add(id);
                 myConstraints.splice(idx, 1); window.saveConstraints(); updateLayerList(); updateLogicMap();
             }
         };
 
-        window.renameConstraint = function(id) {
+        window.renameConstraint = async function(id) {
             var c = myConstraints.find(c => c.id === id);
-            if (c) { var newName = prompt("Rename:", c.name); if (newName && newName.trim() !== "") { c.name = newName.trim(); window.saveConstraints(); updateLayerList(); } }
+            if (!c) return;
+            var newName = await window.showPrompt("Rename layer:", c.name, { confirmLabel: 'Rename' });
+            if (newName && newName.trim() !== "") { c.name = newName.trim(); window.saveConstraints(); updateLayerList(); }
         };
 
         window.toggleConstraintState = function(id, newState) {
@@ -886,10 +1081,12 @@
         };
 
         function resetTools() {
-            ['btnRadius', 'btnAngle', 'btnBisect'].forEach(id => document.getElementById(id).classList.remove('active-tool-btn'));
+            ['btnRadius', 'btnAngle', 'btnBisect'].forEach(id => { var el = document.getElementById(id); if (el) el.classList.remove('active-tool-btn'); });
             document.getElementById('map').classList.remove('crosshair-cursor');
             if(angleGhost) { map.removeLayer(angleGhost); angleGhost = null; }
             if(angleMoveHandler) { map.off('mousemove', angleMoveHandler); angleMoveHandler = null; }
+            if(angleMapMoveHandler) { map.off('move', angleMapMoveHandler); angleMapMoveHandler = null; }
+            if(centerMarker) { map.removeLayer(centerMarker); centerMarker = null; }
         }
 
         window.startRadiusTool = function(e) {
@@ -899,44 +1096,79 @@
             map.once('click', function(ev) { drawRadiusAt(ev.latlng.lat, ev.latlng.lng); resetTools(); if (document.getElementById('controls').classList.contains('minimized')) window.toggleControls(); });
         };
 
-        var angleGhost = null; var angleMoveHandler = null;
-        window.startAngleTool = function(e) {
-            e.stopPropagation(); resetTools();
-            document.getElementById('btnAngle').classList.add('active-tool-btn'); document.getElementById('map').classList.add('crosshair-cursor');
+        var angleGhost = null; var angleMoveHandler = null; var angleMapMoveHandler = null; var centerMarker = null;
+
+        // Shared tap-based two-point picker that works with touch (no hover events).
+        // Tap point 1 -> a dashed preview is drawn from point 1 to the map centre and
+        // follows both the mouse (desktop) and map panning (touch: pan to aim, then tap).
+        // Tap point 2 -> onComplete(p1, p2) fires. Falls back gracefully on mouse too.
+        function startTwoPointTool(btnId, ghostColor, hint, onComplete) {
+            resetTools();
+            var btn = document.getElementById(btnId);
+            if (btn) btn.classList.add('active-tool-btn');
+            document.getElementById('map').classList.add('crosshair-cursor');
             if (!document.getElementById('controls').classList.contains('minimized')) window.toggleControls();
+            window.showToast("Tap the first point on the map.", "info", { duration: 3000 });
+
             map.once('click', function(startEv) {
-                var origin = startEv.latlng; angleGhost = L.polyline([origin, origin], {color:'black', dashArray:'5,5'}).addTo(map);
-                angleMoveHandler = function(moveEv) { angleGhost.setLatLngs([origin, moveEv.latlng]); }; map.on('mousemove', angleMoveHandler);
+                var origin = startEv.latlng;
+                angleGhost = L.polyline([origin, map.getCenter()], { color: ghostColor, dashArray: '5,5', weight: 2 }).addTo(map);
+                // Marker at the fixed first point so it stays visible while aiming.
+                centerMarker = L.circleMarker(origin, { radius: 5, color: ghostColor, fillColor: ghostColor, fillOpacity: 1, weight: 1 }).addTo(map);
+                // Desktop: follow the cursor.
+                angleMoveHandler = function(moveEv) { angleGhost.setLatLngs([origin, moveEv.latlng]); };
+                map.on('mousemove', angleMoveHandler);
+                // Touch: follow the map centre as the user pans to aim.
+                angleMapMoveHandler = function() { angleGhost.setLatLngs([origin, map.getCenter()]); };
+                map.on('move', angleMapMoveHandler);
+
+                window.showToast(hint, "info", { duration: 4000 });
+
                 map.once('click', function(endEv) {
-                    var b = turf.rhumbBearing([origin.lng, origin.lat], [endEv.latlng.lng, endEv.latlng.lat]);
-                    drawAngleAt(origin.lat, origin.lng, b); resetTools(); if (document.getElementById('controls').classList.contains('minimized')) window.toggleControls();
+                    var wasMinimized = document.getElementById('controls').classList.contains('minimized');
+                    resetTools();
+                    if (wasMinimized) window.toggleControls();
+                    onComplete(origin, endEv.latlng);
                 });
+            });
+        }
+
+        window.startAngleTool = function(e) {
+            if (e) e.stopPropagation();
+            startTwoPointTool('btnAngle', 'black', "Tap the second point to set the line direction.", function(origin, end) {
+                var b = turf.rhumbBearing([origin.lng, origin.lat], [end.lng, end.lat]);
+                drawAngleAt(origin.lat, origin.lng, b);
             });
         };
 
         window.startBisectTool = function(e) {
-            e.stopPropagation(); resetTools();
-            document.getElementById('btnBisect').classList.add('active-tool-btn'); document.getElementById('map').classList.add('crosshair-cursor');
-            if (!document.getElementById('controls').classList.contains('minimized')) window.toggleControls();
-            map.once('click', function(p1Ev) {
-                var p1 = p1Ev.latlng; angleGhost = L.polyline([p1, p1], {color:'blue', dashArray:'5,5'}).addTo(map);
-                angleMoveHandler = function(moveEv) { angleGhost.setLatLngs([p1, moveEv.latlng]); }; map.on('mousemove', angleMoveHandler);
-                map.once('click', function(p2Ev) { drawBisector(p1, p2Ev.latlng); resetTools(); if (document.getElementById('controls').classList.contains('minimized')) window.toggleControls(); });
+            if (e) e.stopPropagation();
+            startTwoPointTool('btnBisect', 'blue', "Tap the second point to bisect between the two.", function(p1, p2) {
+                drawBisector(p1, p2);
             });
         };
 
         window.undoLast = function() { if(myConstraints.length>0) window.removeConstraint(myConstraints[myConstraints.length-1].id); };
-        window.clearAll = function() { 
-            if(confirm("Are you sure you want to clear all map restrictions?")) {
-                myConstraints = []; 
-                guideLayer.clearLayers(); 
-                window.saveConstraints(); 
-                updateLayerList(); 
-                updateLogicMap(); 
-                }       
-            };
+        window.clearAll = async function() {
+            const ok = await window.showConfirm(
+                "Clear <strong>all</strong> map restrictions? This affects every player in the room.",
+                { danger: true, confirmLabel: 'Clear all' }
+            );
+            if (!ok) return;
+            myConstraints.forEach(c => recentlyDeleted.add(c.id));
+            myConstraints = [];
+            guideLayer.clearLayers();
+            window.saveConstraints({ overwrite: true });
+            updateLayerList();
+            updateLogicMap();
+        };
         window.manualRadius = function() { var c=document.getElementById('radiusCoords').value.split(','); if(c.length===2) drawRadiusAt(parseFloat(c[0]), parseFloat(c[1])); };
-        window.manualAngle = function() { var c=document.getElementById('angleCoords').value.split(','); if(c.length===2) { var b=prompt("Bearing:", "90"); drawAngleAt(parseFloat(c[0]), parseFloat(c[1]), parseFloat(b)); }};
+        window.manualAngle = async function() {
+            var c=document.getElementById('angleCoords').value.split(',');
+            if(c.length!==2) return;
+            var b = await window.showPrompt("Bearing (degrees):", "90", { confirmLabel: 'Draw' });
+            if (b !== null && b.trim() !== "") drawAngleAt(parseFloat(c[0]), parseFloat(c[1]), parseFloat(b));
+        };
         window.radiusAtGPS = function() {
             if (!navigator.geolocation) return; var btn = document.getElementById('btnGpsRadius'); var oldText = btn.innerText; btn.innerText = "Locating...";
             navigator.geolocation.getCurrentPosition(function(position) { drawRadiusAt(position.coords.latitude, position.coords.longitude); btn.innerText = oldText; }, function(error) { btn.innerText = oldText; }, { enableHighAccuracy: true });
@@ -976,123 +1208,14 @@
         }
 
         // ==========================================
-        // VORONOI & CUSTOM ZONE LOGIC
+        // CUSTOM ZONE STATE
         // ==========================================
-        
-        window.customOverpassBbox = null; 
+        // Set when a room is created/joined as a "custom" region (see startCreateFlow
+        // and startGameSession). Consumed by loadTransportData / loadDynamicAreas /
+        // loadFareZones / loadPOIVoronoi to scope Overpass queries to the drawn area.
+        window.customOverpassBbox = null;
         window.customTurfBbox = null;
         window.customBboxPoly = null;
-        window.poiFeatureCollection = null;
-        window.poiVoronoiMap = {};
-
-        window.startCustomZoneDraw = function() {
-            document.getElementById('map').classList.add('crosshair-cursor');
-            let rect = null;
-            let bboxStart = null;
-
-            map.once('mousedown', function(eStart) {
-                bboxStart = eStart.latlng;
-                rect = L.rectangle([bboxStart, bboxStart], {color: "#ff7800", weight: 2, fillOpacity: 0.1}).addTo(map);
-                
-                const onMove = function(eMove) { rect.setBounds([bboxStart, eMove.latlng]); };
-                map.on('mousemove', onMove);
-                
-                map.once('mouseup', function(eEnd) {
-                    map.off('mousemove', onMove);
-                    document.getElementById('map').classList.remove('crosshair-cursor');
-                    
-                    const bounds = rect.getBounds();
-                    // Overpass format: south, west, north, east
-                    window.customOverpassBbox = `${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()}`;
-                    // Turf format: minX, minY, maxX, maxY
-                    window.customTurfBbox = [bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth()];
-                    window.customBboxPoly = turf.bboxPolygon(window.customTurfBbox);
-                    
-                    alert("Custom Game Zone Defined! You can now fetch POIs.");
-                    
-                    // Optional: remove the visual rectangle after drawing so it doesn't clutter the map
-                    setTimeout(() => map.removeLayer(rect), 1000); 
-                });
-            });
-        };
-
-        window.fetchPOIs = async function(poiType) {
-            if (!window.customOverpassBbox) {
-                alert("Please draw a custom game zone first (Step 1).");
-                return;
-            }
-            
-            const btn = document.querySelector(`button[onclick="window.fetchPOIs(document.getElementById('poiTypeInput').value)"]`);
-            const originalText = btn.innerText;
-            btn.innerText = "Fetching...";
-            btn.disabled = true;
-
-            const query = `[out:json][timeout:25]; node["amenity"="${poiType}"](${window.customOverpassBbox}); out body;>;out skel qt;`;
-            const url = "https://overpass-api.de/api/interpreter?data=" + encodeURIComponent(query);
-            
-            try {
-                const response = await fetch(url);
-                if (!response.ok) throw new Error("Overpass API busy.");
-                const data = await response.json();
-                
-                const features = data.elements.filter(e => e.type === "node").map(e => {
-                    return turf.point([e.lon, e.lat], { name: e.tags.name || `Unnamed ${poiType}`, id: e.id });
-                });
-                    
-                window.poiFeatureCollection = turf.featureCollection(features);
-                console.log(`Fetched ${features.length} POIs.`);
-                
-                window.generateVoronoiConstraints();
-            } catch (error) {
-                console.error("Error fetching POIs:", error);
-                alert("Failed to load POIs.");
-            } finally {
-                btn.innerText = originalText;
-                btn.disabled = false;
-            }
-        };
-
-        window.generateVoronoiConstraints = function() {
-            if (!window.poiFeatureCollection || window.poiFeatureCollection.features.length === 0) {
-                alert("No POIs found in that area.");
-                return;
-            }
-
-            const voronoiPolygons = turf.voronoi(window.poiFeatureCollection, { bbox: window.customTurfBbox });
-            window.poiVoronoiMap = {};
-            const selectDropdown = document.getElementById('voronoiSelect');
-            selectDropdown.innerHTML = ""; // clear old options
-            
-            turf.featureEach(voronoiPolygons, function (currentPoly, index) {
-                if (currentPoly) {
-                    const poi = window.poiFeatureCollection.features[index];
-                    const clippedPoly = turf.intersect(currentPoly, window.customBboxPoly);
-                    
-                    if (clippedPoly) {
-                        window.poiVoronoiMap[poi.properties.id] = {
-                            name: poi.properties.name, point: poi, polygon: clippedPoly
-                        };
-                        
-                        // Add to UI Dropdown
-                        const opt = document.createElement('option');
-                        opt.value = poi.properties.id;
-                        opt.text = poi.properties.name;
-                        selectDropdown.appendChild(opt);
-                    }
-                }
-            });
-            alert("Voronoi cells generated and populated in the dropdown!");
-        };
-
-        window.addSelectedVoronoi = function() {
-            const poiId = document.getElementById('voronoiSelect').value;
-            if (!poiId) return;
-            
-            const cell = window.poiVoronoiMap[poiId];
-            if (cell) {
-                addConstraint('voronoi', cell.polygon, `Closest to ${cell.name}`, cell.polygon);
-            }
-        };
         // ==========================================
 
 window.dynamicBoroughs = {};
@@ -1434,17 +1557,7 @@ function populateZoneDropdown(zSelect) {
 
         window.dynamicPOIs = {};
         window.poiPolygons = {};
-
-        window.dynamicPOIs = {};
-        window.poiPolygons = {};
-        window.poiPreviewLayer = null; // Stores our temporary map lines
-
-window.dynamicPOIs = {};
-        window.poiPolygons = {};
-
-window.dynamicPOIs = {};
-        window.poiPolygons = {};
-        window.poiPreviewLayer = null; 
+        window.poiPreviewLayer = null; // Stores our temporary map preview lines
 
         window.loadPOIVoronoi = async function() {
             const catSelect = document.getElementById('poiCategorySelect');
@@ -1596,7 +1709,7 @@ window.dynamicPOIs = {};
                 
                 addConstraint('borough', targetPoly, `${poiName} Catchment`, targetPoly);
             } else {
-                alert("Could not find boundary for this POI.");
+                window.showToast("Could not find a boundary for this POI.", "warn");
             }
         };
         window.switchTab = function(t) {
@@ -1619,17 +1732,17 @@ window.dynamicPOIs = {};
             });
         }
 
-        window.clearLog = function() {
-            if(confirm("Clear completion history?")) { 
-                logEntries = []; 
+        window.clearLog = async function() {
+            if (await window.showConfirm("Clear the completion history for everyone?", { danger: true, confirmLabel: 'Clear log' })) {
+                logEntries = [];
                 window.saveQuestionsToCloud();
                 renderLog();
             }
         };
 
-        window.resetQuestions = function() {
-            if(confirm("Reset all questions?")) {
-                questionState = {}; 
+        window.resetQuestions = async function() {
+            if (await window.showConfirm("Reset all questions for everyone in the room?", { danger: true, confirmLabel: 'Reset' })) {
+                questionState = {};
                 window.saveQuestionsToCloud();
                 renderQuestions();
             }
@@ -1707,15 +1820,15 @@ window.addZoneLayer = function() {
 
     // Safety check
     if (!profile || !profile.zones || !profile.zones[zName]) {
-        alert(`No predefined zones found for ${window.currentRegion}.`);
+        window.showToast(`No predefined zones found for ${window.currentRegion}.`, "warn");
         return;
     }
 
     let stops = profile.zones[zName];
-    
-    if (!stops || stops.length === 0) { 
-        alert(`No stops found for Zone ${zName}.`); 
-        return; 
+
+    if (!stops || stops.length === 0) {
+        window.showToast(`No stops found for Zone ${zName}.`, "warn");
+        return;
     }
 
     let circles = [];
@@ -1746,7 +1859,7 @@ window.addZoneLayer = function() {
             addConstraint('zone', targetPoly, cleanLabel, targetPoly);
         }
     } else {
-        alert("Could not map the stations for this zone.");
+        window.showToast("Could not map the stations for this zone.", "warn");
     }
 };
         window.loadTransportData = async function() {
@@ -1791,13 +1904,11 @@ window.addZoneLayer = function() {
             
             // Check Local Storage Cache First
             const savedData = localStorage.getItem(actualCacheKey);
-            if (savedData) { 
-                processData(JSON.parse(savedData), profile); 
-                if (loader) loader.style.display = 'none'; 
-                const legend = document.getElementById('legend');
+            if (savedData) {
+                processData(JSON.parse(savedData), profile);
+                if (loader) loader.style.display = 'none';
                 window.loadDynamicAreas();
-                if (legend) legend.style.display = 'block'; 
-                return; 
+                return;
             }
             
             const endpoints = [
@@ -1814,8 +1925,8 @@ window.addZoneLayer = function() {
             }
 
             if (!data) {
-                alert("Data Load Error: All map servers are busy."); 
-                if (loader) loader.style.display = 'none'; 
+                window.showToast("Data load failed — all map servers are busy. Try again shortly.", "error");
+                if (loader) loader.style.display = 'none';
                 return;
             }
             
@@ -1834,14 +1945,36 @@ try { localStorage.setItem(actualCacheKey, JSON.stringify(data)); } catch(e) {}
         if (loader) loader.innerText = "Pausing for Overpass API (2/2)...";
         await window.sleep(2500); // Wait another 2.5 seconds
         // Hide loader when completely finished
-        if (loader) loader.style.display = 'none'; 
-        const legend = document.getElementById('legend');
-        if (legend) legend.style.display = 'block';
+        if (loader) loader.style.display = 'none';
     })();
 
         };
 		
-        window.forceRefreshData = function(){ localStorage.removeItem(`gm_transport_data_v3_${window.currentRegion}`); document.getElementById('btnLoadTransport').disabled = false; window.loadTransportData(); };
+        // Clear every cache relevant to the current room (station data for both the
+        // standard and custom key shapes, plus fare-zone caches), then re-download.
+        window.forceRefreshData = function() {
+            const region = window.currentRegion;
+            const bbox = window.customOverpassBbox;
+            const keysToRemove = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (!key) continue;
+                const matchesRegion = region && (
+                    key === `gm_transport_data_v3_${region}` ||
+                    key === `gm_fare_zones_${region}`
+                );
+                const matchesCustom = bbox && (
+                    key === `gm_transport_data_v3_custom_${bbox}` ||
+                    key === `gm_fare_zones_${bbox}`
+                );
+                if (matchesRegion || matchesCustom) keysToRemove.push(key);
+            }
+            keysToRemove.forEach(k => localStorage.removeItem(k));
+            const btn = document.getElementById('btnLoadTransport');
+            if (btn) btn.disabled = false;
+            window.showToast("Cleared cache — re-downloading map data…", "info");
+            window.loadTransportData();
+        };
 
 function processData(d, profile) {
     if (!d || !d.elements) return;
@@ -1980,12 +2113,11 @@ function processData(d, profile) {
     console.log(`✅ Loaded ${Object.keys(window.stationMap).length} stations into Logic Engine.`);
 }
 
-// Universal function to handle Boroughs, Counties, and Countries
         // Universal function to handle Boroughs, Counties, and Countries
         function addAdministrativeConstraint(dropdownId, labelSuffix, dynamicDataDict) {
             const name = document.getElementById(dropdownId).value;
             if (!name || name.includes("Found") || name.includes("Loading") || name.includes("Error")) return;
-            if (Object.keys(window.stationMap).length === 0) { alert("Load Stations first!"); return; }
+            if (Object.keys(window.stationMap).length === 0) { window.showToast("Map data is still loading — try again in a moment.", "warn"); return; }
 
             let targetPoly = null;
 
@@ -2002,7 +2134,7 @@ function processData(d, profile) {
                     stops = cityProfiles[window.currentRegion].boroughs[name];
                 }
 
-                if (stops.length === 0) { alert("No stops found for " + name); return; }
+                if (stops.length === 0) { window.showToast("No stops found for " + name, "warn"); return; }
 
                 let circles = []; let missing = [];
                 stops.forEach(nameOrKey => { 
@@ -2029,7 +2161,7 @@ function processData(d, profile) {
                     addConstraint('borough', cleanPoly, `${name} ${labelSuffix}`, cleanPoly);
                 } catch(e) {
                     console.error("Math engine failed to simplify the shape:", e);
-                    alert("This boundary is too complex to draw. Try a smaller area!");
+                    window.showToast("This boundary is too complex to draw. Try a smaller area.", "error");
                 }
             }
         }
@@ -2059,10 +2191,11 @@ function processData(d, profile) {
             }
         };
 
-        window.leaveRoom = function() {
-            if(confirm("Are you sure you want to leave this room?")) {
-                // The safest way to cleanly unbind Firebase listeners and reset the UI is to reload the page
-                window.location.reload(); 
+        window.leaveRoom = async function() {
+            if (await window.showConfirm("Leave this room and return to the setup screen?", { confirmLabel: 'Leave' })) {
+                // Detach the live listener, then reload for a clean reset of all UI state.
+                if (window.unsubscribeSnapshot) { window.unsubscribeSnapshot(); window.unsubscribeSnapshot = null; }
+                window.location.reload();
             }
         };
 
@@ -2074,10 +2207,10 @@ function processData(d, profile) {
 
         window.toggleLiveGPS = function(isTracking) {
             if (isTracking) {
-                if (!navigator.geolocation) { 
-                    alert("GPS not supported by your browser."); 
+                if (!navigator.geolocation) {
+                    window.showToast("GPS is not supported by your browser.", "error");
                     document.getElementById('toggleLiveGPS').checked = false;
-                    return; 
+                    return;
                 }
                 
                 // Start continuously tracking
@@ -2111,7 +2244,7 @@ function processData(d, profile) {
                     },
                     function(error) { 
                         console.error("GPS Watch Error", error); 
-                        if (error.code === 1) alert("Please allow location permissions in your browser to use Live GPS.");
+                        if (error.code === 1) window.showToast("Please allow location permissions to use Live GPS.", "warn");
                     },
                     { enableHighAccuracy: true, maximumAge: 2000, timeout: 10000 }
                 );
