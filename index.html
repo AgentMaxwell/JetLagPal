@@ -16,9 +16,14 @@
         #controls {
             position: absolute; top: 10px; right: 10px; background: white;
             padding: 15px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-            z-index: 1000; width: 340px; max-width: 90vw; max-height: 90vh; overflow-y: auto;
-            display: flex; flex-direction: column; transition: all 0.2s ease;
+            z-index: 1000; width: 340px; max-width: 90vw; max-height: 90vh; overflow: hidden;
+            display: flex; flex-direction: column; transition: height 0.2s ease;
         }
+        .controls-header, #connectionStatus { flex-shrink: 0; }
+        #sheetScroll { flex: 1 1 auto; overflow-y: auto; min-height: 0; }
+        /* Drag handle is desktop-hidden; the mobile media query reveals it. */
+        #sheetHandle { display: none; }
+        #sheetSummary { display: none; }
 
         .controls-header { 
             display: flex; justify-content: space-between; align-items: center; 
@@ -78,6 +83,7 @@
         .layer-item { padding: 10px; border-bottom: 1px solid #eee; background: #fafafa; margin-bottom: 5px; border-radius: 4px; }
         .layer-header { display: flex; align-items: center; margin-bottom: 8px; }
         
+        .layer-icon { margin-right: 8px; font-size: 1.15em; flex-shrink: 0; }
         .layer-name { font-weight: bold; color: #333; font-size: 0.95em; cursor: pointer; border-bottom: 1px dashed #ccc; flex-grow: 1; margin-right: 10px; }
         .icon-group { display: flex; gap: 8px; }
         .icon-btn { background: none; border: none; color: #888; font-size: 1.1em; width: auto; padding: 0; margin: 0; cursor: pointer; }
@@ -254,6 +260,26 @@
     background-color: #d32f2f;
 }
 
+/* --- CONNECTION STATUS BAR --- */
+#connectionStatus {
+    padding: 8px; background: #eef; margin-bottom: 10px; border-radius: 4px;
+    font-size: 0.9em; color: #333; font-weight: bold;
+}
+.conn-row { display: flex; align-items: center; gap: 8px; justify-content: center; }
+.conn-dot {
+    width: 10px; height: 10px; border-radius: 50%; background: #f0ad4e;
+    flex-shrink: 0; transition: background 0.3s;
+}
+.conn-dot.online { background: #2e7d32; }
+.conn-dot.offline { background: #c62828; }
+.conn-copy {
+    width: auto; margin: 0; padding: 4px 8px; background: #0078A8; color: #fff;
+    border: none; border-radius: 4px; cursor: pointer; font-size: 0.95em; line-height: 1;
+    min-height: 32px;
+}
+.conn-copy:disabled { background: #ccc; }
+.conn-region { text-align: center; font-weight: normal; font-size: 0.85em; color: #666; margin-top: 4px; }
+
 /* --- TOAST NOTIFICATIONS (non-blocking) --- */
 #toastContainer {
     position: fixed; top: 12px; left: 50%; transform: translateX(-50%);
@@ -272,6 +298,12 @@
 .toast.error { background: #c62828; }
 .toast.warn { background: #e08600; }
 .toast-msg { flex: 1; }
+.toast-spinner {
+    width: 16px; height: 16px; border-radius: 50%; flex-shrink: 0;
+    border: 2px solid rgba(255,255,255,0.35); border-top-color: #fff;
+    animation: toastSpin 0.7s linear infinite;
+}
+@keyframes toastSpin { to { transform: rotate(360deg); } }
 .toast-action {
     background: rgba(255,255,255,0.22); color: #fff; border: none;
     padding: 6px 12px; border-radius: 5px; cursor: pointer; font-weight: bold;
@@ -300,6 +332,57 @@
 .app-modal-actions button { margin-top: 0; min-height: 44px; }
 .app-modal-cancel { background: #eee !important; color: #333 !important; }
 .app-modal-confirm.danger { background: #d9534f !important; }
+
+/* --- BOTTOM SHEET on narrow viewports --- */
+@media (max-width: 600px) {
+    #controls {
+        top: auto; bottom: 0; left: 0; right: 0;
+        width: 100%; max-width: 100%; margin: 0; padding: 0;
+        max-height: none; border-radius: 16px 16px 0 0;
+        box-shadow: 0 -3px 14px rgba(0,0,0,0.28);
+        transition: height 0.25s ease;
+    }
+    /* The minimize button and desktop .minimized state don't apply on mobile. */
+    #minBtn { display: none; }
+    #controls.minimized { height: auto; max-height: none; }
+    #controls.minimized .tab-bar, #controls.minimized .tab-content { display: block !important; }
+
+    #sheetHandle {
+        display: flex; flex-direction: column; align-items: center;
+        padding: 8px 12px 4px; cursor: grab; flex-shrink: 0; touch-action: none;
+        user-select: none;
+    }
+    .sheet-grip { width: 42px; height: 5px; border-radius: 3px; background: #ccc; }
+    #sheetSummary { font-size: 0.85em; color: #555; font-weight: bold; margin-top: 4px; }
+
+    .controls-header, #connectionStatus { padding-left: 12px; padding-right: 12px; }
+    #sheetScroll { padding: 0 12px 16px; }
+
+    /* Three sheet states. */
+    #controls.sheet-collapsed { height: auto; }
+    #controls.sheet-collapsed .controls-header,
+    #controls.sheet-collapsed #connectionStatus,
+    #controls.sheet-collapsed #sheetScroll { display: none; }
+    #controls.sheet-collapsed #sheetSummary { display: block; }
+
+    #controls.sheet-half { height: 45vh; }
+    #controls.sheet-full { height: 88vh; }
+
+    /* Keep the floating Ko-fi pill from overlapping the sheet on phones. */
+    .kofi-support-container { display: none; }
+}
+
+/* --- BIGGER TOUCH TARGETS on touch devices (min 44px) --- */
+@media (pointer: coarse) {
+    .icon-btn-header { width: 44px; height: 44px; font-size: 1.35em; }
+    .toggle-btn { min-height: 44px; font-size: 0.9em; }
+    .q-btn { min-height: 48px; display: flex; align-items: center; justify-content: center; }
+    .tab-btn { min-height: 46px; }
+    .conn-copy, .toast-action { min-height: 44px; }
+    .icon-btn { min-width: 40px; min-height: 40px; }
+    button { min-height: 44px; }
+    input[type="number"], input[type="text"], select { min-height: 44px; font-size: 16px; }
+}
     </style>
 </head>
 <body>
@@ -346,7 +429,8 @@
 
                 <div style="margin-bottom:20px; text-align: left;">
                     <strong style="font-size: 1.1em;">Data Management</strong>
-                    <button id="btnLoadTransport" onclick="window.loadTransportData()" style="background:#0078A8; color:white; border:none; padding:10px; border-radius:4px; width:100%; margin-top:10px; cursor:pointer;">Load Map Stations</button>
+                    <p style="font-size:12px; color:#666; margin:5px 0 10px 0;">Map data loads automatically when you join. Use these if you need to reload it.</p>
+                    <button id="btnLoadTransport" onclick="window.loadTransportData()" style="background:#0078A8; color:white; border:none; padding:10px; border-radius:4px; width:100%; margin-top:10px; cursor:pointer;">↻ Reload Map Data</button>
                     <div id="loader" style="display:none; text-align:center; color:#0078A8; margin-top:5px; font-weight:bold;">Fetching Data...</div>
                     <button onclick="window.forceRefreshData()" style="background:#999; color:white; border:none; padding:10px; border-radius:4px; width:100%; margin-top:10px; cursor:pointer;">↻ Force Re-download</button>
                 </div>
@@ -396,6 +480,10 @@
 
 
     <div id="controls">
+        <div id="sheetHandle" title="Drag or tap to resize">
+            <div class="sheet-grip"></div>
+            <div id="sheetSummary"></div>
+        </div>
         <div class="controls-header">
             <h3>JetLagPal</h3>
             <div class="header-btns">
@@ -406,10 +494,17 @@
             </div>
         </div>
 
-        <div id="connectionStatus" style="padding: 8px; background: #eef; margin-bottom: 10px; border-radius: 4px; font-size: 0.9em; color: #333; text-align: center; font-weight: bold;">
-            Room: <span id="displayRoomCode">Not Connected</span> | Region: <span id="displayRegion">N/A</span>
+        <div id="connectionStatus">
+            <div class="conn-row">
+                <span class="conn-dot" id="connDot" title="Connection status"></span>
+                <span>Room: <span id="displayRoomCode">Not Connected</span></span>
+                <button class="conn-copy" id="btnCopyCode" onclick="window.copyRoomCode()" title="Copy room code">⧉</button>
+                <button class="conn-copy" id="btnCopyLink" onclick="window.copyInviteLink()" title="Copy invite link">🔗</button>
+            </div>
+            <div class="conn-region">Region: <span id="displayRegion">N/A</span> · <span id="connState">connecting…</span></div>
         </div>
-        
+
+        <div id="sheetScroll">
         <div class="tab-bar">
             <button id="btn-tab-tools" class="tab-btn active" onclick="switchTab('tools')">Tools</button>
             <button id="btn-tab-layers" class="tab-btn" onclick="switchTab('layers')">Layers</button>
@@ -542,6 +637,7 @@
             <div id="logList"></div>
             <button onclick="clearLog()" style="background:#d9534f; margin-top:20px;">Clear Log</button>
         </div>
+        </div><!-- /#sheetScroll -->
     </div>
 
     <div id="map"></div>
@@ -561,13 +657,31 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-        import { getFirestore, doc, setDoc, getDoc, onSnapshot, runTransaction } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, getDoc, onSnapshot, runTransaction, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
         import { firebaseConfig } from './firebase-config.js';
         import { setupTutorial } from './tutorial.js';
         import { questionData } from './questions.js';
         import { cityProfiles} from './mapData.js';
         // Universal pause function (time in milliseconds)
         window.sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+        // Guarded localStorage write. Overpass responses can exceed the storage
+        // quota; when that happens we degrade gracefully (caching off) and tell the
+        // user once, rather than throwing. Returns true on success.
+        window._cacheWarned = false;
+        window.saveToLocalStorage = function(key, value) {
+            try {
+                localStorage.setItem(key, value);
+                return true;
+            } catch (e) {
+                console.warn("localStorage write failed (caching off):", e && e.name);
+                if (!window._cacheWarned && window.showToast) {
+                    window._cacheWarned = true;
+                    window.showToast("Storage full — data caching is off. The app still works but will re-download data.", "warn", { duration: 6000 });
+                }
+                return false;
+            }
+        };
 
         // === NON-BLOCKING NOTIFICATIONS (replace native alert/confirm/prompt) ===
         // showToast(message, type, opts) — type: info|success|error|warn.
@@ -602,6 +716,43 @@
             const duration = opts.duration !== undefined ? opts.duration : (opts.actionLabel ? 7000 : 3500);
             if (duration > 0) timer = setTimeout(dismiss, duration);
             return dismiss;
+        };
+
+        // Sticky progress toast for network operations. Returns handles to update
+        // the message and to resolve it as success or failure.
+        //   const p = showProgress("Loading stations…");
+        //   p.update("Fetching (server 2/3)…");
+        //   p.done("142 stations loaded");   // or  p.fail("Overpass busy")
+        window.showProgress = function(message) {
+            const container = document.getElementById('toastContainer');
+            if (!container) { console.log(`[progress] ${message}`); return { update(){}, done(){}, fail(){} }; }
+            const toast = document.createElement('div');
+            toast.className = 'toast info';
+            const spinner = document.createElement('span');
+            spinner.className = 'toast-spinner';
+            const msg = document.createElement('span');
+            msg.className = 'toast-msg';
+            msg.textContent = message;
+            toast.appendChild(spinner);
+            toast.appendChild(msg);
+            container.appendChild(toast);
+
+            const remove = () => { toast.classList.add('hide'); setTimeout(() => toast.remove(), 200); };
+            return {
+                update(text) { msg.textContent = text; },
+                done(text) {
+                    spinner.remove();
+                    toast.className = 'toast success';
+                    msg.textContent = text || 'Done';
+                    setTimeout(remove, 2500);
+                },
+                fail(text) {
+                    spinner.remove();
+                    toast.className = 'toast error';
+                    msg.textContent = text || 'Failed';
+                    setTimeout(remove, 4500);
+                }
+            };
         };
 
         // Small inline confirm modal. Returns a Promise<boolean>.
@@ -673,8 +824,31 @@
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
-        
+
+        // Offline persistence: keep state through tunnels / patchy mobile data.
+        // Must run before any other Firestore call; may fail with multiple open
+        // tabs (failed-precondition) or unsupported browsers — that's non-fatal.
+        enableIndexedDbPersistence(db).catch((err) => {
+            console.warn("Offline persistence unavailable:", err && err.code);
+        });
+
         window.currentGameId = null;
+
+        // === CONNECTION STATUS INDICATOR ===
+        // 'connecting' (amber) → 'online' (green) once a snapshot arrives from the
+        // server, 'offline' (red) when the browser loses connectivity or snapshots
+        // are being served from cache with pending writes.
+        window.setConnState = function(state) {
+            const dot = document.getElementById('connDot');
+            const label = document.getElementById('connState');
+            if (!dot || !label) return;
+            dot.classList.remove('online', 'offline');
+            if (state === 'online') { dot.classList.add('online'); label.textContent = 'synced'; }
+            else if (state === 'offline') { dot.classList.add('offline'); label.textContent = 'offline — changes will sync when back'; }
+            else { label.textContent = 'connecting…'; }
+        };
+        window.addEventListener('online',  () => { if (window.currentGameId) window.setConnState('online'); });
+        window.addEventListener('offline', () => { window.setConnState('offline'); });
 
         // === LEAFLET SETUP ===
         var map = L.map('map').setView([53.4808, -2.2426], 11); 
@@ -719,7 +893,7 @@
                 for (let c of myConstraints) {
                     try {
                         var constraintGreenShape = null;
-                        if (c.type === 'radius' || c.type === 'borough' || c.type === 'zone' || c.type === 'angle' || c.type === 'bisect') {
+                        if (c.type === 'radius' || c.type === 'borough' || c.type === 'zone' || c.type === 'angle' || c.type === 'bisect' || c.type === 'thermo' || c.type === 'tentacle') {
                             if (c.state === 'hit') constraintGreenShape = c.geometry;
                             else constraintGreenShape = turf.difference(worldPoly, c.geometry);
                         } 
@@ -864,6 +1038,14 @@
 
             document.getElementById('displayRoomCode').innerText = roomCode;
             document.getElementById('displayRoomCode').style.color = "#28a745";
+            window.setConnState('connecting');
+            if (window.updateSheetSummary) window.updateSheetSummary();
+            // Reflect the room in the URL so a refresh rejoins and the link is shareable.
+            try {
+                const url = new URL(window.location.href);
+                url.searchParams.set('room', roomCode);
+                window.history.replaceState({}, '', url);
+            } catch (e) {}
 
             const gameRef = doc(db, "games", window.currentGameId);
 
@@ -871,7 +1053,14 @@
             // join (or a re-join) never leaves a stale onSnapshot subscription live.
             if (window.unsubscribeSnapshot) { window.unsubscribeSnapshot(); window.unsubscribeSnapshot = null; }
 
-            window.unsubscribeSnapshot = onSnapshot(gameRef, (docSnap) => {
+            window.unsubscribeSnapshot = onSnapshot(gameRef, { includeMetadataChanges: true }, (docSnap) => {
+                // Metadata tells us whether this update came from the server or the
+                // local cache, which drives the connection dot.
+                if (!navigator.onLine || (docSnap.metadata.fromCache && docSnap.metadata.hasPendingWrites)) {
+                    window.setConnState('offline');
+                } else if (!docSnap.metadata.fromCache) {
+                    window.setConnState('online');
+                }
                 if (docSnap.exists()) {
                     const data = docSnap.data();
                     
@@ -970,6 +1159,50 @@
             });
         };
 
+        // --- SHARE / INVITE ---
+        async function copyText(text) {
+            try {
+                if (navigator.clipboard && window.isSecureContext) {
+                    await navigator.clipboard.writeText(text);
+                    return true;
+                }
+            } catch (e) { /* fall through to legacy path */ }
+            try {
+                const ta = document.createElement('textarea');
+                ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+                document.body.appendChild(ta); ta.focus(); ta.select();
+                const ok = document.execCommand('copy');
+                ta.remove();
+                return ok;
+            } catch (e) { return false; }
+        }
+
+        function flashCopied(btnId) {
+            const btn = document.getElementById(btnId);
+            if (!btn) return;
+            const original = btn.textContent;
+            btn.textContent = '✓';
+            btn.disabled = true;
+            setTimeout(() => { btn.textContent = original; btn.disabled = false; }, 1200);
+        }
+
+        window.copyRoomCode = async function() {
+            if (!window.currentGameId) return;
+            const ok = await copyText(window.currentGameId);
+            if (ok) { flashCopied('btnCopyCode'); window.showToast("Room code copied.", "success", { duration: 2000 }); }
+            else window.showToast(`Room code: ${window.currentGameId}`, "info");
+        };
+
+        window.copyInviteLink = async function() {
+            if (!window.currentGameId) return;
+            const url = new URL(window.location.href);
+            url.searchParams.set('room', window.currentGameId);
+            const link = url.toString();
+            const ok = await copyText(link);
+            if (ok) { flashCopied('btnCopyLink'); window.showToast("Invite link copied — share it with your team.", "success", { duration: 2500 }); }
+            else window.showToast(link, "info", { duration: 8000 });
+        };
+
         // Persist constraints. When online, a Firestore transaction re-reads the
         // server list and merges by id (local wins on conflict, locally-deleted ids
         // are dropped) so two players adding layers in the same second don't clobber
@@ -1057,20 +1290,70 @@
 
         window.toggleConstraintState = function(id, newState) {
             var c = myConstraints.find(c => c.id === id);
-            if (c) { c.state = newState; window.saveConstraints(); updateLayerList(); updateLogicMap(); }
+            if (c) { c.state = newState; window.saveConstraints(); updateLayerList(); updateLogicMap(); flashHighlight(c); }
         };
+
+        // Briefly flash the affected region on the map for immediate visual feedback.
+        function flashHighlight(c) {
+            var geo = c.visualGeometry || c.geometry;
+            if (!geo) return;
+            try {
+                var hl = L.geoJSON(geo, { style: { color: '#ffca28', weight: 4, fillColor: '#ffca28', fillOpacity: 0.25, interactive: false } }).addTo(map);
+                setTimeout(() => { try { map.removeLayer(hl); } catch(e){} }, 850);
+            } catch (e) {}
+        }
+
+        // Icon + accent colour per constraint type, for the Layers list.
+        function typeMeta(type) {
+            switch (type) {
+                case 'radius':   return { icon: '🎯', color: '#0078A8' };
+                case 'angle':    return { icon: '📐', color: '#333' };
+                case 'bisect':   return { icon: '📐', color: '#3949ab' };
+                case 'thermo':   return { icon: '🌡️', color: '#e53935' };
+                case 'zone':     return { icon: '🎟️', color: '#8e24aa' };
+                case 'tentacle': return { icon: '🐙', color: '#00897b' };
+                case 'borough':  return { icon: '🗺️', color: '#2e7d32' };
+                default:         return { icon: '📍', color: '#555' };
+            }
+        }
+
+        // 8-point compass label from a bearing in degrees.
+        function bearingToCompass(b) {
+            var dirs = ['N','NE','E','SE','S','SW','W','NW'];
+            return dirs[Math.round((((b % 360) + 360) % 360) / 45) % 8];
+        }
+
+        // For directional constraints, derive human "which side" labels from the
+        // persisted guide line so both players see the same spatial wording.
+        function directionalSides(c) {
+            try {
+                var g = c.visualGeometry, coords = null;
+                if (g && g.geometry && g.geometry.type === 'LineString') coords = g.geometry.coordinates;
+                else if (g && g.type === 'LineString') coords = g.coordinates;
+                if (!coords || coords.length < 2) return { a: 'Side A', b: 'Side B' };
+                var bearing = turf.bearing(turf.point(coords[0]), turf.point(coords[coords.length - 1]));
+                // The kept half-plane (state 'hit') faces bearing - 90 (see drawAngleAt).
+                return { a: `${bearingToCompass(bearing - 90)} side`, b: `${bearingToCompass(bearing + 90)} side` };
+            } catch (e) { return { a: 'Side A', b: 'Side B' }; }
+        }
 
         function updateLayerList() {
             var list = document.getElementById('layerList'); list.innerHTML = "";
+            if (myConstraints.length === 0) {
+                list.innerHTML = "<div style='padding:10px; color:#999; font-style:italic;'>No layers yet. Add one from the Tools tab.</div>";
+                return;
+            }
             myConstraints.slice().reverse().forEach(c => {
+                var meta = typeMeta(c.type);
                 var li = document.createElement('li'); li.className = 'layer-item';
                 var controlsHtml = "";
-                if (c.type === 'radius' || c.type === 'borough' || c.type === 'zone') {
+                if (c.type === 'angle' || c.type === 'bisect' || c.type === 'thermo') {
+                    var sides = c.type === 'thermo' ? { a: '🔥 Warmer', b: '❄️ Colder' } : directionalSides(c);
+                    controlsHtml = `<button class="toggle-btn ${c.state==='hit'?'is-hit':''}" onclick="window.toggleConstraintState(${c.id}, 'hit')">${sides.a}</button><button class="toggle-btn ${c.state==='miss'?'is-miss':''}" onclick="window.toggleConstraintState(${c.id}, 'miss')">${sides.b}</button>`;
+                } else {
                     controlsHtml = `<button class="toggle-btn ${c.state==='hit'?'is-hit':''}" onclick="window.toggleConstraintState(${c.id}, 'hit')">HIT</button><button class="toggle-btn ${c.state==='miss'?'is-miss':''}" onclick="window.toggleConstraintState(${c.id}, 'miss')">MISS</button>`;
-                } else if (c.type === 'angle' || c.type === 'bisect') {
-                    controlsHtml = `<button class="toggle-btn ${c.state==='hit'?'is-hit':''}" onclick="window.toggleConstraintState(${c.id}, 'hit')">Side A</button><button class="toggle-btn ${c.state==='miss'?'is-miss':''}" onclick="window.toggleConstraintState(${c.id}, 'miss')">Side B</button>`;
                 }
-                li.innerHTML = `<div class="layer-header"><span class="layer-name" onclick="window.renameConstraint(${c.id})">${c.name}</span><div class="icon-group"><button class="icon-btn" onclick="window.renameConstraint(${c.id})">✎</button><button class="icon-btn del-btn" onclick="window.removeConstraint(${c.id})">×</button></div></div><div class="layer-controls">${controlsHtml}</div>`;
+                li.innerHTML = `<div class="layer-header"><span class="layer-icon" style="color:${meta.color}">${meta.icon}</span><span class="layer-name" onclick="window.renameConstraint(${c.id})">${c.name}</span><div class="icon-group"><button class="icon-btn" onclick="window.renameConstraint(${c.id})">✎</button><button class="icon-btn del-btn" onclick="window.removeConstraint(${c.id})">×</button></div></div><div class="layer-controls">${controlsHtml}</div>`;
                 list.appendChild(li);
             });
         }
@@ -1148,7 +1431,23 @@
             });
         };
 
-        window.undoLast = function() { if(myConstraints.length>0) window.removeConstraint(myConstraints[myConstraints.length-1].id); };
+        // Undo the newest layer, but keep a snapshot so the toast can restore it.
+        window.undoLast = function() {
+            if (myConstraints.length === 0) { window.showToast("Nothing to undo.", "info", { duration: 2000 }); return; }
+            var last = myConstraints[myConstraints.length - 1];
+            var snap = { id: last.id, type: last.type, state: last.state, name: last.name, geometry: last.geometry, visualGeometry: last.visualGeometry };
+            window.removeConstraint(last.id);
+            window.showToast(`Removed “${snap.name}”.`, "info", { actionLabel: "Restore", onAction: () => restoreConstraint(snap) });
+        };
+
+        function restoreConstraint(snap) {
+            recentlyDeleted.delete(snap.id); // it's back — don't let the merge drop it
+            var layer = null;
+            if (snap.visualGeometry) layer = L.geoJSON(snap.visualGeometry, { style: { color: 'black', weight: 2, dashArray: '5, 5', fill: false } }).addTo(guideLayer);
+            myConstraints.push({ id: snap.id, type: snap.type, geometry: snap.geometry, state: snap.state, name: snap.name, leafletLayer: layer, visualGeometry: snap.visualGeometry });
+            window.saveConstraints(); updateLayerList(); updateLogicMap();
+            window.showToast(`Restored “${snap.name}”.`, "success", { duration: 2000 });
+        }
         window.clearAll = async function() {
             const ok = await window.showConfirm(
                 "Clear <strong>all</strong> map restrictions? This affects every player in the room.",
@@ -1530,8 +1829,8 @@ window.dynamicZones = {};
         Object.keys(window.dynamicZones).forEach(z => {
             window.dynamicZones[z] = [...new Set(window.dynamicZones[z])];
         });
-        localStorage.setItem(cacheKey, JSON.stringify(window.dynamicZones));
-        
+        window.saveToLocalStorage(cacheKey, JSON.stringify(window.dynamicZones));
+
         populateZoneDropdown(zSelect);
 
     } catch(e) {
@@ -1578,13 +1877,14 @@ function populateZoneDropdown(zSelect) {
                 'park': 'nwr["leisure"="park"]'
             };
 
+            const prog = window.showProgress("Loading POI catchments…");
             try {
                 let bbox = "";
                 if (window.currentRegion === 'custom' && window.customOverpassBbox) {
                     bbox = window.customOverpassBbox;
                 } else if (cityProfiles[window.currentRegion]) {
                     bbox = cityProfiles[window.currentRegion].boundingBox;
-                } else { return; }
+                } else { prog.fail("No game region set."); return; }
 
                 resSelect.innerHTML = "<option>Fetching POIs...</option>";
                 
@@ -1624,9 +1924,11 @@ function populateZoneDropdown(zSelect) {
 
                 if (poiPoints.length < 2) {
                     resSelect.innerHTML = `<option>Need at least 2 POIs for Voronoi (Found ${poiPoints.length})</option>`;
+                    prog.fail(`Only ${poiPoints.length} found — need at least 2 for catchments.`);
                     return;
                 }
 
+                prog.update("Calculating catchments…");
                 resSelect.innerHTML = "<option>Calculating Catchments...</option>";
                 
                 const b = bbox.split(',').map(Number);
@@ -1687,10 +1989,12 @@ function populateZoneDropdown(zSelect) {
                 });
 
                 if (resSelect.innerHTML === "") resSelect.innerHTML = "<option>No stations captured by POIs</option>";
+                prog.done(`${sortedPOIs.length} ${catSelect.value.replace('_',' ')} catchments ready`);
 
             } catch(e) {
                 console.error("POI Voronoi failed:", e);
                 resSelect.innerHTML = "<option>Error loading POIs</option>";
+                prog.fail("Overpass busy — couldn't load POIs. Try again.");
             }
         };
 
@@ -1715,6 +2019,7 @@ function populateZoneDropdown(zSelect) {
         window.switchTab = function(t) {
             document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active')); document.getElementById('tab-'+t).classList.add('active');
             document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active')); document.getElementById('btn-tab-'+t).classList.add('active');
+            if (window.updateSheetSummary) window.updateSheetSummary();
         };
 
         // --- QUESTION & LOG LOGIC ---
@@ -1864,8 +2169,9 @@ window.addZoneLayer = function() {
 };
         window.loadTransportData = async function() {
             const loader = document.getElementById('loader');
-            if (loader) loader.style.display = 'block'; 
-            
+            if (loader) loader.style.display = 'block';
+            const prog = window.showProgress("Loading map stations…");
+
             let profile;
             let fullQuery = "";
             let actualCacheKey = "";
@@ -1907,46 +2213,53 @@ window.addZoneLayer = function() {
             if (savedData) {
                 processData(JSON.parse(savedData), profile);
                 if (loader) loader.style.display = 'none';
-                window.loadDynamicAreas();
+                prog.done(`${Object.keys(window.stationMap).length} stations loaded (cached)`);
+                const bProg = window.showProgress("Loading area boundaries…");
+                window.loadDynamicAreas().then(() => bProg.done("Boundaries loaded"));
                 return;
             }
-            
+
             const endpoints = [
                 "https://overpass-api.de/api/interpreter?data=",
                 "https://overpass.kumi.systems/api/interpreter?data="
             ];
 
             let data = null;
-            for (let url of endpoints) {
+            for (let i = 0; i < endpoints.length; i++) {
                 try {
-                    const response = await fetch(url + encodeURIComponent(fullQuery));
+                    prog.update(`Fetching stations (server ${i + 1}/${endpoints.length})…`);
+                    const response = await fetch(endpoints[i] + encodeURIComponent(fullQuery));
                     if (response.ok) { data = await response.json(); break; }
+                    prog.update(`Overpass busy — trying server ${i + 2}/${endpoints.length}…`);
                 } catch(e) { console.warn("Server busy, trying next..."); }
             }
 
             if (!data) {
-                window.showToast("Data load failed — all map servers are busy. Try again shortly.", "error");
+                prog.fail("Map servers are busy — please try again shortly.");
                 if (loader) loader.style.display = 'none';
                 return;
             }
-            
-try { localStorage.setItem(actualCacheKey, JSON.stringify(data)); } catch(e) {}
-    
-    // 1. Process the main station data instantly
-    processData(data, profile); 
-    
-    // 2. Wrap the follow-up queries in an async sequence so they wait in line
-    (async () => {
-        if (loader) loader.innerText = "Pausing for Overpass API (1/2)...";
-        await window.sleep(2500); // Wait 2.5 seconds
-        
-        await window.loadDynamicAreas();
-        
-        if (loader) loader.innerText = "Pausing for Overpass API (2/2)...";
-        await window.sleep(2500); // Wait another 2.5 seconds
-        // Hide loader when completely finished
-        if (loader) loader.style.display = 'none';
-    })();
+
+            window.saveToLocalStorage(actualCacheKey, JSON.stringify(data));
+
+            // 1. Process the main station data instantly
+            processData(data, profile);
+            prog.done(`${Object.keys(window.stationMap).length} stations loaded`);
+
+            // 2. Wrap the follow-up queries in an async sequence so they wait in line
+            (async () => {
+                const bProg = window.showProgress("Loading area boundaries…");
+                if (loader) loader.innerText = "Pausing for Overpass API (1/2)...";
+                await window.sleep(2500); // Wait 2.5 seconds
+
+                await window.loadDynamicAreas();
+                bProg.done("Boundaries loaded");
+
+                if (loader) loader.innerText = "Pausing for Overpass API (2/2)...";
+                await window.sleep(2500); // Wait another 2.5 seconds
+                // Hide loader when completely finished
+                if (loader) loader.style.display = 'none';
+            })();
 
         };
 		
@@ -2267,10 +2580,72 @@ function processData(d, profile) {
                 }
             }
         };
+        // === MOBILE BOTTOM SHEET ===
+        // On narrow viewports #controls becomes a bottom sheet with three states
+        // (collapsed pill / half / full). Tap the handle to cycle, or drag it.
+        (function initBottomSheet() {
+            const controls = document.getElementById('controls');
+            const handle = document.getElementById('sheetHandle');
+            if (!controls || !handle) return;
+            const states = ['sheet-collapsed', 'sheet-half', 'sheet-full'];
+            const mq = window.matchMedia('(max-width: 600px)');
+
+            function currentIndex() {
+                for (let i = 0; i < states.length; i++) if (controls.classList.contains(states[i])) return i;
+                return 1; // default: half
+            }
+            function apply(i) {
+                i = Math.max(0, Math.min(states.length - 1, i));
+                states.forEach(s => controls.classList.remove(s));
+                controls.classList.add(states[i]);
+                window.updateSheetSummary();
+            }
+            window.setSheetState = function(name) { const i = states.indexOf('sheet-' + name); if (i >= 0) apply(i); };
+            window.updateSheetSummary = function() {
+                const summary = document.getElementById('sheetSummary');
+                if (!summary) return;
+                const room = window.currentGameId || '—';
+                const activeTabBtn = document.querySelector('.tab-btn.active');
+                const tab = activeTabBtn ? activeTabBtn.textContent.trim() : '';
+                summary.textContent = `Room ${room} · ${tab} — tap to open`;
+            };
+
+            // Pointer drag / tap changes the state (pointer events cover touch).
+            let startY = null, startIdx = 1, moved = false;
+            handle.addEventListener('pointerdown', (e) => {
+                if (!mq.matches) return;
+                startY = e.clientY; startIdx = currentIndex(); moved = false;
+                try { handle.setPointerCapture(e.pointerId); } catch (err) {}
+            });
+            handle.addEventListener('pointermove', (e) => {
+                if (startY === null) return;
+                if (Math.abs(e.clientY - startY) > 8) moved = true;
+            });
+            handle.addEventListener('pointerup', (e) => {
+                if (startY === null) return;
+                const draggedUp = (startY - e.clientY) > 0;
+                if (!moved) apply((startIdx + 1) % states.length);   // tap cycles
+                else apply(startIdx + (draggedUp ? 1 : -1));          // drag by direction
+                startY = null;
+            });
+
+            function syncForViewport() {
+                if (mq.matches) {
+                    if (!states.some(s => controls.classList.contains(s))) apply(1);
+                    else window.updateSheetSummary();
+                } else {
+                    states.forEach(s => controls.classList.remove(s));
+                }
+            }
+            if (mq.addEventListener) mq.addEventListener('change', syncForViewport);
+            else if (mq.addListener) mq.addListener(syncForViewport);
+            syncForViewport();
+        })();
+
         // === INITIALIZE ===
-        renderLog(); 
-        renderQuestions(); 
-        window.checkTutorial(); 
+        renderLog();
+        renderQuestions();
+        window.checkTutorial();
 
         // Load temporary local constraints if no game joined yet
         var saved = localStorage.getItem('gm_constraints_v53');
@@ -2286,6 +2661,18 @@ function processData(d, profile) {
                 updateLayerList(); updateLogicMap();
             } catch(e) { console.error("Failed to load saved constraints", e); }
         }
+
+        // --- AUTO-JOIN VIA INVITE LINK (?room=12345) ---
+        // If the page is opened with a valid room param, skip the setup screen and
+        // join that room directly. Invalid codes just fall through to setup.
+        (function autoJoinFromUrl() {
+            try {
+                const roomParam = new URLSearchParams(window.location.search).get('room');
+                if (roomParam && /^\d{5}$/.test(roomParam.trim())) {
+                    window.startGameSession(roomParam.trim(), null);
+                }
+            } catch (e) { console.warn("Auto-join failed:", e); }
+        })();
 
     </script>
 </body>
