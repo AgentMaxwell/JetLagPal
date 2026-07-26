@@ -30,154 +30,143 @@
     </div>
 </div>
 
-<div id="settingsModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:10001;">
-        <div style="background:white; width:90%; max-width:400px; margin:4% auto; border-radius:8px; overflow:hidden; box-shadow:0 5px 15px rgba(0,0,0,0.5);">
-            <div style="padding:10px; background:#eee; border-bottom:1px solid #ccc; display:flex; justify-content:space-between; align-items:center;">
-                <span style="font-weight:bold; font-size:1.1em; color:#333;">⚙️ Game Settings</span>
-                <button onclick="window.closeSettings()" style="background:#d9534f; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; width:auto; margin:0;">X</button>
-            </div>
-            <div style="padding:20px;">
+<!-- ============ SETTINGS ============ -->
+<div id="settingsModal" class="modal-overlay">
+    <div class="modal-sheet">
+        <div class="modal-head">
+            <span class="modal-head-title">⚙️ Settings</span>
+            <button class="modal-close" onclick="window.closeSettings()" aria-label="Close settings">✕</button>
+        </div>
+        <div class="modal-body">
 
-                <div style="margin-bottom:20px; text-align: left;">
-                    <strong style="font-size: 1.1em;">Your Role</strong>
-                    <label style="display:flex; align-items:center; margin-top:10px; cursor:pointer;">
-                        <input type="checkbox" id="toggleHider" onchange="window.setHiderMode(this.checked)" style="width:20px; height:20px; margin-right:10px;">
-                        🙈 Hider view (read-only)
-                    </label>
-                    <p style="font-size:12px; color:#666; margin:5px 0 0 0;">Hides all editing controls so you can watch the seekers' deductions without changing anything. This setting is per-device and not shared.</p>
-                </div>
-
-                <hr style="border:0; border-top:1px solid #ddd; margin:20px 0;">
-
-                <div style="margin-bottom:20px; text-align: left;">
-                    <strong style="font-size: 1.1em;">Map Layers</strong>
-                    <label style="display:flex; align-items:center; margin-top:10px; cursor:pointer;">
-                        <input type="checkbox" id="toggleLocal" checked onchange="window.toggleMapLayer('local', this.checked)" style="width:20px; height:20px; margin-right:10px;"> 
-                        🚇 Local Transit (Tram/Tube)
-                    </label>
-                    <label style="display:flex; align-items:center; margin-top:10px; cursor:pointer;">
-                        <input type="checkbox" id="toggleRail" checked onchange="window.toggleMapLayer('rail', this.checked)" style="width:20px; height:20px; margin-right:10px;"> 
-                        🚆 National Rail
-                    </label>
-                </div>
-                
-                <hr style="border:0; border-top:1px solid #ddd; margin:20px 0;">
-                
-                <div style="margin-bottom:20px; text-align: left;">
-                    <strong style="font-size: 1.1em;">Player Tracking</strong>
-                    <label style="display:flex; align-items:center; margin-top:10px; cursor:pointer;">
-                        <input type="checkbox" id="toggleLiveGPS" onchange="window.toggleLiveGPS(this.checked)" style="width:20px; height:20px; margin-right:10px;"> 
-                        🛰️ Live GPS Tracking (Local View Only)
-                    </label>
-                </div>
-
-                <hr style="border:0; border-top:1px solid #ddd; margin:20px 0;">
-
-                <div style="margin-bottom:20px; text-align: left;">
-                    <strong style="font-size: 1.1em;">Data Management</strong>
-                    <p style="font-size:12px; color:#666; margin:5px 0 10px 0;">Map data loads automatically when you join. Use these if you need to reload it.</p>
-                    <button id="btnLoadTransport" onclick="window.loadTransportData()" style="background:#0078A8; color:white; border:none; padding:10px; border-radius:4px; width:100%; margin-top:10px; cursor:pointer;">↻ Reload Map Data</button>
-                    <div id="loader" style="display:none; text-align:center; color:#0078A8; margin-top:5px; font-weight:bold;">Fetching Data...</div>
-                    <button onclick="window.forceRefreshData()" style="background:#999; color:white; border:none; padding:10px; border-radius:4px; width:100%; margin-top:10px; cursor:pointer;">↻ Force Re-download</button>
-                </div>
-                
-                <hr style="border:0; border-top:1px solid #ddd; margin:20px 0;">
-                
-                <div>
-                    <button onclick="window.leaveRoom()" style="background:#f0ad4e; color:#fff; border:none; padding:12px; border-radius:4px; cursor:pointer; width:100%; font-size: 1em; font-weight: bold;">Leave Room / Change City</button>
-                </div>
-                <div class="tool-section" style="border-top: 1px solid #ccc; padding-top: 15px; margin-top: 20px;">
-                <strong>Buy the Developer a Coffee</strong>
-                <p style="font-size: 12px; color: #666; margin: 5px 0 10px 0;">If you enjoy this tool, consider supporting its development!</p>
-                <a href="https://ko-fi.com/jetlagpal" target="_blank" class="kofi-sidebar-btn">
-                    ☕ Support on Ko-fi
-                </a>
+            <div class="settings-group">
+                <h4>Your role</h4>
+                <label class="switch-row">
+                    <input type="checkbox" id="toggleHider" onchange="window.setHiderMode(this.checked)">
+                    <span>🙈 Hider view (read-only)</span>
+                </label>
+                <p class="settings-note">Hides every editing control so you can watch the seekers' deductions without changing anything. Per-device — not shared with the room.</p>
             </div>
 
+            <div class="settings-group">
+                <h4>Map layers</h4>
+                <label class="switch-row">
+                    <input type="checkbox" id="toggleLocal" checked onchange="window.toggleMapLayer('local', this.checked)">
+                    <span>🚇 Local transit (tram / tube)</span>
+                </label>
+                <label class="switch-row">
+                    <input type="checkbox" id="toggleRail" checked onchange="window.toggleMapLayer('rail', this.checked)">
+                    <span>🚆 National rail</span>
+                </label>
+                <label class="switch-row">
+                    <input type="checkbox" id="toggleLiveGPS" onchange="window.toggleLiveGPS(this.checked)">
+                    <span>🛰️ Live GPS tracking (this device only)</span>
+                </label>
             </div>
+
+            <div class="settings-group">
+                <h4>Map data</h4>
+                <p class="settings-note">Stations and boundaries download automatically when you join. Use these only if something looks missing.</p>
+                <div class="btn-row" style="margin-top:8px;">
+                    <button id="btnLoadTransport" class="btn-ghost" onclick="window.loadTransportData()">↻ Reload</button>
+                    <button class="btn-ghost" onclick="window.forceRefreshData()">⤓ Re-download</button>
+                </div>
+                <div id="loader">Fetching data…</div>
+            </div>
+
+            <div class="settings-group">
+                <h4>Room</h4>
+                <button class="btn-ghost" onclick="window.leaveRoom()">🚪 Leave room / change city</button>
+            </div>
+
+            <div class="settings-group">
+                <h4>Support</h4>
+                <a href="https://ko-fi.com/jetlagpal" target="_blank" rel="noopener" class="kofi-sidebar-btn">☕ Buy the developer a coffee</a>
+            </div>
+
         </div>
     </div>
-    </div>
+</div>
 
-    <div id="setupScreen">
-        <div class="setup-container">
-            <h1>JetLagPal</h1>
-            <p>Real-time Multiplayer Map Tracker</p>
-            <div class="setup-box">
-                <h3>Create New Game</h3>
-                <select id="regionSelect">
-                    <option value="manchester">Greater Manchester</option>
-                    <option value="london">London</option>
-                    <option value="west_midlands">West Midlands & B'ham </option>
-                    <option value="custom">Custom (Draw Map)</option> </select>
-                <button class="btn-create" onclick="window.startCreateFlow()">Create Room</button>
-            </div>
+<!-- ============ SETUP ============ -->
+<div id="setupScreen">
+    <div class="setup-container">
+        <div class="setup-logo">🕵️</div>
+        <h1>JetLagPal</h1>
+        <p class="setup-tagline">Real-time map tracker for Hide &amp; Seek</p>
 
+        <div class="setup-box">
+            <h3>Create a new game</h3>
+            <select id="regionSelect">
+                <option value="manchester">Greater Manchester</option>
+                <option value="london">London</option>
+                <option value="west_midlands">West Midlands &amp; Birmingham</option>
+                <option value="custom">Custom (draw your own zone)</option>
+            </select>
+            <button class="btn-create" onclick="window.startCreateFlow()">Create room</button>
+        </div>
 
-            <div style="color: #999; margin: 10px 0; font-size: 0.9em;">— OR —</div>
+        <div class="setup-or">OR</div>
 
-            <div class="setup-box">
-                <h3>Join Existing Game</h3>
-                <input type="text" id="joinRoomInput" placeholder="Enter 5-Digit Room Code" maxlength="5" style="text-align: center; font-weight: bold; letter-spacing: 2px;">
-                <button class="btn-join" onclick="window.joinExistingGame()">Join Room</button>
-            </div>
+        <div class="setup-box">
+            <h3>Join a game</h3>
+            <input type="text" id="joinRoomInput" placeholder="00000" maxlength="5" inputmode="numeric" autocomplete="off">
+            <button class="btn-join" onclick="window.joinExistingGame()">Join room</button>
         </div>
     </div>
+</div>
 
+<!-- ============ CONTROL PANEL ============ -->
+<div id="controls">
+    <div id="sheetHandle" title="Drag or tap to resize">
+        <div class="sheet-grip"></div>
+        <div id="sheetSummary"></div>
+    </div>
 
-    <div id="controls">
-        <div id="sheetHandle" title="Drag or tap to resize">
-            <div class="sheet-grip"></div>
-            <div id="sheetSummary"></div>
-        </div>
-        <div class="controls-header">
+    <div class="controls-header">
+        <div class="brand-lockup">
+            <span class="brand-mark">🕵️</span>
             <h3>JetLagPal</h3>
-            <div class="header-btns">
-                <button class="icon-btn-header" onclick="window.openSettings()" title="Settings">⚙️</button>
-                <button class="icon-btn-header help-btn" onclick="openTutorial()" title="Help">?</button>
-                <button class="icon-btn-header" id="btnUndoHeader" onclick="undoLast()" title="Undo last action"> ↩ </button>
-                <button class="icon-btn-header" id="minBtn" onclick="toggleControls()">−</button>
-            </div>
         </div>
-
-        <div id="hiderBadge">🙈 Hider view — read only</div>
-
-        <div id="connectionStatus">
-            <div class="conn-row">
-                <span class="conn-dot" id="connDot" title="Connection status"></span>
-                <span>Room: <span id="displayRoomCode">Not Connected</span></span>
-                <button class="conn-copy" id="btnCopyCode" onclick="window.copyRoomCode()" title="Copy room code">⧉</button>
-                <button class="conn-copy" id="btnCopyLink" onclick="window.copyInviteLink()" title="Copy invite link">🔗</button>
-            </div>
-            <div class="conn-region">Region: <span id="displayRegion">N/A</span> · <span id="connState">connecting…</span></div>
+        <div class="header-btns">
+            <button class="icon-btn-header" id="btnUndoHeader" onclick="undoLast()" title="Undo last layer">↩</button>
+            <button class="icon-btn-header help-btn" onclick="openTutorial()" title="How to play">?</button>
+            <button class="icon-btn-header" onclick="window.openSettings()" title="Settings">⚙️</button>
+            <button class="icon-btn-header" id="minBtn" onclick="toggleControls()" title="Collapse panel">−</button>
         </div>
+    </div>
 
-        <div id="sheetScroll">
-        <div class="tab-bar">
-            <button id="btn-tab-tools" class="tab-btn active" onclick="switchTab('tools')">Tools</button>
-            <button id="btn-tab-layers" class="tab-btn" onclick="switchTab('layers')">Layers</button>
-            <button id="btn-tab-questions" class="tab-btn" onclick="switchTab('questions')">Questions</button>
-            <button id="btn-tab-log" class="tab-btn" onclick="switchTab('log')">Log</button>
+    <div id="hiderBadge">🙈 Hider view — read only</div>
+
+    <div id="connectionStatus">
+        <div class="conn-row">
+            <span class="conn-dot" id="connDot" title="Connection status"></span>
+            <span>Room <span class="conn-code" id="displayRoomCode">—</span></span>
+            <span class="conn-spacer"></span>
+            <button class="conn-copy" id="btnCopyCode" onclick="window.copyRoomCode()" title="Copy room code">⧉</button>
+            <button class="conn-copy" id="btnCopyLink" onclick="window.copyInviteLink()" title="Copy invite link">🔗</button>
         </div>
+        <div class="conn-region"><span id="displayRegion">No region</span> · <span id="connState">connecting…</span></div>
+    </div>
+
+    <div class="tab-bar">
+        <button id="btn-tab-tools" class="tab-btn active" onclick="switchTab('tools')"><span class="tab-ico">🧭</span>Tools</button>
+        <button id="btn-tab-layers" class="tab-btn" onclick="switchTab('layers')"><span class="tab-ico">🗂️</span>Layers <span class="tab-count" id="layerCount"></span></button>
+        <button id="btn-tab-questions" class="tab-btn" onclick="switchTab('questions')"><span class="tab-ico">❓</span>Ask</button>
+        <button id="btn-tab-log" class="tab-btn" onclick="switchTab('log')"><span class="tab-ico">📜</span>Log</button>
+    </div>
+
+    <div id="sheetScroll">
 
         <div id="tab-tools" class="tab-content active">
-            
 
-            <div class="tool-section">
-                <strong>Map Legend</strong>
-                    <div class="legend-grid">
-                        <div class="legend-item"><span class="dot" style="background:#FFC107; border:1px solid #888;"></span> Stop</div>
-                        <div class="legend-item"><span class="dot" style="background:#333;"></span> Station</div>
-                        <div class="legend-item"><span class="line-box" style="background:purple;"></span> Tram</div>
-                        <div class="legend-item"><span class="line-box" style="background:#444; border-bottom:1px dashed white;"></span> Rail</div>
-                    </div>
-            </div>
-
-            <div class="tool-section">
-                <strong>1. Radar</strong>
-                <label>Radius (km):</label>
+            <!-- ---- Radar ---- -->
+            <div class="tool-card">
+                <div class="tool-title"><span class="tool-ico">🎯</span>Radar</div>
+                <p class="tool-hint">A circle around a point. The answer tells you whether the hider is inside it.</p>
+                <span class="field-label">Radius (km)</span>
                 <input type="number" id="radiusInput" value="5" min="0.1" step="0.1">
-                <div class="chip-row" id="radarChips">
+                <div class="chip-row" id="radarChips" style="margin-top:8px;">
                     <button type="button" class="chip" onclick="window.setRadius(0.5)">500m</button>
                     <button type="button" class="chip" onclick="window.setRadius(1)">1km</button>
                     <button type="button" class="chip" onclick="window.setRadius(2)">2km</button>
@@ -186,152 +175,116 @@
                     <button type="button" class="chip" onclick="window.setRadius(25)">25km</button>
                     <button type="button" class="chip" onclick="window.setRadius(50)">50km</button>
                 </div>
+                <div class="btn-row" style="margin-top:10px;">
+                    <button id="btnRadius" onclick="startRadiusTool(event)">📍 Pick centre</button>
+                    <button id="btnGpsRadius" class="btn-ghost" onclick="radiusAtGPS()">🛰️ My spot</button>
+                </div>
+                <span class="field-label">Or type coordinates</span>
                 <div class="input-group">
                     <input type="text" id="radiusCoords" placeholder="53.48, -2.24">
-                    <button onclick="manualRadius()" style="background:#4CAF50;">Go</button>
+                    <button class="btn-accent" onclick="manualRadius()">Go</button>
                 </div>
-                <button id="btnRadius" onclick="startRadiusTool(event)">Pick Center</button>
-                <button id="btnGpsRadius" onclick="radiusAtGPS()" style="background:#0078A8; margin-top:5px;">Use My Location</button>
             </div>
 
-            <div class="tool-section">
-                <strong>2. Line split</strong>
-                <div class="input-group">
-                    <input type="text" id="angleCoords" placeholder="53.48, -2.24">
-                    <button onclick="manualAngle()" style="background:#4CAF50;">Go</button>
+            <!-- ---- Dividing line: thermometer / measuring / line match ---- -->
+            <div class="tool-card">
+                <div class="tool-title"><span class="tool-ico">🌡️</span>Dividing line</div>
+                <div class="seg" id="dividerModes">
+                    <button type="button" class="seg-btn active" data-mode="thermo" onclick="window.setDividerMode('thermo')">Thermometer</button>
+                    <button type="button" class="seg-btn" data-mode="line" onclick="window.setDividerMode('line')">Match a line</button>
                 </div>
-                <button id="btnAngle" onclick="startAngleTool(event)">Draw & Rotate</button>
+                <p class="tool-hint" id="dividerHint">Tap where you started, then where it got <em>warmer</em>. Also covers Measuring questions — either way the map keeps the half you're closer to.</p>
+                <button id="btnDivider" onclick="window.startDividerTool(event)">Tap two points</button>
             </div>
 
-            <div class="tool-section">
-                <strong>3. Bisect Line</strong>
-                <button id="btnBisect" onclick="startBisectTool(event)">Tap Two Points</button>
+            <!-- ---- Boundary match: borough / county / country / fare zone ---- -->
+            <div class="tool-card">
+                <div class="tool-title"><span class="tool-ico">🗺️</span>Boundary match</div>
+                <p class="tool-hint">Pick the area you're in — mark HIT if the hider shares it, MISS if they don't.</p>
+                <span class="field-label">Level</span>
+                <select id="boundaryLevel" onchange="window.setBoundaryLevel(this.value)">
+                    <option value="borough">Borough / district</option>
+                    <option value="county">County</option>
+                    <option value="country">Country / nation</option>
+                    <option value="zone">Transit fare zone</option>
+                </select>
+                <span class="field-label">Area</span>
+                <select id="boundarySelect"><option>Loading areas…</option></select>
+                <button class="btn-accent" onclick="window.addBoundaryLayer()">＋ Add boundary layer</button>
             </div>
 
-            <div class="tool-section">
-                <strong>3b. Thermometer</strong>
-                <p style="font-size:12px; color:#666; margin:5px 0;">Tap the start point, then the point it got <em>warmer</em> toward.</p>
-                <button id="btnThermo" onclick="startThermometerTool(event)">Tap Start → Warm End</button>
-            </div>
-
-            <div class="tool-section">
-                <strong>3c. Tentacles</strong>
-                <p style="font-size:12px; color:#666; margin:5px 0;">Union of circles around every POI of a category in the game zone.</p>
-                <select id="tentacleCategory">
+            <!-- ---- Points of interest: tentacles / nearest catchment ---- -->
+            <div class="tool-card">
+                <div class="tool-title"><span class="tool-ico">📍</span>Points of interest</div>
+                <span class="field-label">Category</span>
+                <select id="poiCategorySelect">
                     <option value="museum">Museums</option>
                     <option value="library">Libraries</option>
                     <option value="cinema">Cinemas</option>
                     <option value="hospital">Hospitals</option>
                     <option value="zoo">Zoos</option>
                     <option value="aquarium">Aquariums</option>
-                    <option value="theme_park">Amusement Parks</option>
+                    <option value="theme_park">Amusement parks</option>
+                    <option value="golf_course">Golf courses</option>
+                    <option value="consulate">Consulates / embassies</option>
+                    <option value="peak">Mountain peaks</option>
+                    <option value="park">Parks</option>
                 </select>
-                <select id="tentacleRadius">
-                    <option value="2">2 km (Medium/Large)</option>
-                    <option value="25">25 km (Large)</option>
-                </select>
-                <button onclick="window.addTentacleLayer()" style="background:#00897b;">Draw Tentacles</button>
-            </div>
-
-            <div class="tool-section">
-                <strong>4. Borough Match</strong>
-                <select id="boroughSelect">
-                    <option value="Bolton">Bolton</option>
-                    <option value="Bury">Bury</option>
-                    <option value="Manchester">Manchester</option>
-                    <option value="Oldham">Oldham</option>
-                    <option value="Rochdale">Rochdale</option>
-                    <option value="Salford">Salford</option>
-                    <option value="Stockport">Stockport</option>
-                    <option value="Tameside">Tameside</option>
-                    <option value="Trafford">Trafford</option>
-                    <option value="Wigan">Wigan</option>
-                </select>
-                <button onclick="addBorough()" style="background:#4CAF50;">Add Layer</button>
-            </div>
-
-            <div class="tool-section">
-                <strong>5. County Match</strong>
-                <select id="countySelect">
-                    <option>Loading Counties...</option>
-                </select>
-                <button onclick="window.addCounty()" style="background:#4CAF50;">Add County Layer</button>
-            </div>
-
-            <div class="tool-section">
-                <strong>6. Country Match</strong>
-                <select id="countrySelect">
-                    <option>Loading Countries...</option>
-                </select>
-                <button onclick="window.addCountry()" style="background:#4CAF50;">Add Country Layer</button>
-            </div>
-            <div id="zoneToolSection" class="tool-section" style="display: none;">
-                <strong>7. Transport Fare Zones</strong>
-                <select id="zoneSelect">
-                    <option>Loading zones...</option>
-                </select>
-                <button onclick="window.addZoneLayer()" style="background:#4CAF50;">Add Zone Layer</button>
-            </div>
-            <div class="tool-section">
-                <strong>8. Nearest POI Catchment (Voronoi)</strong>
-                <div style="display: flex; gap: 5px; margin-bottom: 5px;">
-                    <select id="poiCategorySelect" style="flex-grow: 1;">
-                        <option value="theme_park">Amusement Park</option>
-                        <option value="zoo">Zoo</option>
-                        <option value="aquarium">Aquarium</option>
-                        <option value="golf_course">Golf Course</option>
-                        <option value="museum">Museum</option>
-                        <option value="cinema">Cinema</option>
-                        <option value="library">Library</option>
-                        <option value="hospital">Hospital</option>
-                        <option value="consulate">Consulate / Embassy</option>
-                        <option value="peak">Mountain Peak</option>
-                        <option value="park">Park</option>
-                    </select>
-                    <button onclick="window.loadPOIVoronoi()" style="background:#2196F3; color:white;">Load</button>
+                <div class="seg" id="poiModes" style="margin-top:10px;">
+                    <button type="button" class="seg-btn active" data-mode="tentacle" onclick="window.setPoiMode('tentacle')">🐙 Tentacles</button>
+                    <button type="button" class="seg-btn" data-mode="nearest" onclick="window.setPoiMode('nearest')">🧭 Nearest one</button>
                 </div>
-                <select id="poiResultSelect">
-                    <option>Select a category and load...</option>
-                </select>
-                <button onclick="window.addPOILayer()" style="background:#4CAF50;">Add POI Zone</button>
+                <div id="poiTentacleMode">
+                    <p class="tool-hint">Everywhere within reach of <em>any</em> POI in this category.</p>
+                    <span class="field-label">Reach</span>
+                    <select id="tentacleRadius">
+                        <option value="1">1 km (small)</option>
+                        <option value="2" selected>2 km (medium / large)</option>
+                        <option value="25">25 km (large)</option>
+                    </select>
+                    <button class="btn-accent" onclick="window.addTentacleLayer()">🐙 Draw tentacles</button>
+                </div>
+                <div id="poiNearestMode" style="display:none;">
+                    <p class="tool-hint">Catchments — the area closest to each individual POI.</p>
+                    <button onclick="window.loadPOIVoronoi()">🔍 Find catchments</button>
+                    <span class="field-label">Closest POI</span>
+                    <select id="poiResultSelect"><option>Find catchments first…</option></select>
+                    <button class="btn-accent" onclick="window.addPOILayer()">＋ Add catchment layer</button>
+                </div>
             </div>
-            
-             <button onclick="clearAll()" style="background:#d9534f; margin-top:20px;">Clear Map Restrictions</button>
+
         </div>
 
         <div id="tab-layers" class="tab-content">
-            <div style="font-size:0.85em; color:#555; margin-bottom:10px; background:#eef; padding:8px; border-radius:4px;">
-                <strong>Map Colours:</strong><br>GREEN = Potential Locations<br>RED = No longer Possible
+            <div class="map-key">
+                <div class="key-title">Map key</div>
+                <div class="legend-grid">
+                    <div class="legend-item"><span class="swatch" style="background:rgba(34,197,94,.55);"></span> Hider could be here</div>
+                    <div class="legend-item"><span class="swatch" style="background:rgba(220,38,38,.35);"></span> Ruled out</div>
+                    <div class="legend-item"><span class="dot" style="background:#FFC107; border:1px solid #8a6d00;"></span> Stop</div>
+                    <div class="legend-item"><span class="dot" style="background:#333; border:1px solid #000;"></span> Station</div>
+                    <div class="legend-item"><span class="line-box" style="background:purple;"></span> Tram / tube</div>
+                    <div class="legend-item"><span class="line-box" style="background:#444;"></span> Rail</div>
+                </div>
             </div>
             <ul id="layerList"></ul>
-            <button onclick="clearAll()" style="background:#d9534f; margin-top:20px;">Clear Map Restrictions</button>
+            <button class="btn-danger" onclick="clearAll()" style="margin-top:12px;">Clear all restrictions</button>
         </div>
 
         <div id="tab-questions" class="tab-content">
             <div id="questionsContainer"></div>
-            <button onclick="resetQuestions()" style="background:#999; font-size:0.9em; margin-top:20px;">Reset All Questions</button>
+            <button class="btn-ghost" onclick="resetQuestions()" style="margin-top:14px;">Reset all questions</button>
         </div>
 
         <div id="tab-log" class="tab-content">
-            <div style="font-size:0.85em; color:#555; padding:5px; background:#eef; margin-bottom:10px;">
-                <strong>Question Log:</strong><br>
-            </div>
             <div id="logList"></div>
-            <button onclick="clearLog()" style="background:#d9534f; margin-top:20px;">Clear Log</button>
+            <button class="btn-danger" onclick="clearLog()" style="margin-top:12px;">Clear log</button>
         </div>
-        </div><!-- /#sheetScroll -->
-    </div>
 
-    <div id="map"></div>
+    </div><!-- /#sheetScroll -->
+</div>
 
-    <div id="kofi-container" class="kofi-support-container">
-        <a href="https://ko-fi.com/Jetlagpal" target="_blank" class="kofi-support-btn">
-            ☕ Buy me a coffee :) 
-        </a>
-        <button class="kofi-close-btn" onclick="document.getElementById('kofi-container').style.display='none'" aria-label="Close">
-            ✖
-        </button>
-    </div>  
+<div id="map"></div>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
     <script src="https://unpkg.com/osmtogeojson@2.2.12/osmtogeojson.js"></script>
@@ -405,7 +358,10 @@
 
         // === LEAFLET SETUP ===
         var map = L.map('map').setView([53.4808, -2.2426], 11); 
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+        // Match the basemap to the device theme — dark tiles keep the green/red
+        // overlays readable at night without blinding anyone.
+        var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        L.tileLayer(`https://{s}.basemaps.cartocdn.com/${prefersDark ? 'dark_all' : 'light_all'}/{z}/{x}/{y}{r}.png`, {
             attribution: '&copy; CARTO', subdomains: 'abcd', maxZoom: 19
         }).addTo(map);
         window.leafletEngine = map; // (Change 'map' to whatever variable name you used!)
@@ -446,7 +402,7 @@
                 for (let c of myConstraints) {
                     try {
                         var constraintGreenShape = null;
-                        if (c.type === 'radius' || c.type === 'borough' || c.type === 'zone' || c.type === 'angle' || c.type === 'bisect' || c.type === 'thermo' || c.type === 'tentacle') {
+                        if (['radius','borough','zone','poi','angle','bisect','thermo','tentacle'].includes(c.type)) {
                             if (c.state === 'hit') constraintGreenShape = c.geometry;
                             else constraintGreenShape = turf.difference(worldPoly, c.geometry);
                         } 
@@ -637,12 +593,11 @@
                             );
                             map.fitBounds(bounds);
                             
-                            // Disable standard borough/zone tools if custom
+                            // Custom zones have no predefined boundary lists — everything
+                            // comes from Overpass once the transport data lands.
                             if (!window.hasLoadedTransport) {
-                                // Only reset these on the very first load
-                                document.getElementById('boroughSelect').innerHTML = "<option>Loading Boroughs...</option>";
-                                document.getElementById('zoneSelect').innerHTML = "<option>N/A in Custom</option>";
-                                
+                                window.profileBoundaries = { borough: null, zone: null };
+                                window.refreshBoundaryOptions();
                                 window.hasLoadedTransport = true;
                                 setTimeout(() => { window.loadTransportData(); }, 500);
                             }
@@ -655,25 +610,14 @@
                                 document.getElementById('displayRegion').innerText = profile.name;
                                 map.setView(profile.center, profile.defaultZoom); 
 
-                                const bSelect = document.getElementById('boroughSelect');
-                                bSelect.innerHTML = "";
-                                Object.keys(profile.boroughs).forEach(b => {
-                                    bSelect.innerHTML += `<option value="${b}">${b}</option>`;
-                                });
+                                // Seed the Boundary tool with whatever this city profile
+                                // predefines; Overpass fills in the rest later.
+                                window.profileBoundaries = {
+                                    borough: profile.boroughs || null,
+                                    zone: (profile.zones && Object.keys(profile.zones).length) ? profile.zones : null
+                                };
+                                window.refreshBoundaryOptions();
 
-                                const zSelect = document.getElementById('zoneSelect');
-                                const zoneTool = document.getElementById('zoneToolSection');
-
-// Show the tool only if the city profile has zones defined
-                                if (profile && profile.zones && Object.keys(profile.zones).length > 0) {
-                                    zoneTool.style.display = 'block';
-                                    zSelect.innerHTML = "";
-                                    Object.keys(profile.zones).forEach(z => {
-                                        zSelect.innerHTML += `<option value="${z}">Zone ${z}</option>`;
-    });
-} else {
-    if (zoneTool) zoneTool.style.display = 'none';
-}
                                 if (!window.hasLoadedTransport) {
                                     window.hasLoadedTransport = true;
                                     setTimeout(() => { window.loadTransportData(); }, 500);
@@ -861,14 +805,15 @@
         // Icon + accent colour per constraint type, for the Layers list.
         function typeMeta(type) {
             switch (type) {
-                case 'radius':   return { icon: '🎯', color: '#0078A8' };
-                case 'angle':    return { icon: '📐', color: '#333' };
-                case 'bisect':   return { icon: '📐', color: '#3949ab' };
-                case 'thermo':   return { icon: '🌡️', color: '#e53935' };
-                case 'zone':     return { icon: '🎟️', color: '#8e24aa' };
-                case 'tentacle': return { icon: '🐙', color: '#00897b' };
-                case 'borough':  return { icon: '🗺️', color: '#2e7d32' };
-                default:         return { icon: '📍', color: '#555' };
+                case 'radius':   return { icon: '🎯', color: '#0e7490' };
+                case 'angle':    return { icon: '📐', color: '#334155' };
+                case 'bisect':   return { icon: '🌡️', color: '#dc2626' }; // legacy rooms
+                case 'thermo':   return { icon: '🌡️', color: '#dc2626' };
+                case 'zone':     return { icon: '🎟️', color: '#7c3aed' };
+                case 'tentacle': return { icon: '🐙', color: '#0d9488' };
+                case 'borough':  return { icon: '🗺️', color: '#16a34a' };
+                case 'poi':      return { icon: '🧭', color: '#2563eb' };
+                default:         return { icon: '📍', color: '#64748b' };
             }
         }
 
@@ -893,17 +838,21 @@
         }
 
         function updateLayerList() {
+            if (window.updateSheetSummary) window.updateSheetSummary();
             var list = document.getElementById('layerList'); list.innerHTML = "";
+            var badge = document.getElementById('layerCount');
+            if (badge) badge.textContent = myConstraints.length ? String(myConstraints.length) : '';
             if (myConstraints.length === 0) {
-                list.innerHTML = "<div style='padding:10px; color:#999; font-style:italic;'>No layers yet. Add one from the Tools tab.</div>";
+                list.innerHTML = "<div class='empty-state'><span class='empty-ico'>🗺️</span>No layers yet.<br>Add one from the <strong>Tools</strong> tab and the map will start narrowing down.</div>";
                 return;
             }
             myConstraints.slice().reverse().forEach(c => {
                 var meta = typeMeta(c.type);
                 var li = document.createElement('li'); li.className = 'layer-item';
+                li.style.borderLeftColor = meta.color;
                 var controlsHtml = "";
                 if (c.type === 'angle' || c.type === 'bisect' || c.type === 'thermo') {
-                    var sides = c.type === 'thermo' ? { a: '🔥 Warmer', b: '❄️ Colder' } : directionalSides(c);
+                    var sides = (c.type === 'thermo' || c.type === 'bisect') ? { a: '🔥 Warmer', b: '❄️ Colder' } : directionalSides(c);
                     controlsHtml = `<button class="toggle-btn ${c.state==='hit'?'is-hit':''}" onclick="window.toggleConstraintState(${c.id}, 'hit')">${sides.a}</button><button class="toggle-btn ${c.state==='miss'?'is-miss':''}" onclick="window.toggleConstraintState(${c.id}, 'miss')">${sides.b}</button>`;
                 } else {
                     controlsHtml = `<button class="toggle-btn ${c.state==='hit'?'is-hit':''}" onclick="window.toggleConstraintState(${c.id}, 'hit')">HIT</button><button class="toggle-btn ${c.state==='miss'?'is-miss':''}" onclick="window.toggleConstraintState(${c.id}, 'miss')">MISS</button>`;
@@ -919,7 +868,7 @@
         };
 
         function resetTools() {
-            ['btnRadius', 'btnAngle', 'btnBisect', 'btnThermo'].forEach(id => { var el = document.getElementById(id); if (el) el.classList.remove('active-tool-btn'); });
+            ['btnRadius', 'btnDivider'].forEach(id => { var el = document.getElementById(id); if (el) el.classList.remove('active-tool-btn'); });
             document.getElementById('map').classList.remove('crosshair-cursor');
             if(angleGhost) { map.removeLayer(angleGhost); angleGhost = null; }
             if(angleMoveHandler) { map.off('mousemove', angleMoveHandler); angleMoveHandler = null; }
@@ -972,27 +921,48 @@
             });
         }
 
-        window.startAngleTool = function(e) {
-            if (e) e.stopPropagation();
-            startTwoPointTool('btnAngle', 'black', "Tap the second point to set the line direction.", function(origin, end) {
-                var b = turf.rhumbBearing([origin.lng, origin.lat], [end.lng, end.lat]);
-                drawAngleAt(origin.lat, origin.lng, b);
-            });
+        // === DIVIDING LINE (one tool, two modes) ===
+        // Thermometer and Measuring ("are you closer to A or B?") are the same
+        // geometry — the perpendicular bisector of the two tapped points, keeping
+        // the half nearer the second tap. "Match a line" instead runs the divider
+        // *along* the two taps, for streets / transit lines / coastlines.
+        window.dividerMode = 'thermo';
+        var DIVIDER_MODES = {
+            thermo: {
+                hint: 'Tap where you started, then where it got <em>warmer</em>. Also covers Measuring questions — either way the map keeps the half you\'re closer to.',
+                btn: 'Tap start → warm end',
+                toast: 'Tap the WARM end — where it got warmer.',
+                color: '#dc2626'
+            },
+            line: {
+                hint: 'Tap two points along the feature you matched (a street, transit line, river). The divider runs through both.',
+                btn: 'Tap two points on the line',
+                toast: 'Tap a second point along the line.',
+                color: '#334155'
+            }
         };
 
-        window.startBisectTool = function(e) {
-            if (e) e.stopPropagation();
-            startTwoPointTool('btnBisect', 'blue', "Tap the second point to bisect between the two.", function(p1, p2) {
-                drawBisector(p1, p2);
-            });
+        window.setDividerMode = function(mode) {
+            if (!DIVIDER_MODES[mode]) return;
+            window.dividerMode = mode;
+            document.querySelectorAll('#dividerModes .seg-btn').forEach(b =>
+                b.classList.toggle('active', b.dataset.mode === mode));
+            document.getElementById('dividerHint').innerHTML = DIVIDER_MODES[mode].hint;
+            document.getElementById('btnDivider').textContent = DIVIDER_MODES[mode].btn;
+            resetTools();
         };
 
-        // Thermometer: tap start, then the point it got warmer toward. Warmer (HIT)
-        // keeps the half nearer the second point; colder the half nearer the first.
-        window.startThermometerTool = function(e) {
+        window.startDividerTool = function(e) {
             if (e) e.stopPropagation();
-            startTwoPointTool('btnThermo', '#e53935', "Tap the WARM end — where it got warmer.", function(start, end) {
-                drawThermometer(start, end);
+            var mode = window.dividerMode;
+            var cfg = DIVIDER_MODES[mode];
+            startTwoPointTool('btnDivider', cfg.color, cfg.toast, function(p1, p2) {
+                if (mode === 'line') {
+                    var b = turf.rhumbBearing([p1.lng, p1.lat], [p2.lng, p2.lat]);
+                    drawAngleAt(p1.lat, p1.lng, b);
+                } else {
+                    drawThermometer(p1, p2);
+                }
             });
         };
 
@@ -1037,12 +1007,6 @@
             updateLogicMap();
         };
         window.manualRadius = function() { var c=document.getElementById('radiusCoords').value.split(','); if(c.length===2) drawRadiusAt(parseFloat(c[0]), parseFloat(c[1])); };
-        window.manualAngle = async function() {
-            var c=document.getElementById('angleCoords').value.split(',');
-            if(c.length!==2) return;
-            var b = await window.showPrompt("Bearing (degrees):", "90", { confirmLabel: 'Draw' });
-            if (b !== null && b.trim() !== "") drawAngleAt(parseFloat(c[0]), parseFloat(c[1]), parseFloat(b));
-        };
         window.radiusAtGPS = function() {
             if (!navigator.geolocation) return; var btn = document.getElementById('btnGpsRadius'); var oldText = btn.innerText; btn.innerText = "Locating...";
             navigator.geolocation.getCurrentPosition(function(position) { drawRadiusAt(position.coords.latitude, position.coords.longitude); btn.innerText = oldText; }, function(error) { btn.innerText = oldText; }, { enableHighAccuracy: true });
@@ -1067,18 +1031,10 @@
             } catch(e) { console.error("Geometry Gen Error", e); }
         }
 
-        function drawBisector(p1, p2) {
-            try {
-                var pt1 = turf.point([p1.lng, p1.lat]); var pt2 = turf.point([p2.lng, p2.lat]);
-                var mid = turf.midpoint(pt1, pt2); var bearing = turf.rhumbBearing(pt1, pt2); var perpBearing = (bearing + 90) % 360;
-                drawAngleAt(mid.geometry.coordinates[1], mid.geometry.coordinates[0], perpBearing);
-                if(myConstraints.length > 0) { myConstraints[myConstraints.length-1].name = "Bisection Line"; myConstraints[myConstraints.length-1].type = "bisect"; window.saveConstraints(); updateLayerList(); }
-            } catch(e) { console.error(e); }
-        }
-
-        // The perpendicular bisector of start→end, reusing the bisect geometry but
-        // typed 'thermo'. drawAngleAt builds the kept half facing (perpBearing - 90) =
-        // bearing(start→end), i.e. toward the warm end — so HIT = warmer. Correct.
+        // The perpendicular bisector of start→end. drawAngleAt builds the kept half
+        // facing (perpBearing - 90) = bearing(start→end), i.e. toward the warm end —
+        // so HIT = warmer / closer to the second tap. Legacy 'bisect' layers from
+        // older rooms share this geometry and still render.
         function drawThermometer(start, end) {
             try {
                 var pt1 = turf.point([start.lng, start.lat]); var pt2 = turf.point([end.lng, end.lat]);
@@ -1111,13 +1067,63 @@
 window.dynamicBoroughs = {};
         window.dynamicCounties = {};
         window.dynamicCountries = {};
-        window.adminPolygons = {}; 
+        window.dynamicZones = {};
+        window.adminPolygons = {};
+        // Predefined lists from the city profile, if it has any.
+        window.profileBoundaries = { borough: null, zone: null };
+
+        // ==========================================
+        // BOUNDARY TOOL — one dropdown pair for every "which area are you in?"
+        // question. Borough / county / country / fare zone all resolve the same
+        // way (true Overpass polygon if we have one, else a union of 500m station
+        // bubbles), so they share a single level selector instead of four cards.
+        // ==========================================
+        window.BOUNDARY_LEVELS = {
+            borough: { label: 'Borough',  stops: () => window.dynamicBoroughs,  fallback: () => window.profileBoundaries.borough },
+            county:  { label: 'County',   stops: () => window.dynamicCounties },
+            country: { label: 'Nation',   stops: () => window.dynamicCountries },
+            zone:    { label: 'Zone',     stops: () => window.dynamicZones,     fallback: () => window.profileBoundaries.zone }
+        };
+        window.boundaryLevel = 'borough';
+
+        // Merge the Overpass-derived list with anything the city profile predefines.
+        function boundaryData(level) {
+            var cfg = window.BOUNDARY_LEVELS[level];
+            if (!cfg) return {};
+            var dynamic = cfg.stops() || {};
+            var predefined = (cfg.fallback && cfg.fallback()) || {};
+            return Object.keys(dynamic).length ? dynamic : predefined;
+        }
+
+        window.refreshBoundaryOptions = function() {
+            var sel = document.getElementById('boundarySelect');
+            if (!sel) return;
+            var data = boundaryData(window.boundaryLevel);
+            var names = Object.keys(data).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+            if (!names.length) {
+                sel.innerHTML = `<option value="">No ${window.BOUNDARY_LEVELS[window.boundaryLevel].label.toLowerCase()} data for this region</option>`;
+                return;
+            }
+            sel.innerHTML = names.map(n => {
+                var len = Array.isArray(data[n]) ? data[n].length : 0;
+                var count = len ? ` (${len} stop${len === 1 ? '' : 's'})` : '';
+                var shown = window.adminPolygons && window.adminPolygons[n] ? n : n + count;
+                return `<option value="${n}">${shown}</option>`;
+            }).join('');
+        };
+
+        window.setBoundaryLevel = function(level) {
+            if (!window.BOUNDARY_LEVELS[level]) return;
+            window.boundaryLevel = level;
+            window.refreshBoundaryOptions();
+            // Fare zones are fetched lazily — only when someone actually asks for them.
+            if (level === 'zone' && !Object.keys(window.dynamicZones).length && !window.profileBoundaries.zone) {
+                document.getElementById('boundarySelect').innerHTML = '<option value="">Fetching fare zones…</option>';
+                window.loadFareZones();
+            }
+        };
 
         window.loadDynamicAreas = async function() {
-            const bSelect = document.getElementById('boroughSelect');
-            const cSelect = document.getElementById('countySelect');
-            const nSelect = document.getElementById('countrySelect');
-            
             try {
                 let bbox = "";
                 if (window.currentRegion === 'custom' && window.customOverpassBbox) {
@@ -1126,9 +1132,8 @@ window.dynamicBoroughs = {};
                     bbox = cityProfiles[window.currentRegion].boundingBox;
                 } else { return; }
 
-                if (bSelect) bSelect.innerHTML = "<option>Loading...</option>";
-                if (cSelect) cSelect.innerHTML = "<option>Loading...</option>";
-                if (nSelect) nSelect.innerHTML = "<option>Loading...</option>";
+                var bSel = document.getElementById('boundarySelect');
+                if (bSel) bSel.innerHTML = "<option value=''>Loading areas…</option>";
                 
                 console.log("Fetching exact administrative and ceremonial boundaries...");
                 
@@ -1306,35 +1311,25 @@ window.dynamicBoroughs = {};
                     if (matchedCountry) { window.dynamicCountries[matchedCountry] = window.dynamicCountries[matchedCountry] || []; window.dynamicCountries[matchedCountry].push(stationKey); }
                 }
                 
-                const populateSelect = (selectElem, dataObj, emptyMsg) => {
-                    if (!selectElem) return;
-                    if (Object.keys(dataObj).length > 0) {
-                        selectElem.innerHTML = "";
-                        Object.keys(dataObj).sort().forEach(area => {
-                            selectElem.innerHTML += `<option value="${area}">${area} (${dataObj[area].length} stops)</option>`;
-                        });
-                    } else {
-                        selectElem.innerHTML = `<option>${emptyMsg}</option>`;
-                    }
-                };
-
-                populateSelect(bSelect, window.dynamicBoroughs, "No Boroughs Found");
-                populateSelect(cSelect, window.dynamicCounties, "No Counties Found");
-                populateSelect(nSelect, window.dynamicCountries, "No Countries Found");
+                window.refreshBoundaryOptions();
                 
             } catch(e) {
                 console.warn("Dynamic areas failed to load.", e);
-                if (bSelect) bSelect.innerHTML = "<option>Error Loading Data</option>";
-                if (cSelect) cSelect.innerHTML = "<option>Error Loading Data</option>";
-                if (nSelect) nSelect.innerHTML = "<option>Error Loading Data</option>";
+                var bSelErr = document.getElementById('boundarySelect');
+                if (bSelErr) bSelErr.innerHTML = "<option value=''>Couldn't load areas — retry from ⚙️ Settings</option>";
             }
         };
         
 window.dynamicZones = {};
 
+        // Fare zones are just another boundary level; this only populates
+        // window.dynamicZones and lets refreshBoundaryOptions render it.
         window.loadFareZones = async function() {
-    const zSelect = document.getElementById('zoneSelect');
-    if (!zSelect) return;
+    const setStatus = (msg) => {
+        if (window.boundaryLevel !== 'zone') return;
+        const sel = document.getElementById('boundarySelect');
+        if (sel) sel.innerHTML = `<option value="">${msg}</option>`;
+    };
 
     let bbox = "";
     let cacheKey = "";
@@ -1350,11 +1345,11 @@ window.dynamicZones = {};
     const cachedZones = localStorage.getItem(cacheKey);
     if (cachedZones) {
         window.dynamicZones = JSON.parse(cachedZones);
-        populateZoneDropdown(zSelect);
+        window.refreshBoundaryOptions();
         return;
     }
 
-    zSelect.innerHTML = "<option>Fetching Fare Zones...</option>";
+    setStatus("Fetching fare zones…");
 
     try {
         // Bumped timeout from 25 to 60 seconds to prevent 504s
@@ -1381,7 +1376,7 @@ window.dynamicZones = {};
         // Loop through the servers until one successfully answers
         for (let i = 0; i < endpoints.length; i++) {
             try {
-                zSelect.innerHTML = `<option>Fetching Zones (Server ${i+1}/${endpoints.length})...</option>`;
+                setStatus(`Fetching fare zones (server ${i+1}/${endpoints.length})…`);
                 const response = await fetch(endpoints[i] + encodeURIComponent(query));
                 
                 if (response.ok) { 
@@ -1422,26 +1417,13 @@ window.dynamicZones = {};
         });
         window.saveToLocalStorage(cacheKey, JSON.stringify(window.dynamicZones));
 
-        populateZoneDropdown(zSelect);
+        window.refreshBoundaryOptions();
 
     } catch(e) {
         console.error("Fare Zone load failed:", e);
-        zSelect.innerHTML = "<option>Error Loading Zones. Try again.</option>";
+        setStatus("Couldn't load fare zones — try again");
     }
 };
-
-// Helper function to build the dropdown menu
-function populateZoneDropdown(zSelect) {
-    zSelect.innerHTML = "";
-    const sortedZones = Object.keys(window.dynamicZones).sort((a,b) => a.localeCompare(b, undefined, {numeric: true}));
-    
-    sortedZones.forEach(z => {
-        if (window.dynamicZones[z].length > 0) {
-            zSelect.innerHTML += `<option value="${z}">${z} (${window.dynamicZones[z].length} stops)</option>`;
-        }
-    });
-    if (zSelect.innerHTML === "") zSelect.innerHTML = "<option>No Fare Zones mapped</option>";
-}
 
         
 
@@ -1471,11 +1453,28 @@ function populateZoneDropdown(zSelect) {
             return null;
         };
 
+        // Both POI tools answer questions about the same category list, so they
+        // share one dropdown and a mode switch instead of two near-identical cards.
+        window.poiMode = 'tentacle';
+        window.setPoiMode = function(mode) {
+            window.poiMode = mode;
+            document.querySelectorAll('#poiModes .seg-btn')
+                .forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+            document.getElementById('poiTentacleMode').style.display = mode === 'tentacle' ? 'block' : 'none';
+            document.getElementById('poiNearestMode').style.display = mode === 'nearest' ? 'block' : 'none';
+            // Drop any catchment preview when leaving that mode.
+            if (mode !== 'nearest' && window.poiPreviewLayer && window.leafletEngine) {
+                window.leafletEngine.removeLayer(window.poiPreviewLayer);
+                window.poiPreviewLayer = null;
+            }
+        };
+
         // Tentacles: union of radius circles around every POI of a category in the
         // game zone, added as one HIT/MISS constraint.
         window.addTentacleLayer = async function() {
-            const category = document.getElementById('tentacleCategory').value;
-            const label = document.getElementById('tentacleCategory').selectedOptions[0].textContent;
+            const catSel = document.getElementById('poiCategorySelect');
+            const category = catSel.value;
+            const label = catSel.selectedOptions[0].textContent;
             const radiusKm = parseFloat(document.getElementById('tentacleRadius').value);
             const bbox = window.currentBbox();
             if (!bbox) { window.showToast("No game region set.", "warn"); return; }
@@ -1518,6 +1517,7 @@ function populateZoneDropdown(zSelect) {
             const catSelect = document.getElementById('poiCategorySelect');
             const resSelect = document.getElementById('poiResultSelect');
             if (!resSelect) return;
+            const catLabel = catSelect.selectedOptions[0].textContent.toLowerCase();
 
             const poiTags = window.POI_TAGS;
 
@@ -1530,7 +1530,7 @@ function populateZoneDropdown(zSelect) {
                     bbox = cityProfiles[window.currentRegion].boundingBox;
                 } else { prog.fail("No game region set."); return; }
 
-                resSelect.innerHTML = "<option>Fetching POIs...</option>";
+                resSelect.innerHTML = `<option value="">Finding ${catLabel}…</option>`;
                 
                 // 1. CLEAR OLD PREVIEWS (Using our new safe variable!)
                 if (window.poiPreviewLayer && window.leafletEngine) {
@@ -1567,13 +1567,13 @@ function populateZoneDropdown(zSelect) {
                 });
 
                 if (poiPoints.length < 2) {
-                    resSelect.innerHTML = `<option>Need at least 2 POIs for Voronoi (Found ${poiPoints.length})</option>`;
+                    resSelect.innerHTML = `<option value="">Only ${poiPoints.length} found — need 2 or more</option>`;
                     prog.fail(`Only ${poiPoints.length} found — need at least 2 for catchments.`);
                     return;
                 }
 
                 prog.update("Calculating catchments…");
-                resSelect.innerHTML = "<option>Calculating Catchments...</option>";
+                resSelect.innerHTML = '<option value="">Calculating catchments…</option>';
                 
                 const b = bbox.split(',').map(Number);
                 const turfBbox = [b[1], b[0], b[3], b[2]]; 
@@ -1632,19 +1632,19 @@ function populateZoneDropdown(zSelect) {
                     }
                 });
 
-                if (resSelect.innerHTML === "") resSelect.innerHTML = "<option>No stations captured by POIs</option>";
+                if (resSelect.innerHTML === "") resSelect.innerHTML = '<option value="">No stations fall inside these catchments</option>';
                 prog.done(`${sortedPOIs.length} ${catSelect.value.replace('_',' ')} catchments ready`);
 
             } catch(e) {
                 console.error("POI Voronoi failed:", e);
-                resSelect.innerHTML = "<option>Error loading POIs</option>";
+                resSelect.innerHTML = '<option value="">Could not load — try again</option>';
                 prog.fail("Overpass busy — couldn't load POIs. Try again.");
             }
         };
 
         window.addPOILayer = function() {
             const poiName = document.getElementById('poiResultSelect').value;
-            if (!poiName || poiName.includes("Error") || poiName.includes("Need") || poiName.includes("Fetching")) return;
+            if (!poiName) { window.showToast("Find the catchments first, then pick one.", "warn"); return; }
             
             if (window.poiPolygons && window.poiPolygons[poiName]) {
                 const targetPoly = window.poiPolygons[poiName];
@@ -1655,7 +1655,7 @@ function populateZoneDropdown(zSelect) {
                     window.poiPreviewLayer = null; 
                 }
                 
-                addConstraint('borough', targetPoly, `${poiName} Catchment`, targetPoly);
+                addConstraint('poi', targetPoly, `Nearest: ${poiName}`, targetPoly);
             } else {
                 window.showToast("Could not find a boundary for this POI.", "warn");
             }
@@ -1685,7 +1685,7 @@ function populateZoneDropdown(zSelect) {
 
         function renderLog() {
             var list = document.getElementById('logList'); list.innerHTML = "";
-            if (logEntries.length === 0) { list.innerHTML = "<div style='padding:10px; color:#999; font-style:italic;'>No tasks completed yet.</div>"; return; }
+            if (logEntries.length === 0) { list.innerHTML = "<div class='empty-state'><span class='empty-ico'>📜</span>Nothing asked yet.<br>Questions you mark in the <strong>Ask</strong> tab land here, newest last.</div>"; return; }
             logEntries.forEach((entry, index) => {
                 var div = document.createElement('div'); div.className = 'log-list-item';
                 var time = entry.ts ? new Date(entry.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
@@ -1773,11 +1773,20 @@ function populateZoneDropdown(zSelect) {
                     window.pendingQuestionLink = logId;
                     window.startRadiusTool();
                 };
-            } else if (/Thermometer/i.test(catName)) {
+            } else if (/Thermometer|Measuring/i.test(catName)) {
+                // Both are the same geometry — the divider in thermometer mode.
                 run = function() {
                     window.switchTab('tools');
+                    window.setDividerMode('thermo');
                     window.pendingQuestionLink = logId;
-                    window.startThermometerTool();
+                    window.startDividerTool();
+                };
+            } else if (/Tentacles/i.test(catName)) {
+                run = function() {
+                    window.switchTab('tools');
+                    window.setPoiMode('tentacle');
+                    window.pendingQuestionLink = logId;
+                    window.showToast("Pick the category, then tap Draw tentacles.", "info", { duration: 3500 });
                 };
             }
             if (run) {
@@ -1823,57 +1832,6 @@ function resolveCoords(name, missingList) {
     return coords;
 }
 
-window.addZoneLayer = function() {
-    const zSelect = document.getElementById('zoneSelect');
-    if (!zSelect) return;
-
-    let zName = zSelect.value;
-    const profile = cityProfiles[window.currentRegion];
-
-    // Safety check
-    if (!profile || !profile.zones || !profile.zones[zName]) {
-        window.showToast(`No predefined zones found for ${window.currentRegion}.`, "warn");
-        return;
-    }
-
-    let stops = profile.zones[zName];
-
-    if (!stops || stops.length === 0) {
-        window.showToast(`No stops found for Zone ${zName}.`, "warn");
-        return;
-    }
-
-    let circles = [];
-    let missing = [];
-
-    // Draw reliable 500m (0.5km) bubbles around each station
-    stops.forEach(name => { 
-        const coords = window.stationMap[name] || resolveCoords(name, missing); 
-        if (coords) {
-            circles.push(turf.circle([coords[1], coords[0]], 0.5, {steps: 64, units: 'kilometers'}));
-        }
-    });
-
-    if (circles.length > 0) {
-        let targetPoly = circles[0]; 
-        for (let i = 1; i < circles.length; i++) { 
-            try { targetPoly = turf.union(targetPoly, circles[i]); } catch(e) {} 
-        }
-        
-        let cleanLabel = zName.includes('Zone') ? zName : `Zone ${zName}`;
-        
-        try {
-            // THE FIX: Lowered tolerance to stop the circles from turning into octagons
-            let simplifiedPoly = turf.simplify(targetPoly, { tolerance: 0.00005, highQuality: true });
-            let cleanPoly = turf.buffer(simplifiedPoly, 0); 
-            addConstraint('zone', cleanPoly, cleanLabel, cleanPoly);
-        } catch(e) {
-            addConstraint('zone', targetPoly, cleanLabel, targetPoly);
-        }
-    } else {
-        window.showToast("Could not map the stations for this zone.", "warn");
-    }
-};
         window.loadTransportData = async function() {
             const loader = document.getElementById('loader');
             if (loader) loader.style.display = 'block';
@@ -2004,7 +1962,7 @@ function processData(d, profile) {
     railLayer.clearLayers();
 
     // 2. IMPORTANT: Reset/Initialize the global station map
-    // We use window. to ensure it's accessible by addBorough() and addZoneLayer()
+    // We use window. so the boundary tool (addBoundaryLayer) can resolve stations.
     window.stationMap = {}; 
     
     var nodes = {}; 
@@ -2134,11 +2092,17 @@ function processData(d, profile) {
 }
 
         // Universal function to handle Boroughs, Counties, and Countries
-        function addAdministrativeConstraint(dropdownId, labelSuffix, dynamicDataDict) {
-            const name = document.getElementById(dropdownId).value;
-            if (!name || name.includes("Found") || name.includes("Loading") || name.includes("Error")) return;
+        // One entry point for every boundary level (borough / county / country /
+        // fare zone). Uses the true Overpass polygon when we have it, otherwise
+        // unions 500m bubbles around each station known to be inside the area.
+        window.addBoundaryLayer = function() {
+            const level = window.boundaryLevel;
+            const cfg = window.BOUNDARY_LEVELS[level];
+            const name = document.getElementById('boundarySelect').value;
+            if (!cfg || !name) { window.showToast("Pick an area first.", "warn"); return; }
             if (Object.keys(window.stationMap).length === 0) { window.showToast("Map data is still loading — try again in a moment.", "warn"); return; }
 
+            const labelSuffix = cfg.label;
             let targetPoly = null;
 
             // 1. Try to use the exact true geographic boundary we saved!
@@ -2147,13 +2111,7 @@ function processData(d, profile) {
             } 
             // 2. FALLBACK: If boundaries failed, draw 500m circles
             else {
-                let stops = [];
-                if (dynamicDataDict && dynamicDataDict[name]) {
-                    stops = dynamicDataDict[name];
-                } else if (cityProfiles[window.currentRegion] && cityProfiles[window.currentRegion].boroughs[name]) {
-                    stops = cityProfiles[window.currentRegion].boroughs[name];
-                }
-
+                let stops = boundaryData(level)[name] || [];
                 if (stops.length === 0) { window.showToast("No stops found for " + name, "warn"); return; }
 
                 let circles = []; let missing = [];
@@ -2178,18 +2136,14 @@ function processData(d, profile) {
                     // turf.buffer(0) mathematically cleans up any looping lines caused by the simplification
                     let cleanPoly = turf.buffer(simplifiedPoly, 0);
                     
-                    addConstraint('borough', cleanPoly, `${name} ${labelSuffix}`, cleanPoly);
+                    const label = /zone/i.test(name) ? name : `${name} ${labelSuffix}`;
+                    addConstraint(level === 'zone' ? 'zone' : 'borough', cleanPoly, label, cleanPoly);
                 } catch(e) {
                     console.error("Math engine failed to simplify the shape:", e);
                     window.showToast("This boundary is too complex to draw. Try a smaller area.", "error");
                 }
             }
-        }
-
-        // Link the UI buttons to the new universal function
-        window.addBorough = function() { addAdministrativeConstraint('boroughSelect', 'Borough', window.dynamicBoroughs); };
-        window.addCounty = function() { addAdministrativeConstraint('countySelect', 'County', window.dynamicCounties); };
-        window.addCountry = function() { addAdministrativeConstraint('countrySelect', 'Nation', window.dynamicCountries); };
+        };
 
 
         // --- SETTINGS MODAL LOGIC ---
@@ -2325,9 +2279,8 @@ function processData(d, profile) {
                 const summary = document.getElementById('sheetSummary');
                 if (!summary) return;
                 const room = window.currentGameId || '—';
-                const activeTabBtn = document.querySelector('.tab-btn.active');
-                const tab = activeTabBtn ? activeTabBtn.textContent.trim() : '';
-                summary.textContent = `Room ${room} · ${tab} — tap to open`;
+                const n = (typeof myConstraints !== 'undefined') ? myConstraints.length : 0;
+                summary.textContent = `Room ${room} · ${n} layer${n === 1 ? '' : 's'} — tap to open`;
             };
 
             // Pointer drag / tap changes the state (pointer events cover touch).
@@ -2363,6 +2316,10 @@ function processData(d, profile) {
         })();
 
         // === INITIALIZE ===
+        window.setRadius(5);                 // highlight the chip matching the default
+        window.setDividerMode('thermo');     // sync the divider hint + button label
+        window.setPoiMode('tentacle');
+        updateLayerList();                   // paint the empty state on first run
         renderLog();
         renderQuestions();
         window.checkTutorial();
@@ -2377,9 +2334,15 @@ function processData(d, profile) {
                 var data = JSON.parse(saved);
                 myConstraints = []; guideLayer.clearLayers();
                 data.forEach(c => {
+                    // saveConstraints stringifies both geometries (Firestore can't take
+                    // nested arrays), so parse them back on the way in.
+                    var geom = typeof c.geometry === 'string' ? JSON.parse(c.geometry) : c.geometry;
+                    var vis = c.visualGeometry
+                        ? (typeof c.visualGeometry === 'string' ? JSON.parse(c.visualGeometry) : c.visualGeometry)
+                        : null;
                     var layer = null;
-                    if (c.visualGeometry) { layer = L.geoJSON(c.visualGeometry, { style: { color: 'black', weight: 2, dashArray: '5, 5', fill: false } }).addTo(guideLayer); }
-                    myConstraints.push({ id: c.id, type: c.type, geometry: c.geometry, state: c.state, name: c.name, visualGeometry: c.visualGeometry, leafletLayer: layer });
+                    if (vis) { layer = L.geoJSON(vis, { style: { color: 'black', weight: 2, dashArray: '5, 5', fill: false } }).addTo(guideLayer); }
+                    myConstraints.push({ id: c.id, type: c.type, geometry: geom, state: c.state, name: c.name, visualGeometry: vis, leafletLayer: layer });
                 });
                 updateLayerList(); updateLogicMap();
             } catch(e) { console.error("Failed to load saved constraints", e); }

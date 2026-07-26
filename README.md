@@ -1,11 +1,19 @@
 # JetLagPal
 
 A companion web app for the **Jet Lag: The Game — Hide and Seek** home game. Seekers
-use it to narrow down where the hider is: draw geometric constraints on a Leaflet map
-(radius circles, bisecting lines, thermometers, borough/county/fare-zone boundaries,
-"tentacle" POI unions, and nearest-POI Voronoi catchments), mark each as **HIT** or
-**MISS**, and the map shades green (hider still possible) / red (eliminated). Game
-state syncs in real time between players via Firebase Firestore rooms (5-digit codes).
+use it to narrow down where the hider is: draw geometric constraints on a Leaflet map,
+mark each as **HIT** or **MISS**, and the map shades green (hider still possible) / red
+(eliminated). Game state syncs in real time between players via Firebase Firestore rooms
+(5-digit codes).
+
+There are four tools, each covering a family of questions:
+
+| Tool | Covers |
+|------|--------|
+| 🎯 **Radar** | Radius questions — a circle around a point |
+| 🌡️ **Dividing line** | *Thermometer* mode is the perpendicular bisector of two taps, keeping the warmer half — the same geometry answers Measuring ("closer to A or B?") questions. *Match a line* mode runs the divider along the two taps, for streets, transit lines and coastlines. |
+| 🗺️ **Boundary match** | Borough / district, county, country and transit fare zone — one level selector, one area list. Uses the true OSM boundary polygon when available, otherwise a union of 500m bubbles around the stations inside it. |
+| 📍 **Points of interest** | One category list, two modes: *Tentacles* (union of circles around every POI) and *Nearest one* (Voronoi catchments). |
 Transit stations and boundaries are fetched live from the Overpass API (OpenStreetMap)
 and cached in `localStorage`.
 
@@ -65,7 +73,7 @@ Firebase domains (`*.googleapis.com`) allowlisted.
 | File | Purpose |
 |------|---------|
 | `index.html` | Markup + the main inline ES-module script (map engine, sync, tools, questions) |
-| `styles.css` | All styling (mobile-first; includes the bottom-sheet and touch-target rules) |
+| `styles.css` | All styling. Design tokens live in `:root` (with a `prefers-color-scheme: dark` override) — change a colour there and it propagates everywhere. Includes the bottom-sheet and touch-target rules. |
 | `ui.js` | Self-contained notification helpers: toast, progress, confirm, prompt |
 | `tutorial.js` | The first-run walkthrough modal |
 | `questions.js` | The Jet Lag question deck (categories → subcategories → items) |
@@ -92,11 +100,13 @@ of these keys. To add a city:
     // Overpass query body run to draw stations/lines. {{bbox}} is substituted.
     overpassQuery: `node["railway"~"station|tram_stop"]({{bbox}}); way["railway"~"rail|tram|light_rail"]({{bbox}}); relation["type"="route"]["route"~"tram|light_rail"]({{bbox}});`,
 
-    // Optional: predefined station lists for the Borough Match tool (falls back to
-    // dynamically-fetched administrative boundaries if omitted).
+    // Optional: predefined station lists for the Boundary tool's Borough level
+    // (falls back to dynamically-fetched administrative boundaries if omitted).
     boroughs: { "Leeds": ["Leeds", "Cross Gates", "…"] },
 
-    // Optional: fare-zone → station lists for the Fare Zones tool.
+    // Optional: fare-zone → station lists for the Boundary tool's Fare zone level.
+    // Omit it and the app fetches zones from Overpass the first time someone
+    // selects that level.
     zones: { "1": ["Leeds", "…"] },
 
     // Optional: which national-rail stations to show. "ALL" or an array of names.

@@ -31,14 +31,18 @@ export const tutorialHTML = `
                 <div class="tut-step">
                     <div class="tut-icon">3</div>
                     <div>
-                        <strong>Add constraints from the Tools tab.</strong>
-                        Turn the seeker's answers into shapes:
+                        <strong>Turn answers into shapes — four tools.</strong>
                         <ul>
-                            <li><strong>Radar</strong> &mdash; a radius circle (tap a quick chip for the range).</li>
-                            <li><strong>Line Split / Bisect / Thermometer</strong> &mdash; tap two points on the map.</li>
-                            <li><strong>Borough / County / Fare Zone / POI</strong> &mdash; pick from the lists.</li>
+                            <li><strong>🎯 Radar</strong> &mdash; a circle around a point. Tap a chip for the range.</li>
+                            <li><strong>🌡️ Dividing line</strong> &mdash; tap two points. <em>Thermometer</em> mode
+                                keeps the half you got warmer toward (this also answers Measuring
+                                questions); <em>Match a line</em> runs the divider along a street or
+                                transit line.</li>
+                            <li><strong>🗺️ Boundary match</strong> &mdash; pick a level (borough, county,
+                                country, fare zone) then the area.</li>
+                            <li><strong>📍 Points of interest</strong> &mdash; <em>Tentacles</em> for
+                                "within X km of any", <em>Nearest one</em> for catchment areas.</li>
                         </ul>
-                        Each one becomes a layer.
                     </div>
                 </div>
 
@@ -46,10 +50,20 @@ export const tutorialHTML = `
                     <div class="tut-icon">4</div>
                     <div>
                         <strong>Mark HIT or MISS.</strong>
-                        In the <em>Layers</em> tab, toggle each layer. The map shades
-                        <strong style="color:#2e7d32;">green</strong> where the hider could still be
-                        and <strong style="color:#c62828;">red</strong> where they're ruled out.
-                        Use <strong>↩ Undo</strong> (with one-tap Restore) or <em>Clear</em> to reset.
+                        Every tool adds a layer to the <em>Layers</em> tab. Toggle it and the map shades
+                        <strong style="color:#15803d;">green</strong> where the hider could still be
+                        and <strong style="color:#b91c1c;">red</strong> where they're ruled out.
+                        Got it wrong? <strong>↩ Undo</strong> has a one-tap Restore.
+                    </div>
+                </div>
+
+                <div class="tut-step">
+                    <div class="tut-icon">5</div>
+                    <div>
+                        <strong>Tick questions off in the Ask tab.</strong>
+                        Marking a question logs it for the whole team, and for Radar,
+                        Thermometer and Measuring questions you get a <em>Draw it</em>
+                        shortcut that jumps straight to the right tool.
                     </div>
                 </div>
 
