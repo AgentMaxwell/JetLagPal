@@ -11,15 +11,65 @@ There are four tools, each covering a family of questions:
 | Tool | Covers |
 |------|--------|
 | 🎯 **Radar** | Radius questions — a circle around a point |
-| 🌡️ **Dividing line** | *Thermometer* mode is the perpendicular bisector of two taps, keeping the warmer half — the same geometry answers Measuring ("closer to A or B?") questions. *Match a line* mode runs the divider along the two taps, for streets, transit lines and coastlines. |
-| 🗺️ **Boundary match** | Borough / district, county, country and transit fare zone — one level selector, one area list. Uses the true OSM boundary polygon when available, otherwise a union of 500m bubbles around the stations inside it. |
-| 📍 **Points of interest** | One category list, two modes: *Tentacles* (union of circles around every POI) and *Nearest one* (Voronoi catchments). |
+| 🌡️ **Dividing line** | *Thermometer* mode is the perpendicular bisector of two points, keeping the warmer half. *Match a line* mode runs the divider along the two points instead, for streets, transit lines and coastlines. Either mode takes two map taps **or** two typed coordinates. |
+| 🗺️ **Boundary match** | "Same borough as me?" — finds which borough / county / country / fare zone contains your position and shades it. Manual area selection is still there behind the disclosure. |
+| 📍 **Points of interest** | One category list, three question types: *Matching* ("same nearest museum as me?" → the catchment of your nearest one), *Measuring* ("closer to a museum than me?"), and *Tentacles* (within a fixed radius of any). |
+
+Following [taibeled's JetLagHideAndSeek](https://taibeled.github.io/JetLagHideAndSeek/),
+matching and measuring questions are asked **from where you are** rather than by naming
+an area. Set your position once — GPS, a map tap, or the latitude / longitude boxes —
+and each tool derives its own region. Layer toggles are then worded the way the question
+was asked: Same/Different, Closer/Further, Warmer/Colder.
+
+The measuring reduction is worth stating plainly: if your nearest museum is *d* km away,
+"is the hider closer to a museum than me?" is exactly "is the hider inside the union of
+*d*-km circles around every museum?" — so it reuses the tentacle geometry with the
+radius measured instead of chosen.
 Transit stations and boundaries are fetched live from the Overpass API (OpenStreetMap)
 and cached in `localStorage`.
+
+Coordinates are entered as separate latitude and longitude number boxes, so there is no
+format to get wrong. Map style (light / muted / dark tiles) is a per-device setting in
+⚙️ Settings and defaults to light — the red "ruled out" wash over dark tiles was
+unreadable in daylight.
 
 It is a **static site** — plain HTML/CSS/JS with no build step, no bundler, and no
 framework. Dependencies (Leaflet, Turf.js, osmtogeojson, the Firebase JS SDK) load from
 CDNs at runtime.
+
+## Talking to Overpass
+
+Map data comes from the free public [Overpass API](https://overpass-api.de), which gives
+each IP roughly two concurrent slots and rate-limits hard past that. **Every Overpass
+request goes through `window.Overpass` in `index.html`** — do not call `fetch` against a
+mirror directly, or you reintroduce the timeouts. The client:
+
+- runs requests **strictly one at a time**, spaced 1.5s apart, so two loaders can never
+  collide;
+- aborts a hung attempt after 50s instead of hanging forever;
+- retries up to 5 times with exponential backoff, honouring `Retry-After` on a 429;
+- rotates between three mirrors and remembers the last one that worked
+  (`gm_op_mirror`);
+- de-duplicates identical in-flight queries and caches responses in `localStorage`
+  for 7 days under the `gm_op_v1_` prefix.
+
+```js
+const data = await window.Overpass.run(query, {
+    key: 'poi_museum_53.4,-2.3,53.5,-2.2',  // cache key; omit to skip caching
+    label: 'museums',                       // used in progress messages
+    onStatus: (msg) => prog.update(msg),
+    cache: false,                           // for responses too big for localStorage
+    force: true                             // bypass a cached hit
+});
+```
+
+The other half of the fix is **when** requests happen. Joining a room fetches stations
+and nothing else. The heavy administrative-boundary query runs only the first time
+someone reaches for the Boundary tool (`ensureBoundaryData()`), fare zones only when
+that level is selected, and POI queries only on demand — with Tentacles and Nearest-one
+sharing a cache key, so asking for museums twice costs one request. The derived boundary
+result is cached separately under `gm_areas_v1_*` (simplified, because the raw response
+runs to megabytes). **⚙️ Settings → ⤓ Re-download** clears all of it.
 
 ## Running it locally
 

@@ -31,26 +31,40 @@ export const tutorialHTML = `
                 <div class="tut-step">
                     <div class="tut-icon">3</div>
                     <div>
-                        <strong>Turn answers into shapes — four tools.</strong>
-                        <ul>
-                            <li><strong>🎯 Radar</strong> &mdash; a circle around a point. Tap a chip for the range.</li>
-                            <li><strong>🌡️ Dividing line</strong> &mdash; tap two points. <em>Thermometer</em> mode
-                                keeps the half you got warmer toward (this also answers Measuring
-                                questions); <em>Match a line</em> runs the divider along a street or
-                                transit line.</li>
-                            <li><strong>🗺️ Boundary match</strong> &mdash; pick a level (borough, county,
-                                country, fare zone) then the area.</li>
-                            <li><strong>📍 Points of interest</strong> &mdash; <em>Tentacles</em> for
-                                "within X km of any", <em>Nearest one</em> for catchment areas.</li>
-                        </ul>
+                        <strong>Set your position first.</strong>
+                        Matching and measuring questions are answered <em>from where you
+                        are</em> &mdash; tap <em>Use GPS</em>, tap the map, or type a latitude
+                        and longitude into the two boxes at the top of the Tools tab. The app
+                        then works out which borough you're in, or which museum is nearest,
+                        so you never have to look it up.
                     </div>
                 </div>
 
                 <div class="tut-step">
                     <div class="tut-icon">4</div>
                     <div>
-                        <strong>Mark HIT or MISS.</strong>
-                        Every tool adds a layer to the <em>Layers</em> tab. Toggle it and the map shades
+                        <strong>Turn answers into shapes — four tools.</strong>
+                        <ul>
+                            <li><strong>🎯 Radar</strong> &mdash; a circle around a point. Tap a chip for the range.</li>
+                            <li><strong>🌡️ Dividing line</strong> &mdash; tap two points. <em>Thermometer</em> mode
+                                keeps the half you got warmer toward; <em>Match a line</em> runs the
+                                divider along a street or transit line.</li>
+                            <li><strong>🗺️ Boundary match</strong> &mdash; pick a level (borough,
+                                county, country, fare zone) and tap <em>Same as me?</em></li>
+                            <li><strong>📍 Points of interest</strong> &mdash; <em>Matching</em>
+                                ("same nearest one as me?"), <em>Measuring</em> ("closer to one than
+                                me?") and <em>Tentacles</em> ("within X km of any").</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="tut-step">
+                    <div class="tut-icon">5</div>
+                    <div>
+                        <strong>Answer the question.</strong>
+                        Every tool adds a layer to the <em>Layers</em> tab, with its two buttons
+                        worded the way you asked &mdash; Same/Different, Closer/Further,
+                        Warmer/Colder. Tap the true one and the map shades
                         <strong style="color:#15803d;">green</strong> where the hider could still be
                         and <strong style="color:#b91c1c;">red</strong> where they're ruled out.
                         Got it wrong? <strong>↩ Undo</strong> has a one-tap Restore.
@@ -58,7 +72,7 @@ export const tutorialHTML = `
                 </div>
 
                 <div class="tut-step">
-                    <div class="tut-icon">5</div>
+                    <div class="tut-icon">6</div>
                     <div>
                         <strong>Tick questions off in the Ask tab.</strong>
                         Marking a question logs it for the whole team, and for Radar,

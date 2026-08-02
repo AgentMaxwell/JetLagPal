@@ -49,6 +49,16 @@
             </div>
 
             <div class="settings-group">
+                <h4>Map style</h4>
+                <div class="seg" id="mapStyleSeg">
+                    <button type="button" class="seg-btn active" data-style="light" onclick="window.setMapStyle('light')">☀️ Light</button>
+                    <button type="button" class="seg-btn" data-style="muted" onclick="window.setMapStyle('muted')">🌫️ Muted</button>
+                    <button type="button" class="seg-btn" data-style="dark" onclick="window.setMapStyle('dark')">🌙 Dark</button>
+                </div>
+                <p class="settings-note">Light is easiest to read outdoors. Dark only affects the map tiles, not the panel.</p>
+            </div>
+
+            <div class="settings-group">
                 <h4>Map layers</h4>
                 <label class="switch-row">
                     <input type="checkbox" id="toggleLocal" checked onchange="window.toggleMapLayer('local', this.checked)">
@@ -74,6 +84,15 @@
                 <div id="loader">Fetching data…</div>
             </div>
 
+            <div class="settings-group" id="areaShareGroup" style="display:none;">
+                <h4>Game zone</h4>
+                <p class="settings-note">Share this zone so everyone can start a future game on exactly the same base area.</p>
+                <div class="btn-row" style="margin-top:8px;">
+                    <button class="btn-ghost" onclick="window.copyAreaCode()">⧉ Copy zone code</button>
+                    <button class="btn-ghost" onclick="window.saveCurrentArea()">☆ Save zone</button>
+                </div>
+            </div>
+
             <div class="settings-group">
                 <h4>Room</h4>
                 <button class="btn-ghost" onclick="window.leaveRoom()">🚪 Leave room / change city</button>
@@ -97,13 +116,22 @@
 
         <div class="setup-box">
             <h3>Create a new game</h3>
-            <select id="regionSelect">
+            <select id="regionSelect" onchange="window.onRegionChange(this.value)">
                 <option value="manchester">Greater Manchester</option>
                 <option value="london">London</option>
                 <option value="west_midlands">West Midlands &amp; Birmingham</option>
-                <option value="custom">Custom (draw your own zone)</option>
+                <option value="custom">Custom — draw your own zone</option>
+                <option value="saved">Custom — a saved zone</option>
             </select>
+            <div id="savedAreaWrap" style="display:none;">
+                <select id="savedAreaSelect"><option value="">No saved zones yet</option></select>
+            </div>
             <button class="btn-create" onclick="window.startCreateFlow()">Create room</button>
+            <details class="tool-more">
+                <summary>Paste a zone code</summary>
+                <input type="text" id="areaCodeInput" placeholder="Paste the code a teammate sent">
+                <button onclick="window.importAreaCode()">Import zone</button>
+            </details>
         </div>
 
         <div class="setup-or">OR</div>
@@ -160,29 +188,37 @@
 
         <div id="tab-tools" class="tab-content active">
 
+            <!-- ---- Your position: the anchor every question is asked from ---- -->
+            <div class="tool-card pos-card">
+                <div class="tool-title"><span class="tool-ico">🧍</span>Your position</div>
+                <p class="tool-hint">Matching and measuring questions are answered <em>from where you are</em>. Set it once here.</p>
+                <div class="coord-row">
+                    <label class="coord-field">
+                        <span>Latitude</span>
+                        <input type="number" id="posLat" step="any" inputmode="decimal" placeholder="53.4808" onchange="window.seekerFromInputs()">
+                    </label>
+                    <label class="coord-field">
+                        <span>Longitude</span>
+                        <input type="number" id="posLng" step="any" inputmode="decimal" placeholder="-2.2426" onchange="window.seekerFromInputs()">
+                    </label>
+                </div>
+                <div class="btn-row" style="margin-top:8px;">
+                    <button id="btnPosGps" onclick="window.seekerFromGPS()">🛰️ Use GPS</button>
+                    <button id="btnPosPick" class="btn-ghost" onclick="window.pickSeekerOnMap(event)">🗺️ Tap the map</button>
+                </div>
+                <div class="pos-readout" id="posReadout">Not set yet</div>
+            </div>
+
             <!-- ---- Radar ---- -->
             <div class="tool-card">
                 <div class="tool-title"><span class="tool-ico">🎯</span>Radar</div>
                 <p class="tool-hint">A circle around a point. The answer tells you whether the hider is inside it.</p>
                 <span class="field-label">Radius (km)</span>
                 <input type="number" id="radiusInput" value="5" min="0.1" step="0.1">
-                <div class="chip-row" id="radarChips" style="margin-top:8px;">
-                    <button type="button" class="chip" onclick="window.setRadius(0.5)">500m</button>
-                    <button type="button" class="chip" onclick="window.setRadius(1)">1km</button>
-                    <button type="button" class="chip" onclick="window.setRadius(2)">2km</button>
-                    <button type="button" class="chip" onclick="window.setRadius(5)">5km</button>
-                    <button type="button" class="chip" onclick="window.setRadius(10)">10km</button>
-                    <button type="button" class="chip" onclick="window.setRadius(25)">25km</button>
-                    <button type="button" class="chip" onclick="window.setRadius(50)">50km</button>
-                </div>
+                <div class="chip-row" id="radarChips" style="margin-top:8px;"><!-- from distancePresets.radar --></div>
                 <div class="btn-row" style="margin-top:10px;">
-                    <button id="btnRadius" onclick="startRadiusTool(event)">📍 Pick centre</button>
-                    <button id="btnGpsRadius" class="btn-ghost" onclick="radiusAtGPS()">🛰️ My spot</button>
-                </div>
-                <span class="field-label">Or type coordinates</span>
-                <div class="input-group">
-                    <input type="text" id="radiusCoords" placeholder="53.48, -2.24">
-                    <button class="btn-accent" onclick="manualRadius()">Go</button>
+                    <button id="btnRadius" onclick="startRadiusTool(event)">🗺️ Pick centre</button>
+                    <button id="btnGpsRadius" class="btn-accent" onclick="window.radiusAtSeeker()">🧍 On my position</button>
                 </div>
             </div>
 
@@ -195,12 +231,26 @@
                 </div>
                 <p class="tool-hint" id="dividerHint">Tap where you started, then where it got <em>warmer</em>. Also covers Measuring questions — either way the map keeps the half you're closer to.</p>
                 <button id="btnDivider" onclick="window.startDividerTool(event)">Tap two points</button>
+
+                <span class="field-label" id="dividerCoordLabel">Or type the warm end</span>
+                <p class="tool-hint" style="margin-top:0;">Measured from <strong>your position</strong> above.</p>
+                <div class="coord-row">
+                    <label class="coord-field">
+                        <span>Latitude</span>
+                        <input type="number" id="dividerLat" step="any" inputmode="decimal" placeholder="53.5500">
+                    </label>
+                    <label class="coord-field">
+                        <span>Longitude</span>
+                        <input type="number" id="dividerLng" step="any" inputmode="decimal" placeholder="-2.1000">
+                    </label>
+                </div>
+                <button class="btn-accent" onclick="window.manualDivider()">Draw from my position</button>
             </div>
 
             <!-- ---- Boundary match: borough / county / country / fare zone ---- -->
             <div class="tool-card">
                 <div class="tool-title"><span class="tool-ico">🗺️</span>Boundary match</div>
-                <p class="tool-hint">Pick the area you're in — mark HIT if the hider shares it, MISS if they don't.</p>
+                <p class="tool-hint">"Are you in the same one as me?" — the app works out which area you're standing in.</p>
                 <span class="field-label">Level</span>
                 <select id="boundaryLevel" onchange="window.setBoundaryLevel(this.value)">
                     <option value="borough">Borough / district</option>
@@ -208,48 +258,50 @@
                     <option value="country">Country / nation</option>
                     <option value="zone">Transit fare zone</option>
                 </select>
-                <span class="field-label">Area</span>
-                <select id="boundarySelect"><option>Loading areas…</option></select>
-                <button class="btn-accent" onclick="window.addBoundaryLayer()">＋ Add boundary layer</button>
+                <button class="btn-accent" onclick="window.boundaryMatchFromPosition()">🧍 Same as me?</button>
+                <details class="tool-more">
+                    <summary>Pick an area manually</summary>
+                    <select id="boundarySelect" onfocus="window.ensureBoundaryData()"><option value="">Tap to load areas…</option></select>
+                    <button onclick="window.addBoundaryLayer()">＋ Add that area</button>
+                </details>
             </div>
 
             <!-- ---- Points of interest: tentacles / nearest catchment ---- -->
             <div class="tool-card">
                 <div class="tool-title"><span class="tool-ico">📍</span>Points of interest</div>
-                <span class="field-label">Category</span>
-                <select id="poiCategorySelect">
-                    <option value="museum">Museums</option>
-                    <option value="library">Libraries</option>
-                    <option value="cinema">Cinemas</option>
-                    <option value="hospital">Hospitals</option>
-                    <option value="zoo">Zoos</option>
-                    <option value="aquarium">Aquariums</option>
-                    <option value="theme_park">Amusement parks</option>
-                    <option value="golf_course">Golf courses</option>
-                    <option value="consulate">Consulates / embassies</option>
-                    <option value="peak">Mountain peaks</option>
-                    <option value="park">Parks</option>
-                </select>
+                <span class="field-label">Feature</span>
+                <select id="poiCategorySelect"><!-- filled from window.FEATURES --></select>
                 <div class="seg" id="poiModes" style="margin-top:10px;">
-                    <button type="button" class="seg-btn active" data-mode="tentacle" onclick="window.setPoiMode('tentacle')">🐙 Tentacles</button>
-                    <button type="button" class="seg-btn" data-mode="nearest" onclick="window.setPoiMode('nearest')">🧭 Nearest one</button>
+                    <button type="button" class="seg-btn active" data-mode="match" onclick="window.setPoiMode('match')">Matching</button>
+                    <button type="button" class="seg-btn" data-mode="measure" onclick="window.setPoiMode('measure')">Measuring</button>
+                    <button type="button" class="seg-btn" data-mode="tentacle" onclick="window.setPoiMode('tentacle')">Tentacles</button>
                 </div>
-                <div id="poiTentacleMode">
-                    <p class="tool-hint">Everywhere within reach of <em>any</em> POI in this category.</p>
-                    <span class="field-label">Reach</span>
-                    <select id="tentacleRadius">
-                        <option value="1">1 km (small)</option>
-                        <option value="2" selected>2 km (medium / large)</option>
-                        <option value="25">25 km (large)</option>
-                    </select>
-                    <button class="btn-accent" onclick="window.addTentacleLayer()">🐙 Draw tentacles</button>
+
+                <div id="poiMatchMode">
+                    <p class="tool-hint">"Is your nearest one the same as mine?" Finds the one closest to <strong>your position</strong> and shades its catchment.</p>
+                    <button class="btn-accent" onclick="window.poiMatchFromPosition()">🧍 Same nearest as me?</button>
+                    <details class="tool-more">
+                        <summary>Pick a specific one instead</summary>
+                        <button onclick="window.loadPOIVoronoi()">🔍 Find catchments</button>
+                        <select id="poiResultSelect"><option value="">Find catchments first…</option></select>
+                        <button onclick="window.addPOILayer()">＋ Add that catchment</button>
+                    </details>
                 </div>
-                <div id="poiNearestMode" style="display:none;">
-                    <p class="tool-hint">Catchments — the area closest to each individual POI.</p>
-                    <button onclick="window.loadPOIVoronoi()">🔍 Find catchments</button>
-                    <span class="field-label">Closest POI</span>
-                    <select id="poiResultSelect"><option>Find catchments first…</option></select>
-                    <button class="btn-accent" onclick="window.addPOILayer()">＋ Add catchment layer</button>
+
+                <div id="poiMeasureMode" style="display:none;">
+                    <p class="tool-hint">"Are you closer to one than I am?" Measures from <strong>your position</strong> to the nearest one, then shades everywhere within that same distance.</p>
+                    <button class="btn-accent" onclick="window.poiMeasureFromPosition()">🧍 Closer than me?</button>
+                </div>
+
+                <div id="poiTentacleMode" style="display:none;">
+                    <p class="tool-hint">"Within X of me, which one are you nearest to?" The radius is centred on <strong>your position</strong>; the hider names one of the options it finds.</p>
+                    <span class="field-label">Radius (from you)</span>
+                    <select id="tentacleRadius"><!-- from distancePresets.tentacle --></select>
+                    <button onclick="window.findTentacleCandidates()">🔍 What's in range?</button>
+                    <span class="field-label">They said they're nearest to</span>
+                    <select id="tentacleAnswer"><option value="">Check what's in range first…</option></select>
+                    <button class="btn-accent" onclick="window.addTentacleAnswer()">🐙 Add that answer</button>
+                    <button class="btn-ghost" onclick="window.addTentacleOutOfRange()">They're out of range</button>
                 </div>
             </div>
 
@@ -288,14 +340,14 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
     <script src="https://unpkg.com/osmtogeojson@2.2.12/osmtogeojson.js"></script>
-    
+
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
         import { getFirestore, doc, setDoc, getDoc, onSnapshot, runTransaction, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
         import { firebaseConfig } from './firebase-config.js';
         import { setupTutorial } from './tutorial.js';
-        import { questionData } from './questions.js';
+        import { questionData, distancePresets, kmLabel } from './questions.js';
         import { cityProfiles} from './mapData.js';
         import { installNotifications } from './ui.js';
         // Universal pause function (time in milliseconds)
@@ -323,6 +375,167 @@
         // Install them onto window.* before anything else runs so inline onclick
         // handlers and the load/sync flows can call them.
         installNotifications();
+
+        // ==========================================
+        // OVERPASS CLIENT
+        // ==========================================
+        // The public Overpass mirrors give each IP about two concurrent slots and
+        // rate-limit hard beyond that, so the app used to time out whenever two of
+        // its loaders overlapped (stations + boundaries at join, or a tentacle draw
+        // during either). Everything now goes through this one client, which:
+        //   * runs requests strictly one at a time, spaced MIN_GAP_MS apart;
+        //   * aborts a hung attempt client-side instead of waiting forever;
+        //   * retries with exponential backoff, honouring Retry-After on 429;
+        //   * rotates mirrors and remembers the one that last worked;
+        //   * de-duplicates identical in-flight queries;
+        //   * caches responses in localStorage with a TTL.
+        window.Overpass = (function () {
+            const MIRRORS = [
+                "https://overpass-api.de/api/interpreter",
+                "https://overpass.kumi.systems/api/interpreter",
+                "https://lz4.overpass-api.de/api/interpreter"
+            ];
+            const MIN_GAP_MS  = 1500;               // breathing room between requests
+            const ATTEMPT_MS  = 50000;              // client-side abort per attempt
+            const MAX_ATTEMPTS = 5;
+            const CACHE_PREFIX = 'gm_op_v1_';
+            const DEFAULT_TTL = 7 * 24 * 60 * 60 * 1000;   // OSM data is not hourly news
+
+            let mirrorIdx = Math.max(0, MIRRORS.indexOf(localStorage.getItem('gm_op_mirror') || ''));
+            let chain = Promise.resolve();          // the serial queue
+            let queued = 0;
+            let lastFinishedAt = 0;
+            const inflight = new Map();
+
+            function cacheKeyFor(key) { return CACHE_PREFIX + key; }
+
+            function cacheGet(key, ttl) {
+                if (!key) return null;
+                try {
+                    // Legacy keys stored the bare response; accept those once so nobody
+                    // re-downloads data they already have.
+                    const legacy = localStorage.getItem(key);
+                    if (legacy) {
+                        const parsed = JSON.parse(legacy);
+                        if (parsed && parsed.elements) return parsed;
+                    }
+                    const raw = localStorage.getItem(cacheKeyFor(key));
+                    if (!raw) return null;
+                    const box = JSON.parse(raw);
+                    if (!box || !box.t) return null;
+                    if (Date.now() - box.t > (ttl || DEFAULT_TTL)) return null;
+                    return box.d;
+                } catch (e) { return null; }
+            }
+
+            function cachePut(key, data) {
+                if (!key) return;
+                window.saveToLocalStorage(cacheKeyFor(key), JSON.stringify({ t: Date.now(), d: data }));
+            }
+
+            function clearCache(match) {
+                const doomed = [];
+                for (let i = 0; i < localStorage.length; i++) {
+                    const k = localStorage.key(i);
+                    if (k && k.indexOf(CACHE_PREFIX) === 0 && (!match || k.indexOf(match) !== -1)) doomed.push(k);
+                }
+                doomed.forEach(k => localStorage.removeItem(k));
+                return doomed.length;
+            }
+
+            async function attempt(url, query) {
+                const ctrl = new AbortController();
+                const timer = setTimeout(() => ctrl.abort(), ATTEMPT_MS);
+                try {
+                    // POST keeps the big boundary queries off the URL length limit.
+                    const res = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        body: 'data=' + encodeURIComponent(query),
+                        signal: ctrl.signal
+                    });
+                    if (!res.ok) {
+                        const err = new Error('Overpass HTTP ' + res.status);
+                        err.status = res.status;
+                        const ra = parseInt(res.headers.get('Retry-After') || '0', 10);
+                        if (ra > 0) err.retryAfter = Math.min(ra, 30) * 1000;
+                        throw err;
+                    }
+                    // A rejected query comes back as HTML, not JSON — treat that as a failure.
+                    return await res.json();
+                } finally { clearTimeout(timer); }
+            }
+
+            async function execute(query, opts) {
+                const onStatus = opts.onStatus || function () {};
+                let lastErr = null;
+
+                for (let n = 0; n < MAX_ATTEMPTS; n++) {
+                    const gap = MIN_GAP_MS - (Date.now() - lastFinishedAt);
+                    if (gap > 0) await window.sleep(gap);
+
+                    const url = MIRRORS[mirrorIdx % MIRRORS.length];
+                    try {
+                        onStatus(n === 0
+                            ? `Fetching ${opts.label || 'map data'}…`
+                            : `Retrying ${opts.label || 'map data'} (attempt ${n + 1}/${MAX_ATTEMPTS})…`);
+                        const data = await attempt(url, query);
+                        lastFinishedAt = Date.now();
+                        localStorage.setItem('gm_op_mirror', url);
+                        return data;
+                    } catch (e) {
+                        lastFinishedAt = Date.now();
+                        lastErr = e;
+                        const aborted = e.name === 'AbortError';
+                        console.warn(`Overpass ${aborted ? 'timed out' : 'failed'} on ${url}:`, e.message || e);
+
+                        // Move to the next mirror; a busy server stays busy for a while.
+                        mirrorIdx = (mirrorIdx + 1) % MIRRORS.length;
+
+                        if (n === MAX_ATTEMPTS - 1) break;
+                        // Backoff: 2s, 5s, 9s, 14s (+ jitter), or whatever Retry-After said.
+                        const backoff = e.retryAfter || (2000 + n * 3500 + Math.random() * 1200);
+                        onStatus(`Map servers are busy — waiting ${Math.round(backoff / 1000)}s…`);
+                        await window.sleep(backoff);
+                    }
+                }
+                throw lastErr || new Error('Overpass unavailable');
+            }
+
+            // run(query, { key, ttl, label, onStatus, force, cache })
+            function run(query, opts) {
+                opts = opts || {};
+                if (opts.cache !== false && !opts.force) {
+                    const hit = cacheGet(opts.key, opts.ttl);
+                    if (hit) return Promise.resolve(hit);
+                }
+
+                const dedupeKey = opts.key || query;
+                if (inflight.has(dedupeKey)) return inflight.get(dedupeKey);
+
+                queued++;
+                const position = queued;
+                if (position > 1 && opts.onStatus) opts.onStatus(`Waiting for the map server (${position - 1} ahead)…`);
+
+                const p = chain.then(() => execute(query, opts)).then(
+                    (data) => {
+                        if (opts.cache !== false) cachePut(opts.key, data);
+                        queued--; inflight.delete(dedupeKey);
+                        return data;
+                    },
+                    (err) => {
+                        queued--; inflight.delete(dedupeKey);
+                        throw err;
+                    }
+                );
+                // Keep the queue running even when a link in it fails.
+                chain = p.catch(() => {});
+                inflight.set(dedupeKey, p);
+                return p;
+            }
+
+            return { run, clearCache, cacheGet, get pending() { return queued; } };
+        })();
 
         window.stationMap = {};
         // Initialize the tutorial right away
@@ -357,21 +570,36 @@
         window.addEventListener('offline', () => { window.setConnState('offline'); });
 
         // === LEAFLET SETUP ===
-        var map = L.map('map').setView([53.4808, -2.2426], 11); 
-        // Match the basemap to the device theme — dark tiles keep the green/red
-        // overlays readable at night without blinding anyone.
-        var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-        L.tileLayer(`https://{s}.basemaps.cartocdn.com/${prefersDark ? 'dark_all' : 'light_all'}/{z}/{x}/{y}{r}.png`, {
-            attribution: '&copy; CARTO', subdomains: 'abcd', maxZoom: 19
-        }).addTo(map);
+        var map = L.map('map').setView([53.4808, -2.2426], 11);
+        // Basemap. Light by default — this gets used outdoors in daylight, and the
+        // red "ruled out" wash on top of dark tiles turned the map to mud. Dark is
+        // opt-in from Settings and remembered per device.
+        var TILE_STYLES = {
+            light: 'rastertiles/voyager',   // light but with real colour for parks/water
+            muted: 'light_all',             // the old flat greyscale
+            dark:  'dark_all'
+        };
+        var baseTiles = null;
+        window.setMapStyle = function(style) {
+            if (!TILE_STYLES[style]) style = 'light';
+            localStorage.setItem('gm_map_style', style);
+            if (baseTiles) map.removeLayer(baseTiles);
+            baseTiles = L.tileLayer(`https://{s}.basemaps.cartocdn.com/${TILE_STYLES[style]}/{z}/{x}/{y}{r}.png`, {
+                attribution: '&copy; CARTO', subdomains: 'abcd', maxZoom: 19
+            }).addTo(map);
+            baseTiles.bringToBack();
+            document.querySelectorAll('#mapStyleSeg .seg-btn').forEach(b =>
+                b.classList.toggle('active', b.dataset.style === style));
+        };
+        window.setMapStyle(localStorage.getItem('gm_map_style') || 'light');
         window.leafletEngine = map; // (Change 'map' to whatever variable name you used!)
 
         map.createPane('stations');
         map.getPane('stations').style.zIndex = 650;
 
         // KEEP ORIGINAL LAYERS
-        var logicLayer = L.featureGroup().addTo(map);     
-        var guideLayer = L.layerGroup().addTo(map);     
+        var logicLayer = L.featureGroup().addTo(map);
+        var guideLayer = L.layerGroup().addTo(map);
         var gpsLayer = L.layerGroup().addTo(map);
 
         // --- NEW MAP LAYERS FOR TOGGLING ---
@@ -384,7 +612,7 @@
         // Ids removed locally but possibly still present on the server; used by the
         // merge-on-write sync so a delete isn't resurrected by a concurrent writer.
         var recentlyDeleted = new Set();
-        var worldBbox = [-15.0, 48.0, 5.0, 62.0]; 
+        var worldBbox = [-15.0, 48.0, 5.0, 62.0];
         var worldPoly = turf.bboxPolygon(worldBbox);
 
         var controlsDiv = document.getElementById('controls');
@@ -398,14 +626,14 @@
                 logicLayer.clearLayers();
                 if (myConstraints.length === 0) return;
                 var allowedZone = worldPoly;
-                
+
                 for (let c of myConstraints) {
                     try {
                         var constraintGreenShape = null;
-                        if (['radius','borough','zone','poi','angle','bisect','thermo','tentacle'].includes(c.type)) {
+                        if (['radius','borough','zone','poi','match','measure','angle','bisect','thermo','tentacle'].includes(c.type)) {
                             if (c.state === 'hit') constraintGreenShape = c.geometry;
                             else constraintGreenShape = turf.difference(worldPoly, c.geometry);
-                        } 
+                        }
                         if (constraintGreenShape) {
                             var cleanShape = fixGeometry(constraintGreenShape);
                             var cleanAllowed = fixGeometry(allowedZone);
@@ -418,78 +646,186 @@
                     if (!allowedZone) break;
                 }
 
-                L.geoJSON(worldPoly, { 
-                    style: { color: 'none', fillColor: '#ff0000', fillOpacity: 0.15 },
-                    interactive: false 
+                L.geoJSON(worldPoly, {
+                    style: { color: 'none', fillColor: '#c62828', fillOpacity: 0.10 },
+                    interactive: false
                 }).addTo(logicLayer);
 
                 if (allowedZone) {
-                    L.geoJSON(allowedZone, { 
-                        style: { color: 'none', fillColor: '#00ff00', fillOpacity: 0.3 },
-                        interactive: false 
+                    L.geoJSON(allowedZone, {
+                        style: { color: '#15803d', weight: 1.5, opacity: 0.7,
+                                 fillColor: '#22c55e', fillOpacity: 0.22 },
+                        interactive: false
                     }).addTo(logicLayer);
                 }
-                
+
                 logicLayer.bringToBack();
             } catch (e) { console.error("Logic Engine Error:", e); }
         }
 
         // === MULTIPLAYER SYNC LOGIC ===
+        // ==========================================
+        // CUSTOM ZONES — save, reuse and share a base area
+        // ==========================================
+        // A zone is just the drawn polygon. Everything else (stations, boundaries,
+        // POIs) is derived from its bounding box at load time, so the app works
+        // anywhere as long as the zone is agreed before kick-off. Zones live in
+        // localStorage per device and travel between devices as a short code.
+        window.savedAreas = function() {
+            try { return JSON.parse(localStorage.getItem('gm_saved_areas') || '{}'); }
+            catch (e) { return {}; }
+        };
+
+        // Code format: JLZ1: + base64 of the ring, coordinates rounded to 5dp.
+        function encodeArea(poly) {
+            const ring = poly.geometry.coordinates[0].map(c => [ +c[0].toFixed(5), +c[1].toFixed(5) ]);
+            return 'JLZ1:' + btoa(JSON.stringify(ring)).replace(/=+$/, '');
+        }
+
+        function decodeArea(code) {
+            try {
+                const body = String(code).trim().replace(/^JLZ1:/, '');
+                const ring = JSON.parse(atob(body + '==='.slice((body.length + 3) % 4)));
+                if (!Array.isArray(ring) || ring.length < 4) return null;
+                const poly = turf.polygon([ring]);
+                turf.area(poly);   // throws on a degenerate ring
+                return poly;
+            } catch (e) { return null; }
+        }
+
+        // Turn a polygon into everything the loaders need.
+        window.areaFromPolygon = function(poly) {
+            const bbox = turf.bbox(poly);
+            return {
+                poly: poly,
+                turfBbox: bbox,
+                overpassBbox: `${bbox[1]},${bbox[0]},${bbox[3]},${bbox[2]}`
+            };
+        };
+
+        window.refreshSavedAreas = function() {
+            const sel = document.getElementById('savedAreaSelect');
+            if (!sel) return;
+            const areas = window.savedAreas();
+            const names = Object.keys(areas).sort();
+            sel.innerHTML = names.length
+                ? names.map(n => `<option value="${n}">${n}</option>`).join('')
+                : '<option value="">No saved zones yet</option>';
+        };
+
+        window.onRegionChange = function(v) {
+            const wrap = document.getElementById('savedAreaWrap');
+            if (wrap) wrap.style.display = (v === 'saved') ? 'block' : 'none';
+            if (v === 'saved') window.refreshSavedAreas();
+        };
+
+        // Save whatever zone the current room is playing on, under a name.
+        window.saveCurrentArea = async function() {
+            if (window.currentRegion !== 'custom' || !window.customBboxPoly) {
+                window.showToast("This game isn't using a custom zone.", "warn");
+                return;
+            }
+            const name = await window.showPrompt("Name this zone:", "My city", { confirmLabel: 'Save' });
+            if (!name || !name.trim()) return;
+            const areas = window.savedAreas();
+            areas[name.trim()] = encodeArea(window.customBboxPoly);
+            window.saveToLocalStorage('gm_saved_areas', JSON.stringify(areas));
+            window.refreshSavedAreas();
+            window.showToast(`Zone saved as “${name.trim()}”.`, "success");
+        };
+
+        window.copyAreaCode = async function() {
+            if (window.currentRegion !== 'custom' || !window.customBboxPoly) {
+                window.showToast("This game isn't using a custom zone.", "warn");
+                return;
+            }
+            const code = encodeArea(window.customBboxPoly);
+            const ok = await copyText(code);
+            if (ok) window.showToast("Zone code copied — send it to your group.", "success", { duration: 2500 });
+            else window.showToast(code, "info", { duration: 12000 });
+        };
+
+        window.importAreaCode = async function() {
+            const input = document.getElementById('areaCodeInput');
+            const poly = decodeArea(input.value);
+            if (!poly) { window.showToast("That doesn't look like a zone code.", "warn"); return; }
+            const name = await window.showPrompt("Name this zone:", "Shared zone", { confirmLabel: 'Save' });
+            if (!name || !name.trim()) return;
+            const areas = window.savedAreas();
+            areas[name.trim()] = encodeArea(poly);
+            window.saveToLocalStorage('gm_saved_areas', JSON.stringify(areas));
+            input.value = '';
+            document.getElementById('regionSelect').value = 'saved';
+            window.onRegionChange('saved');
+            document.getElementById('savedAreaSelect').value = name.trim();
+            window.showToast(`Zone “${name.trim()}” imported — tap Create room.`, "success", { duration: 4000 });
+        };
+
         window.startCreateFlow = function() {
             const region = document.getElementById('regionSelect').value;
-            
+
+            if (region === 'saved') {
+                const name = document.getElementById('savedAreaSelect').value;
+                const code = name && window.savedAreas()[name];
+                const poly = code && decodeArea(code);
+                if (!poly) { window.showToast("Pick a saved zone first, or paste a zone code.", "warn"); return; }
+                const a = window.areaFromPolygon(poly);
+                window.executeCreateGame('custom', a.overpassBbox, a.turfBbox, a.poly);
+                return;
+            }
+
             if (region === 'custom') {
                 // Hide setup screen temporarily
                 document.getElementById('setupScreen').style.opacity = '0';
                 setTimeout(() => { document.getElementById('setupScreen').style.display = 'none'; }, 300);
-                
+
                 window.showToast("Tap points on the map to outline your Custom Zone. Drag to pan between taps. Tap 'Finish Drawing' when done.", "info", { duration: 8000 });
-                
+
                 document.getElementById('map').classList.add('crosshair-cursor');
-                
+
                 let points = [];
                 // Visual indicators of the drawing
                 let polygon = L.polygon([], {color: "#ff7800", weight: 2, fillOpacity: 0.1}).addTo(map);
                 let polyline = L.polyline([], {color: "#ff7800", weight: 2, dashArray: "5, 5"}).addTo(map);
-                
+
                 // Create a floating Finish button
                 const finishBtn = document.createElement('button');
                 finishBtn.innerText = "✅ Finish Drawing";
                 finishBtn.style.cssText = "position:absolute; bottom:30px; left:50%; transform:translateX(-50%); z-index:9999; padding:15px 30px; background:#28a745; color:white; border:none; border-radius:30px; font-size:1.1em; font-weight:bold; cursor:pointer; box-shadow:0 4px 10px rgba(0,0,0,0.3);";
                 document.body.appendChild(finishBtn);
-                
+
                 const onClick = function(e) {
                     points.push(e.latlng);
                     polygon.setLatLngs(points);
                     polyline.setLatLngs(points);
                 };
-                
+
                 // We use standard 'click' now, so panning works normally!
                 map.on('click', onClick);
-                
+
                 finishBtn.onclick = function() {
                     if (points.length < 3) {
                         window.showToast("Please tap at least 3 points to make a shape.", "warn");
                         return;
                     }
-                    
+
                     // Cleanup drawing state
                     map.off('click', onClick);
                     document.getElementById('map').classList.remove('crosshair-cursor');
                     finishBtn.remove();
-                    
+
                     // Convert Leaflet points to a Turf.js Polygon
                     const turfPoints = points.map(p => [p.lng, p.lat]);
                     turfPoints.push([points[0].lng, points[0].lat]); // Close the loop for Turf
-                    
+
                     const customTurfPoly = turf.polygon([turfPoints]);
                     const customTurfBbox = turf.bbox(customTurfPoly); // Get bounding box of the shape
-                    
+
                     // Overpass format: south, west, north, east
                     const customOverpassBbox = `${customTurfBbox[1]},${customTurfBbox[0]},${customTurfBbox[3]},${customTurfBbox[2]}`;
-                    
+
                     setTimeout(() => { map.removeLayer(polygon); map.removeLayer(polyline); }, 1000);
-                    
+
                     // Proceed to create the room, passing the exact shape!
                     window.executeCreateGame('custom', customOverpassBbox, customTurfBbox, customTurfPoly);
                 };
@@ -518,7 +854,7 @@
 
             if (isUnique) {
                 const gameRef = doc(db, "games", newRoomCode);
-                await setDoc(gameRef, { 
+                await setDoc(gameRef, {
                     region: region,
                     customOverpassBbox: customOverpass || null,
                     customTurfBbox: customTurf ? JSON.stringify(customTurf) : null,
@@ -540,8 +876,8 @@
 
         window.startGameSession = function(roomCode, knownRegion) {
             window.currentGameId = roomCode;
-            window.hasLoadedTransport = false; 
-            
+            window.hasLoadedTransport = false;
+
             document.getElementById('setupScreen').style.opacity = '0';
             setTimeout(() => { document.getElementById('setupScreen').style.display = 'none'; }, 300);
 
@@ -572,27 +908,27 @@
                 }
                 if (docSnap.exists()) {
                     const data = docSnap.data();
-                    
+
                     if (data.region) {
                         window.currentRegion = data.region;
-                        
+
                         if (data.region === 'custom') {
                             document.getElementById('displayRegion').innerText = "Custom Zone";
-                            
+
                             // Restore bounds AND nuanced shape from Firebase
                             window.customOverpassBbox = data.customOverpassBbox;
                             window.customTurfBbox = JSON.parse(data.customTurfBbox);
-                            
+
                             // Load the exact drawn shape instead of a boring rectangle
                             window.customBboxPoly = JSON.parse(data.customTurfPoly);
-                            
+
                             // Center the camera on the custom shape
                             const bounds = L.latLngBounds(
                                 [window.customTurfBbox[1], window.customTurfBbox[0]], // South-West
                                 [window.customTurfBbox[3], window.customTurfBbox[2]]  // North-East
                             );
                             map.fitBounds(bounds);
-                            
+
                             // Custom zones have no predefined boundary lists — everything
                             // comes from Overpass once the transport data lands.
                             if (!window.hasLoadedTransport) {
@@ -605,10 +941,10 @@
                         } else {
                             // ... Existing logic for London/Manchester ...
                             // EXISTING CODE FOR STANDARD CITIES
-                            const profile = cityProfiles[data.region]; 
+                            const profile = cityProfiles[data.region];
                             if (profile) {
                                 document.getElementById('displayRegion').innerText = profile.name;
-                                map.setView(profile.center, profile.defaultZoom); 
+                                map.setView(profile.center, profile.defaultZoom);
 
                                 // Seed the Boundary tool with whatever this city profile
                                 // predefines; Overpass fills in the rest later.
@@ -624,7 +960,7 @@
                                 }
                             }
                         }
-                    
+
                     }
 
                     myConstraints = (data.constraints || []).map(c => ({
@@ -640,7 +976,7 @@
                         }
                     });
 
-                    updateLayerList(); updateLogicMap(); 
+                    updateLayerList(); updateLogicMap();
                     if (data.questionState) questionState = data.questionState;
                     if (data.logEntries) logEntries = normalizeLog(data.logEntries);
                     renderQuestions(); renderLog();
@@ -813,6 +1149,8 @@
                 case 'tentacle': return { icon: '🐙', color: '#0d9488' };
                 case 'borough':  return { icon: '🗺️', color: '#16a34a' };
                 case 'poi':      return { icon: '🧭', color: '#2563eb' };
+                case 'match':    return { icon: '🟰', color: '#7c3aed' };
+                case 'measure':  return { icon: '📏', color: '#0891b2' };
                 default:         return { icon: '📍', color: '#64748b' };
             }
         }
@@ -851,12 +1189,14 @@
                 var li = document.createElement('li'); li.className = 'layer-item';
                 li.style.borderLeftColor = meta.color;
                 var controlsHtml = "";
-                if (c.type === 'angle' || c.type === 'bisect' || c.type === 'thermo') {
-                    var sides = (c.type === 'thermo' || c.type === 'bisect') ? { a: '🔥 Warmer', b: '❄️ Colder' } : directionalSides(c);
-                    controlsHtml = `<button class="toggle-btn ${c.state==='hit'?'is-hit':''}" onclick="window.toggleConstraintState(${c.id}, 'hit')">${sides.a}</button><button class="toggle-btn ${c.state==='miss'?'is-miss':''}" onclick="window.toggleConstraintState(${c.id}, 'miss')">${sides.b}</button>`;
-                } else {
-                    controlsHtml = `<button class="toggle-btn ${c.state==='hit'?'is-hit':''}" onclick="window.toggleConstraintState(${c.id}, 'hit')">HIT</button><button class="toggle-btn ${c.state==='miss'?'is-miss':''}" onclick="window.toggleConstraintState(${c.id}, 'miss')">MISS</button>`;
-                }
+                // Word the two buttons the way the question was actually asked.
+                var sides;
+                if (c.type === 'thermo' || c.type === 'bisect') sides = { a: '🔥 Warmer', b: '❄️ Colder' };
+                else if (c.type === 'angle') sides = directionalSides(c);
+                else if (c.type === 'match') sides = { a: '🟰 Same', b: '✖ Different' };
+                else if (c.type === 'measure') sides = { a: '📏 Closer', b: '➖ Further' };
+                else sides = { a: 'HIT', b: 'MISS' };
+                controlsHtml = `<button class="toggle-btn ${c.state==='hit'?'is-hit':''}" onclick="window.toggleConstraintState(${c.id}, 'hit')">${sides.a}</button><button class="toggle-btn ${c.state==='miss'?'is-miss':''}" onclick="window.toggleConstraintState(${c.id}, 'miss')">${sides.b}</button>`;
                 li.innerHTML = `<div class="layer-header"><span class="layer-icon" style="color:${meta.color}">${meta.icon}</span><span class="layer-name" onclick="window.renameConstraint(${c.id})">${c.name}</span><div class="icon-group"><button class="icon-btn" onclick="window.renameConstraint(${c.id})">✎</button><button class="icon-btn del-btn" onclick="window.removeConstraint(${c.id})">×</button></div></div><div class="layer-controls">${controlsHtml}</div>`;
                 list.appendChild(li);
             });
@@ -932,13 +1272,15 @@
                 hint: 'Tap where you started, then where it got <em>warmer</em>. Also covers Measuring questions — either way the map keeps the half you\'re closer to.',
                 btn: 'Tap start → warm end',
                 toast: 'Tap the WARM end — where it got warmer.',
-                color: '#dc2626'
+                color: '#dc2626',
+                coordLabel: 'Or type the warm end'
             },
             line: {
                 hint: 'Tap two points along the feature you matched (a street, transit line, river). The divider runs through both.',
                 btn: 'Tap two points on the line',
                 toast: 'Tap a second point along the line.',
-                color: '#334155'
+                color: '#334155',
+                coordLabel: 'Or type a second point on the line'
             }
         };
 
@@ -949,6 +1291,7 @@
                 b.classList.toggle('active', b.dataset.mode === mode));
             document.getElementById('dividerHint').innerHTML = DIVIDER_MODES[mode].hint;
             document.getElementById('btnDivider').textContent = DIVIDER_MODES[mode].btn;
+            document.getElementById('dividerCoordLabel').textContent = DIVIDER_MODES[mode].coordLabel;
             resetTools();
         };
 
@@ -966,13 +1309,146 @@
             });
         };
 
+        // Accepts what people actually paste: "53.48, -2.24", "53.48 -2.24",
+        // "(53.48,-2.24)", a Google Maps "53.48,-2.24" share string, or one with
+        // degree signs and N/S/E/W suffixes. Returns {lat, lng} or null.
+        window.parseLatLng = function(text) {
+            if (!text) return null;
+            var t = String(text).trim()
+                .replace(/^[\(\[]|[\)\]]$/g, '')
+                .replace(/[°º]/g, ' ');
+            var south = /\bS\b/i.test(t);
+            var west = /\bW\b/i.test(t);
+            // A Google Maps URL puts the pair after '@'; everything before it is noise.
+            var nums = t.replace(/^.*?@/, '').match(/-?\d+(?:\.\d+)?/g);
+            if (!nums || nums.length < 2) return null;
+            var lat = parseFloat(nums[0]);
+            var lng = parseFloat(nums[1]);
+            if (south && lat > 0) lat = -lat;
+            if (west && lng > 0) lng = -lng;
+            if (!isFinite(lat) || !isFinite(lng)) return null;
+            if (Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
+            return { lat: lat, lng: lng };
+        };
+
+        // Draw the divider from two typed coordinates, honouring the current mode.
+        // Same geometry as the tap flow — this just skips the map interaction, which
+        // matters when a teammate reads coordinates out over the phone.
+        // Draw the divider from your position to a typed far point. Same geometry as
+        // the tap flow; this just skips the map interaction, which matters when a
+        // teammate reads coordinates out over the phone.
+        window.manualDivider = function() {
+            var a = requireSeeker();
+            if (!a) return;
+            var latEl = document.getElementById('dividerLat');
+            var lngEl = document.getElementById('dividerLng');
+            var lat = parseFloat(latEl.value), lng = parseFloat(lngEl.value);
+            if (isNaN(lat) || isNaN(lng)) {
+                window.showToast("Fill in both the latitude and longitude of the far point.", "warn", { duration: 4000 });
+                (isNaN(lat) ? latEl : lngEl).focus();
+                return;
+            }
+            if (Math.abs(lat) > 90 || Math.abs(lng) > 180) { window.showToast("Those coordinates are out of range.", "warn"); return; }
+            var b = { lat: lat, lng: lng };
+            if (a.lat === b.lat && a.lng === b.lng) { window.showToast("That's the same as your position — no line to draw.", "warn"); return; }
+
+            resetTools();
+            if (window.dividerMode === 'line') {
+                drawAngleAt(a.lat, a.lng, turf.rhumbBearing([a.lng, a.lat], [b.lng, b.lat]));
+            } else {
+                drawThermometer(a, b);
+            }
+            latEl.value = ''; lngEl.value = '';
+            map.fitBounds(L.latLngBounds([a.lat, a.lng], [b.lat, b.lng]).pad(0.6));
+        };
+
+        // ==========================================
+        // YOUR POSITION
+        // ==========================================
+        // Matching and measuring questions are all asked relative to where the
+        // seeker is standing, so the point lives in one place and every tool reads
+        // it, instead of each card growing its own coordinate entry.
+        window.seekerPoint = null;
+        var seekerMarker = null;
+
+        function fmtCoord(n) { return Number(n).toFixed(5); }
+
+        window.setSeekerPoint = function(lat, lng, opts) {
+            opts = opts || {};
+            if (!isFinite(lat) || !isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) {
+                window.showToast("That doesn't look like a valid latitude / longitude.", "warn");
+                return false;
+            }
+            window.seekerPoint = { lat: lat, lng: lng };
+            document.getElementById('posLat').value = fmtCoord(lat);
+            document.getElementById('posLng').value = fmtCoord(lng);
+            document.getElementById('posReadout').textContent = `${fmtCoord(lat)}, ${fmtCoord(lng)}`;
+            document.getElementById('posReadout').classList.add('is-set');
+
+            if (seekerMarker) gpsLayer.removeLayer(seekerMarker);
+            seekerMarker = L.circleMarker([lat, lng], {
+                radius: 8, color: '#fff', weight: 3,
+                fillColor: '#0e7490', fillOpacity: 1, interactive: false
+            }).addTo(gpsLayer);
+
+            if (!opts.silent) map.panTo([lat, lng]);
+            return true;
+        };
+
+        window.seekerFromInputs = function() {
+            var lat = parseFloat(document.getElementById('posLat').value);
+            var lng = parseFloat(document.getElementById('posLng').value);
+            if (isNaN(lat) || isNaN(lng)) return false;
+            return window.setSeekerPoint(lat, lng, { silent: true });
+        };
+
+        window.seekerFromGPS = function() {
+            if (!navigator.geolocation) { window.showToast("This device has no location services.", "warn"); return; }
+            var btn = document.getElementById('btnPosGps');
+            var old = btn.textContent; btn.textContent = 'Locating…'; btn.disabled = true;
+            navigator.geolocation.getCurrentPosition(function(pos) {
+                btn.textContent = old; btn.disabled = false;
+                window.setSeekerPoint(pos.coords.latitude, pos.coords.longitude);
+                window.showToast("Position set from GPS.", "success", { duration: 2000 });
+            }, function() {
+                btn.textContent = old; btn.disabled = false;
+                window.showToast("Couldn't get your location — type it in instead.", "warn");
+            }, { enableHighAccuracy: true, timeout: 12000 });
+        };
+
+        window.pickSeekerOnMap = function(e) {
+            if (e) e.stopPropagation();
+            resetTools();
+            var btn = document.getElementById('btnPosPick');
+            btn.classList.add('active-tool-btn');
+            document.getElementById('map').classList.add('crosshair-cursor');
+            if (!document.getElementById('controls').classList.contains('minimized')) window.toggleControls();
+            window.showToast("Tap where you are on the map.", "info", { duration: 3000 });
+            map.once('click', function(ev) {
+                resetTools();
+                if (document.getElementById('controls').classList.contains('minimized')) window.toggleControls();
+                window.setSeekerPoint(ev.latlng.lat, ev.latlng.lng, { silent: true });
+            });
+        };
+
+        // Every position-relative tool funnels through this so the nudge is consistent.
+        function requireSeeker() {
+            window.seekerFromInputs();
+            if (!window.seekerPoint) {
+                window.showToast("Set <strong>Your position</strong> first — GPS, tap the map, or type it in.", "warn", { duration: 4000 });
+                window.switchTab('tools');
+                document.querySelector('.pos-card').scrollIntoView({ behavior: 'smooth', block: 'center' });
+                return null;
+            }
+            return window.seekerPoint;
+        }
+
         // Quick-select radius chips.
         window.setRadius = function(km) {
             var input = document.getElementById('radiusInput');
             if (input) input.value = km;
             document.querySelectorAll('#radarChips .chip').forEach(chip => {
-                chip.classList.toggle('selected', parseFloat(chip.textContent) === km ||
-                    (chip.textContent === '500m' && km === 0.5));
+                chip.classList.toggle('selected', parseFloat(chip.dataset.km) === km);
             });
         };
 
@@ -1006,11 +1482,11 @@
             updateLayerList();
             updateLogicMap();
         };
-        window.manualRadius = function() { var c=document.getElementById('radiusCoords').value.split(','); if(c.length===2) drawRadiusAt(parseFloat(c[0]), parseFloat(c[1])); };
-        window.radiusAtGPS = function() {
-            if (!navigator.geolocation) return; var btn = document.getElementById('btnGpsRadius'); var oldText = btn.innerText; btn.innerText = "Locating...";
-            navigator.geolocation.getCurrentPosition(function(position) { drawRadiusAt(position.coords.latitude, position.coords.longitude); btn.innerText = oldText; }, function(error) { btn.innerText = oldText; }, { enableHighAccuracy: true });
+        window.radiusAtSeeker = function() {
+            var pt = requireSeeker();
+            if (pt) drawRadiusAt(pt.lat, pt.lng);
         };
+
 
         function getSegmentPoints(start, end) {
             var dist = turf.rhumbDistance(start, end); var bearing = turf.rhumbBearing(start, end); var steps = 25; var points = [];
@@ -1112,18 +1588,73 @@ window.dynamicBoroughs = {};
             }).join('');
         };
 
+        // Boundary data is expensive (one big Overpass relation query), so it is
+        // fetched the first time someone actually reaches for the Boundary tool
+        // rather than automatically at join. ensureBoundaryData() is idempotent —
+        // concurrent callers share the same promise.
+        let boundariesLoaded = false;
+        let boundaryPromise = null;
+
+        window.ensureBoundaryData = function(level) {
+            level = level || window.boundaryLevel;
+            // Nothing to fetch until we know which city we're playing in.
+            if (!window.currentRegion) return Promise.resolve();
+            if (level === 'zone') {
+                if (Object.keys(window.dynamicZones).length || window.profileBoundaries.zone) return Promise.resolve();
+                return window.loadFareZones();
+            }
+            if (boundariesLoaded) return Promise.resolve();
+            if (!boundaryPromise) {
+                boundaryPromise = window.loadDynamicAreas().finally(() => { boundaryPromise = null; });
+            }
+            return boundaryPromise;
+        };
+
+        // Persist the *derived* boundary result (a few hundred KB after simplifying)
+        // instead of the multi-megabyte raw Overpass response.
+        function saveAreaCache(key) {
+            try {
+                const slim = {};
+                Object.keys(window.adminPolygons).forEach(name => {
+                    try {
+                        slim[name] = turf.simplify(window.adminPolygons[name], { tolerance: 0.0005, highQuality: false });
+                    } catch (e) { /* skip anything turf refuses to simplify */ }
+                });
+                window.saveToLocalStorage(key, JSON.stringify({
+                    t: Date.now(),
+                    polygons: slim,
+                    boroughs: window.dynamicBoroughs,
+                    counties: window.dynamicCounties,
+                    countries: window.dynamicCountries
+                }));
+            } catch (e) { console.warn("Couldn't cache boundaries:", e); }
+        }
+
+        function restoreAreaCache(key) {
+            try {
+                const raw = localStorage.getItem(key);
+                if (!raw) return false;
+                const box = JSON.parse(raw);
+                if (!box || !box.polygons || Date.now() - box.t > 7 * 24 * 60 * 60 * 1000) return false;
+                window.adminPolygons = box.polygons;
+                window.dynamicBoroughs = box.boroughs || {};
+                window.dynamicCounties = box.counties || {};
+                window.dynamicCountries = box.countries || {};
+                boundariesLoaded = true;
+                return true;
+            } catch (e) { return false; }
+        }
+
         window.setBoundaryLevel = function(level) {
             if (!window.BOUNDARY_LEVELS[level]) return;
             window.boundaryLevel = level;
             window.refreshBoundaryOptions();
-            // Fare zones are fetched lazily — only when someone actually asks for them.
-            if (level === 'zone' && !Object.keys(window.dynamicZones).length && !window.profileBoundaries.zone) {
-                document.getElementById('boundarySelect').innerHTML = '<option value="">Fetching fare zones…</option>';
-                window.loadFareZones();
-            }
+            window.ensureBoundaryData(level).then(() => window.refreshBoundaryOptions());
         };
 
-        window.loadDynamicAreas = async function() {
+        window.loadDynamicAreas = async function(opts) {
+            opts = opts || {};
+            let areaProg = null;
             try {
                 let bbox = "";
                 if (window.currentRegion === 'custom' && window.customOverpassBbox) {
@@ -1132,12 +1663,17 @@ window.dynamicBoroughs = {};
                     bbox = cityProfiles[window.currentRegion].boundingBox;
                 } else { return; }
 
+                const areaCacheKey = `gm_areas_v1_${window.currentRegion === 'custom' ? window.customOverpassBbox : window.currentRegion}`;
+                if (!opts.force && restoreAreaCache(areaCacheKey)) {
+                    window.refreshBoundaryOptions();
+                    return;
+                }
+
                 var bSel = document.getElementById('boundarySelect');
                 if (bSel) bSel.innerHTML = "<option value=''>Loading areas…</option>";
-                
-                console.log("Fetching exact administrative and ceremonial boundaries...");
-                
-                // THE GOLDILOCKS QUERY: 
+                const areaProg = window.showProgress("Loading area boundaries…");
+
+                // THE GOLDILOCKS QUERY:
                 // 1. Fetch Admin 4, 6, 8 AND Ceremonial Counties.
                 // 2. Explicitly fetch their sub-relations so Super-Counties can be built.
                 const query = `[out:json][timeout:60];
@@ -1150,33 +1686,26 @@ window.dynamicBoroughs = {};
                   rel(r.targets);
                 );
                 out geom qt;`;
-                
-                const endpoints = [
-                    "https://overpass-api.de/api/interpreter?data=",
-                    "https://overpass.kumi.systems/api/interpreter?data="
-                ];
 
-                let data = null;
-                for (let url of endpoints) {
-                    try {
-                        const response = await fetch(url + encodeURIComponent(query));
-                        if (response.ok) { data = await response.json(); break; } 
-                    } catch(e) { console.warn("Server connection failed, trying next..."); }
-                }
+                // The raw `out geom` response runs to megabytes, so it is deliberately
+                // not cached; the far smaller derived result below is cached instead.
+                const data = await window.Overpass.run(query, {
+                    cache: false,
+                    label: 'area boundaries',
+                    onStatus: (m) => areaProg.update(m)
+                });
 
-                if (!data) throw new Error("Servers are busy.");
-                
                 const adminFeatures = [];
                 const turfPolysById = {};
                 const superRelations = [];
-                
+
                 // PASS 1: Build the standard polygons from physical lines
                 data.elements.forEach(rel => {
                     if (rel.type !== "relation") return;
-                    
+
                     let outerWays = [];
                     let hasChildRels = false;
-                    
+
                     if (rel.members) {
                         rel.members.forEach(m => {
                             if (m.type === "way" && m.geometry && (m.role === "outer" || m.role === "")) {
@@ -1186,41 +1715,41 @@ window.dynamicBoroughs = {};
                             }
                         });
                     }
-                    
+
                     if (hasChildRels && outerWays.length === 0) {
                         superRelations.push(rel);
                         return;
                     }
-                    
+
                     if (outerWays.length === 0) return;
                     outerWays.sort((a, b) => b.length - a.length);
-                    
+
                     let ring = [...outerWays[0]];
                     outerWays.splice(0, 1);
-                    
+
                     let added = true;
                     while(added && outerWays.length > 0) {
                         added = false;
                         let lastPt = ring[ring.length - 1]; let firstPt = ring[0];
                         for (let i = 0; i < outerWays.length; i++) {
                             let w = outerWays[i]; let wFirst = w[0]; let wLast = w[w.length - 1];
-                            if (wFirst[0] === lastPt[0] && wFirst[1] === lastPt[1]) { ring.push(...w.slice(1)); outerWays.splice(i, 1); added = true; break; } 
-                            else if (wLast[0] === lastPt[0] && wLast[1] === lastPt[1]) { ring.push(...[...w].reverse().slice(1)); outerWays.splice(i, 1); added = true; break; } 
-                            else if (wLast[0] === firstPt[0] && wLast[1] === firstPt[1]) { ring.unshift(...w.slice(0, -1)); outerWays.splice(i, 1); added = true; break; } 
+                            if (wFirst[0] === lastPt[0] && wFirst[1] === lastPt[1]) { ring.push(...w.slice(1)); outerWays.splice(i, 1); added = true; break; }
+                            else if (wLast[0] === lastPt[0] && wLast[1] === lastPt[1]) { ring.push(...[...w].reverse().slice(1)); outerWays.splice(i, 1); added = true; break; }
+                            else if (wLast[0] === firstPt[0] && wLast[1] === firstPt[1]) { ring.unshift(...w.slice(0, -1)); outerWays.splice(i, 1); added = true; break; }
                             else if (wFirst[0] === firstPt[0] && wFirst[1] === firstPt[1]) { ring.unshift(...[...w].reverse().slice(0, -1)); outerWays.splice(i, 1); added = true; break; }
                         }
                     }
-                    
+
                     if (ring.length >= 4) {
                         if (ring[0][0] !== ring[ring.length-1][0] || ring[0][1] !== ring[ring.length-1][1]) { ring.push([...ring[0]]); }
                         try {
-                            const poly = turf.polygon([ring], { 
-                                name: rel.tags.name, 
+                            const poly = turf.polygon([ring], {
+                                name: rel.tags.name,
                                 adminLevel: rel.tags.admin_level,
                                 boundaryType: rel.tags.boundary
                             });
                             turfPolysById[rel.id] = poly;
-                            
+
                             if (rel.tags.name && (rel.tags.admin_level || rel.tags.boundary === "ceremonial")) {
                                 adminFeatures.push(poly);
                             }
@@ -1231,7 +1760,7 @@ window.dynamicBoroughs = {};
                 // PASS 2: Assemble Super-Counties (like Greater Manchester) from their children
                 superRelations.forEach(rel => {
                     let multiCoords = [];
-                    
+
                     rel.members.forEach(m => {
                         if (m.type === "relation" && turfPolysById[m.ref]) {
                             const childPoly = turfPolysById[m.ref];
@@ -1242,7 +1771,7 @@ window.dynamicBoroughs = {};
                             }
                         }
                     });
-                    
+
                     if (multiCoords.length > 0) {
                         try {
                             const mergedPoly = turf.multiPolygon(multiCoords, {
@@ -1250,18 +1779,18 @@ window.dynamicBoroughs = {};
                                 adminLevel: rel.tags.admin_level,
                                 boundaryType: rel.tags.boundary
                             });
-                            
+
                             turfPolysById[rel.id] = mergedPoly;
-                            
+
                             if (rel.tags.name && (rel.tags.admin_level || rel.tags.boundary === "ceremonial")) {
                                 adminFeatures.push(mergedPoly);
                             }
                         } catch(e) { console.warn("MultiPolygon failed for", rel.tags.name); }
                     }
                 });
-                
+
                 adminFeatures.sort((a, b) => turf.area(a) - turf.area(b));
-                
+
                 window.adminPolygons = {};
                 adminFeatures.forEach(feature => {
                     const name = feature.properties.name;
@@ -1276,50 +1805,55 @@ window.dynamicBoroughs = {};
                 window.dynamicCounties = {};
                 window.dynamicCountries = {};
                 const seenCoords = new Set();
-                
+
                 for (const [stationKey, coords] of Object.entries(window.stationMap)) {
                     const coordStr = `${coords[0]},${coords[1]}`;
-                    if (seenCoords.has(coordStr)) continue; 
+                    if (seenCoords.has(coordStr)) continue;
                     seenCoords.add(coordStr);
-                    
-                    const stationPt = turf.point([coords[1], coords[0]]); 
+
+                    const stationPt = turf.point([coords[1], coords[0]]);
                     let matchedBorough = null, matchedCountyCeremonial = null, matchedCountyAdmin = null, matchedCountry = null;
-                    
+
                     for (const feature of adminFeatures) {
                         if (turf.booleanPointInPolygon(stationPt, feature)) {
                             const lvl = feature.properties.adminLevel;
                             const bType = feature.properties.boundaryType;
-                            
+
                             // Small local districts
                             if (!matchedBorough && bType === "administrative" && (lvl === "8" || lvl === "6")) matchedBorough = feature.properties.name;
-                            
+
                             // Historic / Ceremonial Counties
                             if (!matchedCountyCeremonial && bType === "ceremonial") matchedCountyCeremonial = feature.properties.name;
-                            
+
                             // Fallback Admin Counties
-                            if (!matchedCountyAdmin && bType === "administrative" && (lvl === "5" || lvl === "6") && feature.properties.name !== matchedBorough) matchedCountyAdmin = feature.properties.name;                            
+                            if (!matchedCountyAdmin && bType === "administrative" && (lvl === "5" || lvl === "6") && feature.properties.name !== matchedBorough) matchedCountyAdmin = feature.properties.name;
                             // Countries
                             if (!matchedCountry && bType === "administrative" && lvl === "4") matchedCountry = feature.properties.name;
                         }
                     }
-                    
+
                     const finalCounty = matchedCountyCeremonial || matchedCountyAdmin;
-                    if (finalCounty === matchedBorough) matchedBorough = null; 
-                    
+                    if (finalCounty === matchedBorough) matchedBorough = null;
+
                     if (matchedBorough) { window.dynamicBoroughs[matchedBorough] = window.dynamicBoroughs[matchedBorough] || []; window.dynamicBoroughs[matchedBorough].push(stationKey); }
                     if (finalCounty) { window.dynamicCounties[finalCounty] = window.dynamicCounties[finalCounty] || []; window.dynamicCounties[finalCounty].push(stationKey); }
                     if (matchedCountry) { window.dynamicCountries[matchedCountry] = window.dynamicCountries[matchedCountry] || []; window.dynamicCountries[matchedCountry].push(stationKey); }
                 }
-                
+
+                boundariesLoaded = true;
                 window.refreshBoundaryOptions();
-                
+                saveAreaCache(areaCacheKey);
+                areaProg.done("Area boundaries loaded");
+
             } catch(e) {
                 console.warn("Dynamic areas failed to load.", e);
+                if (areaProg) areaProg.fail("Couldn't load boundaries — the map servers are busy.");
+                boundariesLoaded = false;   // let the user try again
                 var bSelErr = document.getElementById('boundarySelect');
-                if (bSelErr) bSelErr.innerHTML = "<option value=''>Couldn't load areas — retry from ⚙️ Settings</option>";
+                if (bSelErr) bSelErr.innerHTML = "<option value=''>Couldn't load areas — tap to retry</option>";
             }
         };
-        
+
 window.dynamicZones = {};
 
         // Fare zones are just another boundary level; this only populates
@@ -1341,18 +1875,9 @@ window.dynamicZones = {};
         cacheKey = `gm_fare_zones_${window.currentRegion}`;
     } else { return; }
 
-    // Check Local Storage FIRST!
-    const cachedZones = localStorage.getItem(cacheKey);
-    if (cachedZones) {
-        window.dynamicZones = JSON.parse(cachedZones);
-        window.refreshBoundaryOptions();
-        return;
-    }
-
     setStatus("Fetching fare zones…");
 
     try {
-        // Bumped timeout from 25 to 60 seconds to prevent 504s
         const query = `[out:json][timeout:60];
         (
           nwr["railway"~"station|tram_stop|halt"]["zone"](${bbox});
@@ -1364,34 +1889,11 @@ window.dynamicZones = {};
         );
         out center qt;`;
 
-        // The Backup Server Array
-        const endpoints = [
-            "https://overpass-api.de/api/interpreter?data=",
-            "https://overpass.kumi.systems/api/interpreter?data=",
-            "https://lz4.overpass-api.de/api/interpreter?data="
-        ];
-
-        let data = null;
-        
-        // Loop through the servers until one successfully answers
-        for (let i = 0; i < endpoints.length; i++) {
-            try {
-                setStatus(`Fetching fare zones (server ${i+1}/${endpoints.length})…`);
-                const response = await fetch(endpoints[i] + encodeURIComponent(query));
-                
-                if (response.ok) { 
-                    data = await response.json(); 
-                    break; // Success! Stop looping.
-                } else if (response.status === 429 || response.status === 504) {
-                    console.warn(`Server ${i+1} busy or timed out. Pausing before next attempt...`);
-                    await window.sleep(2000); // Pause for 2 seconds before hitting the next server
-                }
-            } catch(e) { 
-                console.warn(`Server ${i+1} failed to connect.`); 
-            }
-        }
-
-        if (!data) throw new Error("All Overpass servers timed out or are busy.");
+        const data = await window.Overpass.run(query, {
+            key: cacheKey,
+            label: 'fare zones',
+            onStatus: setStatus
+        });
 
         window.dynamicZones = {};
 
@@ -1415,8 +1917,6 @@ window.dynamicZones = {};
         Object.keys(window.dynamicZones).forEach(z => {
             window.dynamicZones[z] = [...new Set(window.dynamicZones[z])];
         });
-        window.saveToLocalStorage(cacheKey, JSON.stringify(window.dynamicZones));
-
         window.refreshBoundaryOptions();
 
     } catch(e) {
@@ -1425,26 +1925,40 @@ window.dynamicZones = {};
     }
 };
 
-        
+
 
         window.dynamicPOIs = {};
         window.poiPolygons = {};
         window.poiPreviewLayer = null; // Stores our temporary map preview lines
 
         // Overpass tag filters per POI category, shared by the Voronoi and Tentacles tools.
-        window.POI_TAGS = {
-            'theme_park': 'nwr["tourism"="theme_park"]',
-            'zoo': 'nwr["tourism"="zoo"]',
-            'aquarium': 'nwr["tourism"="aquarium"]',
-            'golf_course': 'nwr["leisure"="golf_course"]',
-            'museum': 'nwr["tourism"="museum"]',
-            'cinema': 'nwr["amenity"="cinema"]',
-            'library': 'nwr["amenity"="library"]',
-            'hospital': 'nwr["amenity"="hospital"]',
-            'consulate': 'nwr["office"="diplomatic"]["diplomatic"~"consulate|embassy"]',
-            'peak': 'node["natural"="peak"]',
-            'park': 'nwr["leisure"="park"]'
+        // Every feature the official Matching / Measuring / Tentacle decks can name.
+        // `kind: 'line'` features are fetched with geometry and measured with a buffer
+        // rather than a circle, since "distance to the coastline" is a distance to a
+        // line, not to a point.
+        window.FEATURES = {
+            museum:      { label: 'Museums',              tags: 'nwr["tourism"="museum"]' },
+            library:     { label: 'Libraries',            tags: 'nwr["amenity"="library"]' },
+            cinema:      { label: 'Movie theaters',       tags: 'nwr["amenity"="cinema"]' },
+            hospital:    { label: 'Hospitals',            tags: 'nwr["amenity"="hospital"]' },
+            zoo:         { label: 'Zoos',                 tags: 'nwr["tourism"="zoo"]' },
+            aquarium:    { label: 'Aquariums',            tags: 'nwr["tourism"="aquarium"]' },
+            theme_park:  { label: 'Amusement parks',      tags: 'nwr["tourism"="theme_park"]' },
+            golf_course: { label: 'Golf courses',         tags: 'nwr["leisure"="golf_course"]' },
+            consulate:   { label: 'Foreign consulates',   tags: 'nwr["office"="diplomatic"]["diplomatic"~"consulate|embassy"]' },
+            airport:     { label: 'Commercial airports',  tags: 'nwr["aeroway"="aerodrome"]["iata"]' },
+            station:     { label: 'Rail stations',        tags: 'nwr["railway"="station"]' },
+            peak:        { label: 'Mountains',            tags: 'node["natural"="peak"]' },
+            park:        { label: 'Parks',                tags: 'nwr["leisure"="park"]' },
+            water:       { label: 'Bodies of water',      tags: 'nwr["natural"="water"]' },
+            coastline:   { label: 'Coastline',            tags: 'way["natural"="coastline"]', kind: 'line' },
+            highspeed:   { label: 'High-speed rail',      tags: 'way["railway"="rail"]["highspeed"="yes"]', kind: 'line' },
+            border_intl: { label: 'International borders',tags: 'way["boundary"="administrative"]["admin_level"="2"]', kind: 'line' },
+            border_1:    { label: '1st division borders', tags: 'way["boundary"="administrative"]["admin_level"="4"]', kind: 'line' },
+            border_2:    { label: '2nd division borders', tags: 'way["boundary"="administrative"]["admin_level"="6"]', kind: 'line' }
         };
+        // Kept as an alias so nothing that still reads POI_TAGS breaks.
+        window.POI_TAGS = Object.fromEntries(Object.entries(window.FEATURES).map(([k, v]) => [k, v.tags]));
 
         // Resolve the Overpass bbox for the current region (custom or predefined).
         window.currentBbox = function() {
@@ -1453,17 +1967,167 @@ window.dynamicZones = {};
             return null;
         };
 
+        // One fetch+parse for every POI question. Returns turf points with names.
+        window.fetchPOIs = async function(category, label, onStatus) {
+            const bbox = window.currentBbox();
+            if (!bbox) throw new Error("No game region set.");
+            const feat = window.FEATURES[category];
+            const isLine = feat && feat.kind === 'line';
+            const out = isLine ? 'out geom qt;' : 'out center qt;';
+            const query = `[out:json][timeout:40]; ${feat.tags}(${bbox}); ${out}`;
+            const data = await window.Overpass.run(query, {
+                key: `feat_${category}_${bbox}`,
+                label: (label || category).toLowerCase(),
+                onStatus: onStatus
+            });
+
+            const features = [];
+            const seen = new Set();
+            (data.elements || []).forEach(el => {
+                const name = (el.tags && el.tags.name) || (isLine ? feat.label : 'Unnamed');
+                if (isLine) {
+                    if (!el.geometry || el.geometry.length < 2) return;
+                    try {
+                        features.push(turf.lineString(el.geometry.map(g => [g.lon, g.lat]), { name: name }));
+                    } catch (e) {}
+                    return;
+                }
+                const lat = el.lat || (el.center && el.center.lat);
+                const lon = el.lon || (el.center && el.center.lon);
+                if (lat == null || lon == null) return;
+                const k = `${lat.toFixed(5)},${lon.toFixed(5)}`;
+                if (seen.has(k)) return;
+                seen.add(k);
+                features.push(turf.point([lon, lat], { name: name }));
+            });
+            return features;
+        };
+
+        // Distance from a point to a feature, whichever kind it is.
+        function distanceToFeature(pt, feature) {
+            try {
+                return feature.geometry.type === 'LineString'
+                    ? turf.pointToLineDistance(pt, feature, { units: 'kilometers' })
+                    : turf.distance(pt, feature, { units: 'kilometers' });
+            } catch (e) { return Infinity; }
+        }
+
+        function poiSelection() {
+            const sel = document.getElementById('poiCategorySelect');
+            return { category: sel.value, label: sel.selectedOptions[0].textContent };
+        }
+
+        // Singular-ish label for one item out of a plural category name.
+        function singular(label) {
+            return label.replace(/ies$/, 'y').replace(/ses$/, 's').replace(/s$/, '');
+        }
+
+        function nearestTo(point, feats) {
+            let best = null, bestKm = Infinity;
+            feats.forEach(f => {
+                const km = distanceToFeature(point, f);
+                if (km < bestKm) { bestKm = km; best = f; }
+            });
+            return { poi: best, km: bestKm };
+        }
+
+        // MATCHING — "is your nearest museum the same as mine?" The answer region is
+        // the catchment (Voronoi cell) of whichever one is nearest to your position.
+        window.poiMatchFromPosition = async function() {
+            const me = requireSeeker();
+            if (!me) return;
+            const { category, label } = poiSelection();
+            const one = singular(label).toLowerCase();
+            const prog = window.showProgress(`Finding your nearest ${one}…`);
+            try {
+                const pts = await window.fetchPOIs(category, label, (m) => prog.update(m));
+                if (pts.length < 2) { prog.fail(`Only ${pts.length} ${label.toLowerCase()} in this zone — need at least 2.`); return; }
+
+                const mePt = turf.point([me.lng, me.lat]);
+                const { poi, km } = nearestTo(mePt, pts);
+
+                prog.update("Building the catchment…");
+                const b = window.currentBbox().split(',').map(Number);
+                const cells = turf.voronoi(turf.featureCollection(pts), { bbox: [b[1], b[0], b[3], b[2]] });
+                const idx = pts.indexOf(poi);
+                const cell = cells.features[idx];
+                if (!cell) { prog.fail("Couldn't work out that catchment."); return; }
+
+                addConstraint('match', cell, `Same nearest ${one}: ${poi.properties.name}`, cell);
+                prog.done(`Nearest ${one}: ${poi.properties.name} (${km.toFixed(1)}km)`);
+            } catch (e) {
+                console.error("POI match failed:", e);
+                prog.fail("Map servers are busy — try again in a minute.");
+            }
+        };
+
+        // MEASURING — "are you closer to a museum than I am?" Your distance to the
+        // nearest one becomes the radius: everywhere inside the union of circles of
+        // that radius is exactly the region whose nearest one is closer than yours.
+        window.poiMeasureFromPosition = async function() {
+            const me = requireSeeker();
+            if (!me) return;
+            const { category, label } = poiSelection();
+            const one = singular(label).toLowerCase();
+            const prog = window.showProgress(`Measuring to the nearest ${one}…`);
+            try {
+                const pts = await window.fetchPOIs(category, label, (m) => prog.update(m));
+                if (!pts.length) { prog.fail(`No ${label.toLowerCase()} found in this zone.`); return; }
+
+                const mePt = turf.point([me.lng, me.lat]);
+                const { poi, km } = nearestTo(mePt, pts);
+                if (!isFinite(km) || km <= 0) { prog.fail("Couldn't measure that distance."); return; }
+
+                prog.update(`Shading everywhere within ${km.toFixed(2)}km of one…`);
+                const union = unionOfCircles(pts, km);
+                if (!union) { prog.fail("Couldn't build that region."); return; }
+
+                // Rule: "Compared to me, are you closer to or further from ___?" — each
+                // player measures to their OWN nearest, so the region is everywhere with
+                // one of these within the seeker's own distance.
+                addConstraint('measure', union,
+                    `${singular(label)} — nearer than my ${km.toFixed(2)}km`, null);
+                prog.done(`Your nearest ${one} is ${km.toFixed(2)}km away`);
+            } catch (e) {
+                console.error("POI measure failed:", e);
+                prog.fail("Map servers are busy — try again in a minute.");
+            }
+        };
+
+        // Union of equal-radius circles around a set of points, simplified enough for
+        // Firestore. Shared by Measuring and Tentacles.
+        function unionOfCircles(feats, radiusKm) {
+            if (!feats.length) return null;
+            const steps = feats.length > 250 ? 12 : 24;
+            const shape = (f) => f.geometry.type === 'LineString'
+                ? turf.buffer(f, radiusKm, { units: 'kilometers', steps: 4 })
+                : turf.circle(f.geometry.coordinates, radiusKm, { steps: steps, units: 'kilometers' });
+            let union = null;
+            feats.forEach(f => {
+                try {
+                    const sh = shape(f);
+                    if (!sh) return;
+                    union = union ? turf.union(union, sh) : sh;
+                } catch (e) {}
+            });
+            if (!union) return null;
+            try { union = turf.buffer(turf.simplify(union, { tolerance: 0.001, highQuality: false }), 0); } catch (e) {}
+            return union;
+        }
+
         // Both POI tools answer questions about the same category list, so they
         // share one dropdown and a mode switch instead of two near-identical cards.
-        window.poiMode = 'tentacle';
+        window.poiMode = 'match';
         window.setPoiMode = function(mode) {
             window.poiMode = mode;
             document.querySelectorAll('#poiModes .seg-btn')
                 .forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
-            document.getElementById('poiTentacleMode').style.display = mode === 'tentacle' ? 'block' : 'none';
-            document.getElementById('poiNearestMode').style.display = mode === 'nearest' ? 'block' : 'none';
-            // Drop any catchment preview when leaving that mode.
-            if (mode !== 'nearest' && window.poiPreviewLayer && window.leafletEngine) {
+            ['match', 'measure', 'tentacle'].forEach(m => {
+                const el = document.getElementById('poi' + m.charAt(0).toUpperCase() + m.slice(1) + 'Mode');
+                if (el) el.style.display = (m === mode) ? 'block' : 'none';
+            });
+            // Drop any catchment preview when leaving matching.
+            if (mode !== 'match' && window.poiPreviewLayer && window.leafletEngine) {
                 window.leafletEngine.removeLayer(window.poiPreviewLayer);
                 window.poiPreviewLayer = null;
             }
@@ -1471,46 +2135,80 @@ window.dynamicZones = {};
 
         // Tentacles: union of radius circles around every POI of a category in the
         // game zone, added as one HIT/MISS constraint.
-        window.addTentacleLayer = async function() {
-            const catSel = document.getElementById('poiCategorySelect');
-            const category = catSel.value;
-            const label = catSel.selectedOptions[0].textContent;
+        // TENTACLES — "Within X of me, which ___ are you nearest to?"
+        // The radius is centred on YOU; only features inside it are candidates. The
+        // hider names one, and the answer region is that one's catchment clipped to
+        // the tentacle circle. "Out of range" instead rules out the whole circle.
+        window.tentacleCandidates = [];
+
+        window.findTentacleCandidates = async function() {
+            const me = requireSeeker();
+            if (!me) return;
+            const { category, label } = poiSelection();
             const radiusKm = parseFloat(document.getElementById('tentacleRadius').value);
-            const bbox = window.currentBbox();
-            if (!bbox) { window.showToast("No game region set.", "warn"); return; }
-
-            const prog = window.showProgress(`Finding ${label.toLowerCase()}…`);
+            const sel = document.getElementById('tentacleAnswer');
+            const prog = window.showProgress(`Finding ${label.toLowerCase()} within ${radiusKm}km of you…`);
             try {
-                const query = `[out:json][timeout:25]; ${window.POI_TAGS[category]}(${bbox}); out center qt;`;
-                const url = "https://overpass-api.de/api/interpreter?data=" + encodeURIComponent(query);
-                const response = await fetch(url);
-                if (!response.ok) throw new Error("Overpass busy");
-                const data = await response.json();
+                const all = await window.fetchPOIs(category, label, (m) => prog.update(m));
+                const mePt = turf.point([me.lng, me.lat]);
+                const inRange = all
+                    .filter(f => f.geometry.type !== 'LineString')
+                    .map(f => ({ f: f, km: distanceToFeature(mePt, f) }))
+                    .filter(x => x.km <= radiusKm)
+                    .sort((a, b) => a.km - b.km);
 
-                const circles = [];
-                const seen = new Set();
-                data.elements.forEach(el => {
-                    const lat = el.lat || (el.center && el.center.lat);
-                    const lon = el.lon || (el.center && el.center.lon);
-                    if (lat == null || lon == null) return;
-                    const k = `${lat.toFixed(5)},${lon.toFixed(5)}`;
-                    if (seen.has(k)) return; seen.add(k);
-                    circles.push(turf.circle([lon, lat], radiusKm, { steps: 24, units: 'kilometers' }));
-                });
+                window.tentacleCandidates = { pts: inRange.map(x => x.f), radiusKm: radiusKm, me: me, label: label };
 
-                if (circles.length === 0) { prog.fail(`No ${label.toLowerCase()} found in this zone.`); return; }
-
-                prog.update(`Merging ${circles.length} tentacles…`);
-                let union = circles[0];
-                for (let i = 1; i < circles.length; i++) { try { union = turf.union(union, circles[i]); } catch(e) {} }
-                try { union = turf.buffer(turf.simplify(union, { tolerance: 0.001, highQuality: false }), 0); } catch(e) {}
-
-                addConstraint('tentacle', union, `${label} within ${radiusKm}km`, null);
-                prog.done(`${circles.length} ${label.toLowerCase()} — tentacles drawn`);
+                if (!inRange.length) {
+                    sel.innerHTML = '<option value="">None in range</option>';
+                    prog.fail(`No ${label.toLowerCase()} within ${radiusKm}km of you — the hider is automatically out of range.`);
+                    return;
+                }
+                sel.innerHTML = inRange.map((x, i) =>
+                    `<option value="${i}">${x.f.properties.name} (${x.km.toFixed(2)}km)</option>`).join('');
+                prog.done(`${inRange.length} ${label.toLowerCase()} in range — ask which one they're nearest to`);
             } catch (e) {
                 console.error("Tentacles failed:", e);
-                prog.fail("Overpass busy — couldn't load tentacles. Try again.");
+                prog.fail("Map servers are busy — try again in a minute.");
             }
+        };
+
+        window.addTentacleAnswer = function() {
+            const c = window.tentacleCandidates;
+            if (!c || !c.pts || !c.pts.length) { window.showToast("Find the in-range options first.", "warn"); return; }
+            const idx = parseInt(document.getElementById('tentacleAnswer').value, 10);
+            if (isNaN(idx) || !c.pts[idx]) { window.showToast("Pick the one the hider named.", "warn"); return; }
+
+            const named = c.pts[idx];
+            const circle = turf.circle([c.me.lng, c.me.lat], c.radiusKm, { steps: 96, units: 'kilometers' });
+            let region = circle;
+            try {
+                if (c.pts.length > 1) {
+                    // Catchment of the named one among the in-range candidates, clipped
+                    // to the tentacle circle.
+                    const bb = turf.bbox(turf.buffer(circle, 2, { units: 'kilometers' }));
+                    const cells = turf.voronoi(turf.featureCollection(c.pts), { bbox: bb });
+                    const cell = cells.features[idx];
+                    if (cell) region = turf.intersect(turf.buffer(cell, 0), circle) || circle;
+                }
+            } catch (e) { console.warn("Tentacle catchment fell back to the full circle:", e); }
+
+            addConstraint('tentacle', region,
+                `Tentacle: nearest ${singular(c.label).toLowerCase()} is ${named.properties.name}`, null);
+        };
+
+        // "Out of range" is an answer too — it rules out the whole tentacle circle.
+        window.addTentacleOutOfRange = function() {
+            const me = requireSeeker();
+            if (!me) return;
+            const radiusKm = parseFloat(document.getElementById('tentacleRadius').value);
+            const { label } = poiSelection();
+            const circle = turf.circle([me.lng, me.lat], radiusKm, { steps: 96, units: 'kilometers' });
+            const c = addConstraint('tentacle', circle,
+                `Tentacle: no ${label.toLowerCase()} in range (${radiusKm}km)`, null);
+            // Out of range means NOT inside the circle.
+            const last = myConstraints[myConstraints.length - 1];
+            if (last) { last.state = 'miss'; window.saveConstraints(); updateLayerList(); updateLogicMap(); }
         };
 
         window.loadPOIVoronoi = async function() {
@@ -1531,22 +2229,23 @@ window.dynamicZones = {};
                 } else { prog.fail("No game region set."); return; }
 
                 resSelect.innerHTML = `<option value="">Finding ${catLabel}…</option>`;
-                
+
                 // 1. CLEAR OLD PREVIEWS (Using our new safe variable!)
                 if (window.poiPreviewLayer && window.leafletEngine) {
                     window.leafletEngine.removeLayer(window.poiPreviewLayer);
                 }
                 window.poiPreviewLayer = L.layerGroup();
-                
+
                 const category = catSelect.value;
                 const tagQuery = poiTags[category];
 
-                const query = `[out:json][timeout:25]; ${tagQuery}(${bbox}); out center qt;`;
-                const url = "https://overpass-api.de/api/interpreter?data=" + encodeURIComponent(query);
-
-                const response = await fetch(url);
-                if (!response.ok) throw new Error("Overpass POI fetch failed");
-                const data = await response.json();
+                // Same cache key as Tentacles — asking for museums twice costs one request.
+                const query = `[out:json][timeout:40]; ${tagQuery}(${bbox}); out center qt;`;
+                const data = await window.Overpass.run(query, {
+                    key: `poi_${category}_${bbox}`,
+                    label: catLabel,
+                    onStatus: (m) => prog.update(m)
+                });
 
                 let poiPoints = [];
                 let seenNames = new Set();
@@ -1554,11 +2253,11 @@ window.dynamicZones = {};
                 data.elements.forEach(el => {
                     if (el.tags && el.tags.name) {
                         const name = el.tags.name;
-                        if (seenNames.has(name)) return; 
-                        
+                        if (seenNames.has(name)) return;
+
                         let lat = el.lat || (el.center && el.center.lat);
                         let lon = el.lon || (el.center && el.center.lon);
-                        
+
                         if (lat && lon) {
                             seenNames.add(name);
                             poiPoints.push(turf.point([lon, lat], { name: name }));
@@ -1574,10 +2273,10 @@ window.dynamicZones = {};
 
                 prog.update("Calculating catchments…");
                 resSelect.innerHTML = '<option value="">Calculating catchments…</option>';
-                
+
                 const b = bbox.split(',').map(Number);
-                const turfBbox = [b[1], b[0], b[3], b[2]]; 
-                
+                const turfBbox = [b[1], b[0], b[3], b[2]];
+
                 const collection = turf.featureCollection(poiPoints);
                 const voronoiPolygons = turf.voronoi(collection, { bbox: turfBbox });
 
@@ -1586,7 +2285,7 @@ window.dynamicZones = {};
 
                 poiPoints.forEach((pt, i) => {
                     const poly = voronoiPolygons.features[i];
-                    if (poly) { 
+                    if (poly) {
                         const poiName = pt.properties.name;
                         poly.properties = { name: poiName };
                         window.poiPolygons[poiName] = poly;
@@ -1614,11 +2313,11 @@ window.dynamicZones = {};
                 }
 
                 for (const [stationKey, coords] of Object.entries(window.stationMap)) {
-                    const stationPt = turf.point([coords[1], coords[0]]); 
+                    const stationPt = turf.point([coords[1], coords[0]]);
                     for (const [poiName, poly] of Object.entries(window.poiPolygons)) {
                         if (turf.booleanPointInPolygon(stationPt, poly)) {
                             window.dynamicPOIs[poiName].push(stationKey);
-                            break; 
+                            break;
                         }
                     }
                 }
@@ -1638,23 +2337,23 @@ window.dynamicZones = {};
             } catch(e) {
                 console.error("POI Voronoi failed:", e);
                 resSelect.innerHTML = '<option value="">Could not load — try again</option>';
-                prog.fail("Overpass busy — couldn't load POIs. Try again.");
+                prog.fail("Map servers are busy — try again in a minute.");
             }
         };
 
         window.addPOILayer = function() {
             const poiName = document.getElementById('poiResultSelect').value;
             if (!poiName) { window.showToast("Find the catchments first, then pick one.", "warn"); return; }
-            
+
             if (window.poiPolygons && window.poiPolygons[poiName]) {
                 const targetPoly = window.poiPolygons[poiName];
-                
+
                 // 4. CLEAN UP PREVIEWS ONCE SELECTED
                 if (window.poiPreviewLayer && window.leafletEngine) {
                     window.leafletEngine.removeLayer(window.poiPreviewLayer);
-                    window.poiPreviewLayer = null; 
+                    window.poiPreviewLayer = null;
                 }
-                
+
                 addConstraint('poi', targetPoly, `Nearest: ${poiName}`, targetPoly);
             } else {
                 window.showToast("Could not find a boundary for this POI.", "warn");
@@ -1720,12 +2419,12 @@ window.dynamicZones = {};
                 header.innerHTML = `${catKey} <span class="arrow">${openSections[catKey] ? '▼' : '▶'}</span>`;
                 header.onclick = function() { openSections[catKey] = !openSections[catKey]; localStorage.setItem('gm_open_sections', JSON.stringify(openSections)); renderQuestions(); };
                 catDiv.appendChild(header);
-                var contentDiv = document.createElement('div'); contentDiv.className = 'q-content ' + (openSections[catKey] ? "open" : ""); 
+                var contentDiv = document.createElement('div'); contentDiv.className = 'q-content ' + (openSections[catKey] ? "open" : "");
                 questionData[catKey].forEach(sub => {
                     var subHeader = document.createElement('div'); subHeader.className = 'q-subcat'; subHeader.innerText = sub.name; contentDiv.appendChild(subHeader);
                     var grid = document.createElement('div'); grid.className = 'q-grid';
                     sub.items.forEach(item => {
-                        var qKey = catKey + "_" + sub.name + "_" + item; 
+                        var qKey = catKey + "_" + sub.name + "_" + item;
                         var btn = document.createElement('div'); btn.className = 'q-btn ' + (questionState[qKey] ? 'asked' : ''); btn.innerText = item;
                         btn.onclick = function() { window.toggleQuestion(qKey, item, sub.name, catKey, this); }; grid.appendChild(btn);
                     });
@@ -1754,9 +2453,37 @@ window.dynamicZones = {};
             renderLog();
         };
 
+        // Best-effort map from a question item ("Nearest Movie Theater") to a
+        // catalogue key, so the shortcut lands on the right feature.
+        var FEATURE_ALIASES = {
+            'museum': 'museum', 'librar': 'library', 'movie theater': 'cinema', 'cinema': 'cinema',
+            'hospital': 'hospital', 'zoo': 'zoo', 'aquarium': 'aquarium',
+            'amusement park': 'theme_park', 'golf': 'golf_course', 'consulate': 'consulate',
+            'airport': 'airport', 'rail station': 'station', 'mountain': 'peak', 'park': 'park',
+            'body of water': 'water', 'coastline': 'coastline', 'high-speed': 'highspeed',
+            'international border': 'border_intl', '1st administrative': 'border_1',
+            '2nd administrative': 'border_2'
+        };
+        function selectFeatureFor(itemName) {
+            var hay = String(itemName).toLowerCase();
+            // Longest alias first so "amusement park" beats "park".
+            var key = Object.keys(FEATURE_ALIASES).sort(function(a, b) { return b.length - a.length; })
+                .find(function(a) { return hay.indexOf(a) !== -1; });
+            if (!key) return false;
+            var sel = document.getElementById('poiCategorySelect');
+            if (!sel) return false;
+            sel.value = FEATURE_ALIASES[key];
+            return true;
+        }
+
         // Parse a radius in km from a question label like "500m" / "15km (Medium)".
         function parseRadiusKm(s) {
             var km = s.match(/([\d.]+)\s*km/i); if (km) return parseFloat(km[1]);
+            // The deck is metric; miles are still parsed in case a card is quoted
+            // in the original units.
+            if (/quarter\s*mile/i.test(s)) return 0.25 * 1.60934;
+            if (/half\s*mile/i.test(s))    return 0.5 * 1.60934;
+            var mi = s.match(/([\d.]+)\s*mile/i); if (mi) return parseFloat(mi[1]) * 1.60934;
             var m = s.match(/([\d.]+)\s*m\b/i); if (m) return parseFloat(m[1]) / 1000;
             return null;
         }
@@ -1773,20 +2500,26 @@ window.dynamicZones = {};
                     window.pendingQuestionLink = logId;
                     window.startRadiusTool();
                 };
-            } else if (/Thermometer|Measuring/i.test(catName)) {
-                // Both are the same geometry — the divider in thermometer mode.
+            } else if (/Thermometer/i.test(catName)) {
                 run = function() {
                     window.switchTab('tools');
                     window.setDividerMode('thermo');
                     window.pendingQuestionLink = logId;
                     window.startDividerTool();
                 };
-            } else if (/Tentacles/i.test(catName)) {
+            } else if (/Matching|Measuring|Tentacles/i.test(catName)) {
+                // Jump to the right POI mode and preselect the feature the question named.
+                var mode = /Measuring/i.test(catName) ? 'measure'
+                         : /Tentacles/i.test(catName) ? 'tentacle' : 'match';
                 run = function() {
                     window.switchTab('tools');
-                    window.setPoiMode('tentacle');
+                    window.setPoiMode(mode);
+                    if (!selectFeatureFor(itemName)) {
+                        window.showToast("Pick the feature, then run the question.", "info", { duration: 3000 });
+                    }
                     window.pendingQuestionLink = logId;
-                    window.showToast("Pick the category, then tap Draw tentacles.", "info", { duration: 3500 });
+                    var el = document.getElementById('poiModes');
+                    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 };
             }
             if (run) {
@@ -1808,23 +2541,23 @@ window.dynamicZones = {};
 function resolveCoords(name, missingList) {
     // 1. Unified cleaning function
     const clean = (s) => s ? s.toLowerCase().replace(/\s+/g, "").replace("station", "").replace("underground", "").replace("metrolink", "").replace(/[^a-z0-9]/g, "") : "";
-    
+
     const target = clean(name);
-    
+
     // 2. Direct Lookup
-    let coords = window.stationMap[target]; 
-    
+    let coords = window.stationMap[target];
+
     // 3. Fuzzy Lookup (if direct fails)
-    if (!coords) { 
+    if (!coords) {
         // Find a key that contains the target name, or is contained within the target name
-        const fuzzyKey = Object.keys(window.stationMap).find(k => 
+        const fuzzyKey = Object.keys(window.stationMap).find(k =>
             (k.length > 3 && (k.includes(target) || target.includes(k)))
-        ); 
+        );
         if (fuzzyKey) {
             coords = window.stationMap[fuzzyKey];
         }
     }
-    
+
     if (!coords && missingList) {
         missingList.push(name);
         console.warn("❌ Match Failed:", name, "-> Cleaned as:", target);
@@ -1840,7 +2573,7 @@ function resolveCoords(name, missingList) {
             let profile;
             let fullQuery = "";
             let actualCacheKey = "";
-            
+
             if (window.currentRegion === 'custom') {
                 // 1. Create a dummy profile for custom zones so processData doesn't crash
                 profile = {
@@ -1851,7 +2584,7 @@ function resolveCoords(name, missingList) {
                     zones: {},
                     boroughs: {}
                 };
-                
+
                 // 2. Build the Overpass query using the drawn bounding box
                 const customQueryBody = `
                         nwr["railway"~"station|tram_stop|subway_entrance|light_rail_station|halt"](${window.customOverpassBbox});
@@ -1860,94 +2593,72 @@ function resolveCoords(name, missingList) {
                         way["railway"~"rail|subway|light_rail|tram"](${window.customOverpassBbox});
                     `;
                 fullQuery = `[out:json][timeout:90];(${customQueryBody});out body;>;out skel qt;`;
-                
+
                 // Cache custom queries based on their specific coordinates
                 actualCacheKey = `gm_transport_data_v3_custom_${window.customOverpassBbox}`;
-                
+
             } else {
                 // Standard logic for predefined cities (London, Manchester, etc.)
                 profile = cityProfiles[window.currentRegion];
                 const queryBody = profile.overpassQuery.replace(/{{bbox}}/g, profile.boundingBox);
                 fullQuery = `[out:json][timeout:90];(${queryBody});out body;>;out skel qt;`;
-                
+
                 actualCacheKey = `gm_transport_data_v3_${window.currentRegion}`;
             }
-            
+
             // Check Local Storage Cache First
-            const savedData = localStorage.getItem(actualCacheKey);
+            const savedData = window.Overpass.cacheGet(actualCacheKey);
             if (savedData) {
-                processData(JSON.parse(savedData), profile);
+                processData(savedData, profile);
                 if (loader) loader.style.display = 'none';
                 prog.done(`${Object.keys(window.stationMap).length} stations loaded (cached)`);
-                const bProg = window.showProgress("Loading area boundaries…");
-                window.loadDynamicAreas().then(() => bProg.done("Boundaries loaded"));
                 return;
             }
-
-            const endpoints = [
-                "https://overpass-api.de/api/interpreter?data=",
-                "https://overpass.kumi.systems/api/interpreter?data="
-            ];
 
             let data = null;
-            for (let i = 0; i < endpoints.length; i++) {
-                try {
-                    prog.update(`Fetching stations (server ${i + 1}/${endpoints.length})…`);
-                    const response = await fetch(endpoints[i] + encodeURIComponent(fullQuery));
-                    if (response.ok) { data = await response.json(); break; }
-                    prog.update(`Overpass busy — trying server ${i + 2}/${endpoints.length}…`);
-                } catch(e) { console.warn("Server busy, trying next..."); }
-            }
-
-            if (!data) {
-                prog.fail("Map servers are busy — please try again shortly.");
+            try {
+                data = await window.Overpass.run(fullQuery, {
+                    key: actualCacheKey,
+                    label: 'stations',
+                    onStatus: (m) => prog.update(m)
+                });
+            } catch (e) {
+                prog.fail("Map servers are busy — tap ↻ Reload in ⚙️ Settings to try again.");
                 if (loader) loader.style.display = 'none';
                 return;
             }
 
-            window.saveToLocalStorage(actualCacheKey, JSON.stringify(data));
-
-            // 1. Process the main station data instantly
             processData(data, profile);
+            if (loader) loader.style.display = 'none';
             prog.done(`${Object.keys(window.stationMap).length} stations loaded`);
-
-            // 2. Wrap the follow-up queries in an async sequence so they wait in line
-            (async () => {
-                const bProg = window.showProgress("Loading area boundaries…");
-                if (loader) loader.innerText = "Pausing for Overpass API (1/2)...";
-                await window.sleep(2500); // Wait 2.5 seconds
-
-                await window.loadDynamicAreas();
-                bProg.done("Boundaries loaded");
-
-                if (loader) loader.innerText = "Pausing for Overpass API (2/2)...";
-                await window.sleep(2500); // Wait another 2.5 seconds
-                // Hide loader when completely finished
-                if (loader) loader.style.display = 'none';
-            })();
-
+            // Boundaries are NOT fetched here any more — that second heavy query is
+            // what used to trip the rate limiter at join time. It now runs lazily,
+            // the first time someone actually opens the Boundary tool.
         };
-		
+
         // Clear every cache relevant to the current room (station data for both the
         // standard and custom key shapes, plus fare-zone caches), then re-download.
         window.forceRefreshData = function() {
             const region = window.currentRegion;
             const bbox = window.customOverpassBbox;
-            const keysToRemove = [];
+            // Overpass client caches (prefixed), the legacy bare keys, and the
+            // derived boundary cache all go.
+            window.Overpass.clearCache();
+            const doomed = [];
             for (let i = 0; i < localStorage.length; i++) {
                 const key = localStorage.key(i);
                 if (!key) continue;
-                const matchesRegion = region && (
-                    key === `gm_transport_data_v3_${region}` ||
-                    key === `gm_fare_zones_${region}`
-                );
-                const matchesCustom = bbox && (
-                    key === `gm_transport_data_v3_custom_${bbox}` ||
-                    key === `gm_fare_zones_${bbox}`
-                );
-                if (matchesRegion || matchesCustom) keysToRemove.push(key);
+                if (key.indexOf('gm_transport_data_v3_') === 0 ||
+                    key.indexOf('gm_fare_zones_') === 0 ||
+                    key.indexOf('gm_areas_v1_') === 0) doomed.push(key);
             }
-            keysToRemove.forEach(k => localStorage.removeItem(k));
+            doomed.forEach(k => localStorage.removeItem(k));
+
+            window.adminPolygons = {};
+            window.dynamicBoroughs = {}; window.dynamicCounties = {};
+            window.dynamicCountries = {}; window.dynamicZones = {};
+            boundariesLoaded = false;
+
             const btn = document.getElementById('btnLoadTransport');
             if (btn) btn.disabled = false;
             window.showToast("Cleared cache — re-downloading map data…", "info");
@@ -1956,24 +2667,24 @@ function resolveCoords(name, missingList) {
 
 function processData(d, profile) {
     if (!d || !d.elements) return;
-    
+
     // 1. Clear existing map visual layers
-    localLayer.clearLayers(); 
+    localLayer.clearLayers();
     railLayer.clearLayers();
 
     // 2. IMPORTANT: Reset/Initialize the global station map
     // We use window. so the boundary tool (addBoundaryLayer) can resolve stations.
-    window.stationMap = {}; 
-    
-    var nodes = {}; 
+    window.stationMap = {};
+
+    var nodes = {};
     var ways = {};
 
     // Standardized cleaning function to use for keys
     const clean = (s) => s ? s.toLowerCase().replace(/\s+/g, "").replace("station", "").replace("underground", "").replace("metrolink", "").replace(/[^a-z0-9]/g, "") : "";
 
     // Map Nodes (Coordinates)
-    d.elements.forEach(e => { 
-        if (e.type === "node") nodes[e.id] = [e.lat, e.lon]; 
+    d.elements.forEach(e => {
+        if (e.type === "node") nodes[e.id] = [e.lat, e.lon];
     });
 
     // Map Ways (Physical track segments)
@@ -1994,7 +2705,7 @@ function processData(d, profile) {
 
             let routeColor = e.tags.colour || e.tags.color || '#0078A8';
             const routeName = e.tags.name || "";
-            
+
             if (profile.colorOverrides) {
                 for (const [key, hex] of Object.entries(profile.colorOverrides)) {
                     if (routeName.includes(key)) { routeColor = hex; break; }
@@ -2004,8 +2715,8 @@ function processData(d, profile) {
             if (e.members) {
                 e.members.forEach(m => {
                     if (m.type === "way" && ways[m.ref]) {
-                        L.polyline(ways[m.ref], { 
-                            color: routeColor, weight: 4, opacity: 0.85, lineCap: 'round', lineJoin: 'round' 
+                        L.polyline(ways[m.ref], {
+                            color: routeColor, weight: 4, opacity: 0.85, lineCap: 'round', lineJoin: 'round'
                         }).addTo(localLayer);
                         drawnWays.add(m.ref);
                     }
@@ -2019,10 +2730,10 @@ function processData(d, profile) {
         if (e.type === "way" && !drawnWays.has(e.id) && e.tags) {
             const isRail = e.tags.railway === "rail";
             const isSubway = e.tags.railway === "subway" || e.tags.railway === "light_rail" || e.tags.railway === "tram";
-            
+
             if (isRail || isSubway) {
-                let line = L.polyline(ways[e.id], { 
-                    color: '#444', weight: 2, dashArray: '5,8', opacity: 0.4, interactive: false 
+                let line = L.polyline(ways[e.id], {
+                    color: '#444', weight: 2, dashArray: '5,8', opacity: 0.4, interactive: false
                 });
                 if (isSubway) line.addTo(localLayer);
                 else if (isRail) line.addTo(railLayer);
@@ -2040,27 +2751,27 @@ function processData(d, profile) {
             // --- THE STRICT FILTER START ---
         if (profile.strictStopList) {
             // Check if the station name (or its aliases) exists in your list
-            const isAllowed = profile.strictStopList.includes(stationKey) || 
+            const isAllowed = profile.strictStopList.includes(stationKey) ||
                              (profile.stationAliases && profile.strictStopList.includes(clean(profile.stationAliases[stationKey])));
-            
+
             if (!isAllowed) return; // Skip if it's not in your list
         }
         // --- THE STRICT FILTER END ---
-            if (drawnStations.has(stationKey)) return; 
+            if (drawnStations.has(stationKey)) return;
             if (profile.blacklistedStops && profile.blacklistedStops.some(b => rawName.includes(b))) return;
 
-            const isLocal = e.tags.railway === 'tram_stop' || 
-                            e.tags.railway === 'subway_entrance' || 
-                            e.tags.railway === 'light_rail_station' || 
-                            e.tags.station === 'subway' || 
+            const isLocal = e.tags.railway === 'tram_stop' ||
+                            e.tags.railway === 'subway_entrance' ||
+                            e.tags.railway === 'light_rail_station' ||
+                            e.tags.station === 'subway' ||
                             e.tags.station === 'light_rail';
-            const isNational = e.tags.railway === 'station' && !isLocal; 
+            const isNational = e.tags.railway === 'station' && !isLocal;
 
             let wasDrawn = false;
 
             if (isLocal) {
-                L.circleMarker([e.lat, e.lon], { 
-                    radius: 4, fillColor: "#FFC107", color: "#333", weight: 1, fillOpacity: 1, pane: 'stations' 
+                L.circleMarker([e.lat, e.lon], {
+                    radius: 4, fillColor: "#FFC107", color: "#333", weight: 1, fillOpacity: 1, pane: 'stations'
                 }).addTo(localLayer).bindPopup(`<b>${rawName}</b>`);
                 wasDrawn = true;
             } else if (isNational) {
@@ -2068,10 +2779,10 @@ function processData(d, profile) {
                 if (isAllowed) {
                     const crs = e.tags["ref:crs"] || e.tags["ref"] || "";
                     const link = `https://www.realtimetrains.co.uk/search/detailed/gb-nr:${crs}`;
-                    L.circleMarker([e.lat, e.lon], { 
-                        radius: 5, fillColor: "#333", color: "#fff", weight: 1.5, fillOpacity: 1, pane: 'stations' 
+                    L.circleMarker([e.lat, e.lon], {
+                        radius: 5, fillColor: "#333", color: "#fff", weight: 1.5, fillOpacity: 1, pane: 'stations'
                     }).addTo(railLayer).bindPopup(`<b>${rawName}</b><br><button class='popup-link' onclick='window.openPopup("${link}")'>Realtime Trains</button>`);
-                    
+
                     // If we have a CRS code (like HID for Hall-i'-th'-Wood), save it too!
                     if (crs) {
                         window.stationMap[crs.toLowerCase()] = [e.lat, e.lon];
@@ -2087,19 +2798,76 @@ function processData(d, profile) {
             }
         }
     });
-    
+
     console.log(`✅ Loaded ${Object.keys(window.stationMap).length} stations into Logic Engine.`);
 }
 
         // Universal function to handle Boroughs, Counties, and Countries
+        // MATCHING — "are you in the same borough as me?" Works out which area at
+        // this level contains your position, so nobody has to know its name.
+        window.boundaryMatchFromPosition = async function() {
+            const me = requireSeeker();
+            if (!me) return;
+            const level = window.boundaryLevel;
+            const cfg = window.BOUNDARY_LEVELS[level];
+            const prog = window.showProgress(`Finding your ${cfg.label.toLowerCase()}…`);
+            try {
+                await window.ensureBoundaryData(level);
+                window.refreshBoundaryOptions();
+
+                const mePt = turf.point([me.lng, me.lat]);
+                // Match against every polygon of the right kind, not just those that
+                // happen to contain a station — a seeker can stand well away from one.
+                const typed = Object.keys(window.adminPolygons || {}).filter(name => {
+                    const props = window.adminPolygons[name].properties || {};
+                    const lvl = String(props.adminLevel || '');
+                    const admin = props.boundaryType === 'administrative';
+                    if (level === 'borough') return admin && (lvl === '8' || lvl === '6');
+                    if (level === 'county')  return props.boundaryType === 'ceremonial' || (admin && (lvl === '5' || lvl === '6'));
+                    if (level === 'country') return admin && lvl === '4';
+                    return false;
+                });
+                const pool = typed.length ? typed : Object.keys(boundaryData(level));
+                let hit = null, hitArea = Infinity;
+
+                // Several levels can overlap; keep the smallest area that contains us.
+                pool.forEach(name => {
+                    const poly = window.adminPolygons && window.adminPolygons[name];
+                    if (!poly) return;
+                    try {
+                        if (turf.booleanPointInPolygon(mePt, poly)) {
+                            const a = turf.area(poly);
+                            if (a < hitArea) { hitArea = a; hit = { name: name, poly: poly }; }
+                        }
+                    } catch (e) {}
+                });
+
+                if (!hit) {
+                    prog.fail(`Your position isn't inside any known ${cfg.label.toLowerCase()} — pick one manually.`);
+                    return;
+                }
+
+                let poly = hit.poly;
+                try { poly = turf.buffer(turf.simplify(poly, { tolerance: 0.001, highQuality: false }), 0); } catch (e) {}
+                addConstraint('match', poly, `Same ${cfg.label.toLowerCase()}: ${hit.name}`, poly);
+                prog.done(`You're in ${hit.name}`);
+            } catch (e) {
+                console.error("Boundary match failed:", e);
+                prog.fail("Couldn't load boundaries — the map servers are busy.");
+            }
+        };
+
         // One entry point for every boundary level (borough / county / country /
         // fare zone). Uses the true Overpass polygon when we have it, otherwise
         // unions 500m bubbles around each station known to be inside the area.
-        window.addBoundaryLayer = function() {
+        window.addBoundaryLayer = async function() {
             const level = window.boundaryLevel;
             const cfg = window.BOUNDARY_LEVELS[level];
+            if (!cfg) return;
+            await window.ensureBoundaryData(level);
+            window.refreshBoundaryOptions();
             const name = document.getElementById('boundarySelect').value;
-            if (!cfg || !name) { window.showToast("Pick an area first.", "warn"); return; }
+            if (!name) { window.showToast("No areas available yet — give the map data a moment.", "warn"); return; }
             if (Object.keys(window.stationMap).length === 0) { window.showToast("Map data is still loading — try again in a moment.", "warn"); return; }
 
             const labelSuffix = cfg.label;
@@ -2108,20 +2876,20 @@ function processData(d, profile) {
             // 1. Try to use the exact true geographic boundary we saved!
             if (window.adminPolygons && window.adminPolygons[name]) {
                 targetPoly = window.adminPolygons[name];
-            } 
+            }
             // 2. FALLBACK: If boundaries failed, draw 500m circles
             else {
                 let stops = boundaryData(level)[name] || [];
                 if (stops.length === 0) { window.showToast("No stops found for " + name, "warn"); return; }
 
                 let circles = []; let missing = [];
-                stops.forEach(nameOrKey => { 
-                    const coords = window.stationMap[nameOrKey] || resolveCoords(nameOrKey, missing); 
+                stops.forEach(nameOrKey => {
+                    const coords = window.stationMap[nameOrKey] || resolveCoords(nameOrKey, missing);
                     if (coords) circles.push(turf.circle([coords[1], coords[0]], 0.5, {steps: 64, units: 'kilometers'}));
                 });
-                
+
                 if (circles.length > 0) {
-                    targetPoly = circles[0]; 
+                    targetPoly = circles[0];
                     for (let i = 1; i < circles.length; i++) { try { targetPoly = turf.union(targetPoly, circles[i]); } catch(e) {} }
                 }
             }
@@ -2132,10 +2900,10 @@ function processData(d, profile) {
                     // THE MAGIC FIX: Shrink the polygon's file size by 99% so Firebase accepts it!
                     // Tolerance 0.001 smooths out microscopic jagged edges while keeping the core shape
                     let simplifiedPoly = turf.simplify(targetPoly, { tolerance: 0.001, highQuality: false });
-                    
+
                     // turf.buffer(0) mathematically cleans up any looping lines caused by the simplification
                     let cleanPoly = turf.buffer(simplifiedPoly, 0);
-                    
+
                     const label = /zone/i.test(name) ? name : `${name} ${labelSuffix}`;
                     addConstraint(level === 'zone' ? 'zone' : 'borough', cleanPoly, label, cleanPoly);
                 } catch(e) {
@@ -2148,6 +2916,8 @@ function processData(d, profile) {
 
         // --- SETTINGS MODAL LOGIC ---
         window.openSettings = function() {
+            const share = document.getElementById('areaShareGroup');
+            if (share) share.style.display = (window.currentRegion === 'custom' && window.customBboxPoly) ? 'block' : 'none';
             document.getElementById('settingsModal').style.display = 'block';
         };
 
@@ -2199,7 +2969,7 @@ function processData(d, profile) {
                     document.getElementById('toggleLiveGPS').checked = false;
                     return;
                 }
-                
+
                 // Start continuously tracking
                 window.gpsWatchId = navigator.geolocation.watchPosition(
                     function(position) {
@@ -2212,7 +2982,7 @@ function processData(d, profile) {
                             window.liveGpsMarker = L.circleMarker([lat, lng], {
                                 radius: 7, fillColor: '#0078A8', color: '#fff', weight: 2, fillOpacity: 1
                             }).addTo(gpsLayer);
-                            
+
                             window.liveGpsCircle = L.circle([lat, lng], {
                                 radius: accuracy, color: '#0078A8', fillOpacity: 0.15, weight: 1, dashArray: '5,5'
                             }).addTo(gpsLayer);
@@ -2222,15 +2992,15 @@ function processData(d, profile) {
                             window.liveGpsCircle.setLatLng([lat, lng]);
                             window.liveGpsCircle.setRadius(accuracy);
                         }
-                        
+
                         // Optional: Center map on the very first GPS lock
                         if (!window.hasCenteredLiveGPS) {
                             map.setView([lat, lng], 14);
                             window.hasCenteredLiveGPS = true;
                         }
                     },
-                    function(error) { 
-                        console.error("GPS Watch Error", error); 
+                    function(error) {
+                        console.error("GPS Watch Error", error);
                         if (error.code === 1) window.showToast("Please allow location permissions to use Live GPS.", "warn");
                     },
                     { enableHighAccuracy: true, maximumAge: 2000, timeout: 10000 }
@@ -2242,7 +3012,7 @@ function processData(d, profile) {
                     window.gpsWatchId = null;
                 }
                 window.hasCenteredLiveGPS = false;
-                
+
                 // Remove the markers from the map
                 if (window.liveGpsMarker) {
                     gpsLayer.removeLayer(window.liveGpsMarker);
@@ -2315,10 +3085,46 @@ function processData(d, profile) {
             syncForViewport();
         })();
 
+        // Enter submits the coordinate fields rather than doing nothing.
+        ['dividerLat', 'dividerLng'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.addEventListener('keydown', e => { if (e.key === 'Enter') window.manualDivider(); });
+        });
+        ['posLat', 'posLng'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); window.seekerFromInputs(); } });
+        });
+
+        // Distances come from distancePresets in questions.js — one edit there
+        // repoints the chips, the radius dropdown and the question cards together.
+        (function buildDistanceControls() {
+            const chips = document.getElementById('radarChips');
+            if (chips) {
+                chips.innerHTML = distancePresets.radar.map(km =>
+                    `<button type="button" class="chip" data-km="${km}" onclick="window.setRadius(${km})">${kmLabel(km)}</button>`
+                ).join('');
+            }
+            const sel = document.getElementById('tentacleRadius');
+            if (sel) {
+                sel.innerHTML = distancePresets.tentacle.map(t =>
+                    `<option value="${t.km}"${t.default ? ' selected' : ''}>${kmLabel(t.km)}${t.note ? ' — ' + t.note : ''}</option>`
+                ).join('');
+            }
+        })();
+
+        // Feature dropdown is generated so the catalogue is the single source of truth.
+        (function buildFeatureSelect() {
+            const sel = document.getElementById('poiCategorySelect');
+            if (!sel) return;
+            sel.innerHTML = Object.entries(window.FEATURES)
+                .map(([k, v]) => `<option value="${k}">${v.label}</option>`).join('');
+        })();
+        window.refreshSavedAreas();
+
         // === INITIALIZE ===
-        window.setRadius(5);                 // highlight the chip matching the default
+        window.setRadius(distancePresets.radar[Math.min(3, distancePresets.radar.length - 1)]);
         window.setDividerMode('thermo');     // sync the divider hint + button label
-        window.setPoiMode('tentacle');
+        window.setPoiMode('match');
         updateLayerList();                   // paint the empty state on first run
         renderLog();
         renderQuestions();
