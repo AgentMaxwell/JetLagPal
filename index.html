@@ -262,7 +262,10 @@
                 <details class="tool-more">
                     <summary>Pick an area manually</summary>
                     <select id="boundarySelect" onfocus="window.ensureBoundaryData()"><option value="">Tap to load areas…</option></select>
-                    <button onclick="window.addBoundaryLayer()">＋ Add that area</button>
+                    <div class="btn-row">
+                        <button class="btn-ghost" onclick="window.previewBoundary()">👁️ Show me</button>
+                        <button onclick="window.addBoundaryLayer()">＋ Add that area</button>
+                    </div>
                 </details>
             </div>
 
@@ -270,7 +273,8 @@
             <div class="tool-card">
                 <div class="tool-title"><span class="tool-ico">📍</span>Points of interest</div>
                 <span class="field-label">Feature</span>
-                <select id="poiCategorySelect"><!-- filled from window.FEATURES --></select>
+                <select id="poiCategorySelect" onchange="window.onFeatureChange()"><!-- filled from window.FEATURES --></select>
+                <button id="btnShowFeatures" class="btn-ghost" onclick="window.toggleFeaturePreview()">👁️ Show me where they are</button>
                 <div class="seg" id="poiModes" style="margin-top:10px;">
                     <button type="button" class="seg-btn active" data-mode="match" onclick="window.setPoiMode('match')">Matching</button>
                     <button type="button" class="seg-btn" data-mode="measure" onclick="window.setPoiMode('measure')">Measuring</button>
@@ -2012,6 +2016,81 @@ window.dynamicZones = {};
             } catch (e) { return Infinity; }
         }
 
+        // ---- Feature preview: see where they actually are before committing ----
+        window.featurePreview = { layer: null, category: null };
+
+        window.toggleFeaturePreview = async function() {
+            const { category, label } = poiSelection();
+            const btn = document.getElementById('btnShowFeatures');
+
+            // Second tap, or a tap after switching category, clears the old preview.
+            if (window.featurePreview.layer) {
+                map.removeLayer(window.featurePreview.layer);
+                const wasSame = window.featurePreview.category === category;
+                window.featurePreview = { layer: null, category: null };
+                setPreviewBtn(false);
+                if (wasSame) return;
+            }
+
+            const prog = window.showProgress(`Finding ${label.toLowerCase()}…`);
+            try {
+                const feats = await window.fetchPOIs(category, label, (m) => prog.update(m));
+                if (!feats.length) { prog.fail(`No ${label.toLowerCase()} in this zone.`); return; }
+
+                const group = L.layerGroup();
+                feats.forEach(f => {
+                    let shape;
+                    if (f.geometry.type === 'LineString') {
+                        shape = L.geoJSON(f, { style: { color: '#7c3aed', weight: 3, opacity: 0.85 } });
+                    } else {
+                        const c = f.geometry.coordinates;
+                        shape = L.circleMarker([c[1], c[0]], {
+                            radius: 6, color: '#fff', weight: 2,
+                            fillColor: '#7c3aed', fillOpacity: 0.95
+                        });
+                    }
+                    shape.bindTooltip(f.properties.name, { direction: 'top' });
+                    group.addLayer(shape);
+                });
+                group.addTo(map);
+                window.featurePreview = { layer: group, category: category };
+                setPreviewBtn(true, feats.length);
+                prog.done(`${feats.length} ${label.toLowerCase()} shown — tap again to hide`);
+            } catch (e) {
+                console.error("Preview failed:", e);
+                prog.fail("Map servers are busy — try again in a minute.");
+            }
+        };
+
+        function setPreviewBtn(on, count) {
+            const btn = document.getElementById('btnShowFeatures');
+            if (!btn) return;
+            btn.textContent = on ? `🙈 Hide the ${count} shown` : '👁️ Show me where they are';
+            btn.classList.toggle('is-showing', !!on);
+        }
+
+        // Outline whichever boundary area is selected, so you can check it before adding.
+        window.previewBoundary = async function() {
+            await window.ensureBoundaryData();
+            const name = document.getElementById('boundarySelect').value;
+            const poly = name && window.adminPolygons && window.adminPolygons[name];
+            if (!poly) { window.showToast("Nothing to preview for that area yet.", "warn"); return; }
+            if (window.boundaryPreviewLayer) map.removeLayer(window.boundaryPreviewLayer);
+            window.boundaryPreviewLayer = L.geoJSON(poly, {
+                style: { color: '#7c3aed', weight: 3, dashArray: '6,4', fillColor: '#7c3aed', fillOpacity: 0.12 }
+            }).addTo(map);
+            try { map.fitBounds(window.boundaryPreviewLayer.getBounds().pad(0.1)); } catch (e) {}
+            window.showToast(`Showing ${name} — it clears when you add a layer.`, "info", { duration: 3000 });
+        };
+
+        window.onFeatureChange = function() {
+            if (window.featurePreview.layer && window.featurePreview.category !== poiSelection().category) {
+                map.removeLayer(window.featurePreview.layer);
+                window.featurePreview = { layer: null, category: null };
+            }
+            setPreviewBtn(false);
+        };
+
         function poiSelection() {
             const sel = document.getElementById('poiCategorySelect');
             return { category: sel.value, label: sel.selectedOptions[0].textContent };
@@ -2071,28 +2150,41 @@ window.dynamicZones = {};
             const one = singular(label).toLowerCase();
             const prog = window.showProgress(`Measuring to the nearest ${one}…`);
             try {
-                const pts = await window.fetchPOIs(category, label, (m) => prog.update(m));
-                if (!pts.length) { prog.fail(`No ${label.toLowerCase()} found in this zone.`); return; }
+                const feats = await window.fetchPOIs(category, label, (m) => prog.update(m));
+                if (!feats.length) { prog.fail(`No ${label.toLowerCase()} found in this zone.`); return; }
 
                 const mePt = turf.point([me.lng, me.lat]);
-                const { poi, km } = nearestTo(mePt, pts);
-                if (!isFinite(km) || km <= 0) { prog.fail("Couldn't measure that distance."); return; }
+                const { poi, km } = nearestTo(mePt, feats);
+                if (!poi || !isFinite(km) || km <= 0) { prog.fail("Couldn't measure that distance."); return; }
 
-                prog.update(`Shading everywhere within ${km.toFixed(2)}km of one…`);
-                const union = unionOfCircles(pts, km);
-                if (!union) { prog.fail("Couldn't build that region."); return; }
+                // The reference is THE ONE you measured to, and the region is everywhere
+                // within that same distance of it. You sit exactly on the boundary by
+                // construction — if the edge doesn't run through your dot, it's wrong.
+                const region = ringAround(poi, km);
+                if (!region) { prog.fail("Couldn't build that region."); return; }
 
-                // Rule: "Compared to me, are you closer to or further from ___?" — each
-                // player measures to their OWN nearest, so the region is everywhere with
-                // one of these within the seeker's own distance.
-                addConstraint('measure', union,
-                    `${singular(label)} — nearer than my ${km.toFixed(2)}km`, null);
-                prog.done(`Your nearest ${one} is ${km.toFixed(2)}km away`);
+                // Unnamed line features fall back to the category label; don't repeat it.
+                const named = poi.properties.name && poi.properties.name !== label
+                    ? ` of ${poi.properties.name}` : '';
+                addConstraint('measure', region,
+                    `${singular(label)} — within ${km.toFixed(2)}km${named}`, region);
+                prog.done(`${km.toFixed(2)}km to ${poi.properties.name}`);
             } catch (e) {
                 console.error("POI measure failed:", e);
                 prog.fail("Map servers are busy — try again in a minute.");
             }
         };
+
+        // Everywhere within radiusKm of a single feature. Deliberately high-resolution
+        // and never simplified: this edge has to pass through the seeker's position, so
+        // shaving 100m off it with turf.simplify would visibly break the answer.
+        function ringAround(feature, radiusKm) {
+            try {
+                return feature.geometry.type === 'LineString'
+                    ? turf.buffer(feature, radiusKm, { units: 'kilometers', steps: 32 })
+                    : turf.circle(feature.geometry.coordinates, radiusKm, { steps: 180, units: 'kilometers' });
+            } catch (e) { console.error("Couldn't build the measuring ring:", e); return null; }
+        }
 
         // Union of equal-radius circles around a set of points, simplified enough for
         // Firestore. Shared by Measuring and Tentacles.
@@ -2904,6 +2996,7 @@ function processData(d, profile) {
                     // turf.buffer(0) mathematically cleans up any looping lines caused by the simplification
                     let cleanPoly = turf.buffer(simplifiedPoly, 0);
 
+                    if (window.boundaryPreviewLayer) { map.removeLayer(window.boundaryPreviewLayer); window.boundaryPreviewLayer = null; }
                     const label = /zone/i.test(name) ? name : `${name} ${labelSuffix}`;
                     addConstraint(level === 'zone' ? 'zone' : 'borough', cleanPoly, label, cleanPoly);
                 } catch(e) {
