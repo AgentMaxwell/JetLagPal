@@ -381,6 +381,71 @@
         installNotifications();
 
         // ==========================================
+        // SHARED OSM CACHE (Firestore)
+        // ==========================================
+        // Everyone in a room asks Overpass for exactly the same things: the same
+        // boundaries, the same museums, in the same bounding box. Rather than each
+        // device paying that cost, the first one to fetch writes the result to a
+        // shared `osmCache` collection and everyone else reads it back in one round
+        // trip. Reads are ~100ms against Overpass's 5-30s, and it survives clearing
+        // a phone's storage or joining from a new device.
+        //
+        // It is strictly an optimisation: every failure path falls through to a
+        // normal Overpass fetch, so a locked-down Firestore ruleset just means the
+        // app behaves as it did before.
+        window.SharedCache = (function () {
+            const COLLECTION = 'osmCache';
+            const MAX_BYTES = 800 * 1024;      // Firestore caps a document at 1MB
+            let writable = true;               // flipped off after a permission error
+
+            // Firestore ids can't contain '/' and cap at 1500 bytes.
+            function docId(key) {
+                const safe = String(key).replace(/[^A-Za-z0-9_.,-]/g, '_');
+                let h = 0;
+                for (let i = 0; i < key.length; i++) { h = ((h << 5) - h + key.charCodeAt(i)) | 0; }
+                return safe.slice(0, 120) + '_' + (h >>> 0).toString(36);
+            }
+
+            async function get(key, maxAgeMs) {
+                if (!window.firestoreDb) return null;
+                try {
+                    const snap = await getDoc(doc(window.firestoreDb, COLLECTION, docId(key)));
+                    if (!snap.exists()) return null;
+                    const d = snap.data();
+                    if (!d || !d.payload) return null;
+                    if (maxAgeMs && d.ts && (Date.now() - d.ts) > maxAgeMs) return null;
+                    return JSON.parse(d.payload);
+                } catch (e) {
+                    console.warn("Shared cache read failed (falling back):", e && e.code);
+                    return null;
+                }
+            }
+
+            async function put(key, value) {
+                if (!window.firestoreDb || !writable) return false;
+                try {
+                    const payload = JSON.stringify(value);
+                    if (payload.length > MAX_BYTES) return false;   // too big to share
+                    await setDoc(doc(window.firestoreDb, COLLECTION, docId(key)), {
+                        payload: payload, ts: Date.now(), key: String(key).slice(0, 300)
+                    });
+                    return true;
+                } catch (e) {
+                    // A rules rejection is permanent for this session — stop retrying.
+                    if (e && (e.code === 'permission-denied' || e.code === 'unauthenticated')) {
+                        writable = false;
+                        console.warn("Shared cache is read-only for this project — add rules for the 'osmCache' collection to enable it.");
+                    } else {
+                        console.warn("Shared cache write failed (harmless):", e && e.code);
+                    }
+                    return false;
+                }
+            }
+
+            return { get, put, get writable() { return writable; } };
+        })();
+
+        // ==========================================
         // OVERPASS CLIENT
         // ==========================================
         // The public Overpass mirrors give each IP about two concurrent slots and
@@ -506,10 +571,15 @@
                 throw lastErr || new Error('Overpass unavailable');
             }
 
-            // run(query, { key, ttl, label, onStatus, force, cache })
+            // run(query, { key, ttl, label, onStatus, force, cache, shared, slim })
+            //
+            // Three tiers, fastest first: this device's localStorage, the room's
+            // shared Firestore cache, then Overpass itself.
             function run(query, opts) {
                 opts = opts || {};
-                if (opts.cache !== false && !opts.force) {
+                const useCache = opts.cache !== false;
+
+                if (useCache && !opts.force) {
                     const hit = cacheGet(opts.key, opts.ttl);
                     if (hit) return Promise.resolve(hit);
                 }
@@ -517,25 +587,41 @@
                 const dedupeKey = opts.key || query;
                 if (inflight.has(dedupeKey)) return inflight.get(dedupeKey);
 
-                queued++;
-                const position = queued;
-                if (position > 1 && opts.onStatus) opts.onStatus(`Waiting for the map server (${position - 1} ahead)…`);
-
-                const p = chain.then(() => execute(query, opts)).then(
-                    (data) => {
-                        if (opts.cache !== false) cachePut(opts.key, data);
-                        queued--; inflight.delete(dedupeKey);
-                        return data;
-                    },
-                    (err) => {
-                        queued--; inflight.delete(dedupeKey);
-                        throw err;
+                const p = (async () => {
+                    // Tier 2: has anyone else in the room already fetched this?
+                    if (useCache && !opts.force && opts.shared !== false && opts.key) {
+                        if (opts.onStatus) opts.onStatus(`Checking the shared cache…`);
+                        const shared = await window.SharedCache.get(opts.key, opts.ttl || DEFAULT_TTL);
+                        if (shared) {
+                            cachePut(opts.key, shared);
+                            return shared;
+                        }
                     }
-                );
-                // Keep the queue running even when a link in it fails.
-                chain = p.catch(() => {});
-                inflight.set(dedupeKey, p);
-                return p;
+
+                    // Tier 3: Overpass, one request at a time.
+                    queued++;
+                    if (queued > 1 && opts.onStatus) opts.onStatus(`Waiting for the map server (${queued - 1} ahead)…`);
+                    const gate = chain.then(() => execute(query, opts));
+                    chain = gate.catch(() => {});   // a failure must not stall the queue
+                    try {
+                        let data = await gate;
+                        // Callers can hand back a smaller shape to store; a slimmed POI
+                        // response is a fraction of the raw Overpass JSON, which is what
+                        // makes sharing it viable at all.
+                        if (opts.slim) { try { data = opts.slim(data); } catch (e) {} }
+                        if (useCache) {
+                            cachePut(opts.key, data);
+                            if (opts.shared !== false && opts.key) window.SharedCache.put(opts.key, data);
+                        }
+                        return data;
+                    } finally {
+                        queued--;
+                    }
+                })();
+
+                const tracked = p.finally(() => inflight.delete(dedupeKey));
+                inflight.set(dedupeKey, tracked);
+                return tracked;
             }
 
             return { run, clearCache, cacheGet, get pending() { return queued; } };
@@ -547,6 +633,7 @@
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
+        window.firestoreDb = db;   // the shared OSM cache reaches Firestore through this
 
         // Offline persistence: keep state through tunnels / patchy mobile data.
         // Must run before any other Firestore call; may fail with multiple open
@@ -1624,27 +1711,45 @@ window.dynamicBoroughs = {};
                         slim[name] = turf.simplify(window.adminPolygons[name], { tolerance: 0.0005, highQuality: false });
                     } catch (e) { /* skip anything turf refuses to simplify */ }
                 });
-                window.saveToLocalStorage(key, JSON.stringify({
+                const box = {
                     t: Date.now(),
                     polygons: slim,
                     boroughs: window.dynamicBoroughs,
                     counties: window.dynamicCounties,
                     countries: window.dynamicCountries
-                }));
+                };
+                window.saveToLocalStorage(key, JSON.stringify(box));
+                // Boundaries are the slowest query in the app — share them so only the
+                // first player in a region ever waits for it.
+                window.SharedCache.put(key, box);
             } catch (e) { console.warn("Couldn't cache boundaries:", e); }
+        }
+
+        function applyAreaCache(box) {
+            if (!box || !box.polygons || Date.now() - box.t > 7 * 24 * 60 * 60 * 1000) return false;
+            window.adminPolygons = box.polygons;
+            window.dynamicBoroughs = box.boroughs || {};
+            window.dynamicCounties = box.counties || {};
+            window.dynamicCountries = box.countries || {};
+            boundariesLoaded = true;
+            return true;
         }
 
         function restoreAreaCache(key) {
             try {
                 const raw = localStorage.getItem(key);
                 if (!raw) return false;
-                const box = JSON.parse(raw);
-                if (!box || !box.polygons || Date.now() - box.t > 7 * 24 * 60 * 60 * 1000) return false;
-                window.adminPolygons = box.polygons;
-                window.dynamicBoroughs = box.boroughs || {};
-                window.dynamicCounties = box.counties || {};
-                window.dynamicCountries = box.countries || {};
-                boundariesLoaded = true;
+                return applyAreaCache(JSON.parse(raw));
+            } catch (e) { return false; }
+        }
+
+        // Same thing, but from the room's shared cache when this device has never
+        // loaded the region before.
+        async function restoreAreaCacheShared(key) {
+            try {
+                const box = await window.SharedCache.get(key, 7 * 24 * 60 * 60 * 1000);
+                if (!applyAreaCache(box)) return false;
+                window.saveToLocalStorage(key, JSON.stringify(box));
                 return true;
             } catch (e) { return false; }
         }
@@ -1670,6 +1775,11 @@ window.dynamicBoroughs = {};
                 const areaCacheKey = `gm_areas_v1_${window.currentRegion === 'custom' ? window.customOverpassBbox : window.currentRegion}`;
                 if (!opts.force && restoreAreaCache(areaCacheKey)) {
                     window.refreshBoundaryOptions();
+                    return;
+                }
+                if (!opts.force && await restoreAreaCacheShared(areaCacheKey)) {
+                    window.refreshBoundaryOptions();
+                    window.showToast("Boundaries loaded from the shared cache.", "success", { duration: 2000 });
                     return;
                 }
 
@@ -1982,7 +2092,21 @@ window.dynamicZones = {};
             const data = await window.Overpass.run(query, {
                 key: `feat_${category}_${bbox}`,
                 label: (label || category).toLowerCase(),
-                onStatus: onStatus
+                onStatus: onStatus,
+                // Keep only what fetchPOIs actually reads. Overpass returns a lot of
+                // tag noise; dropping it shrinks the cached copy roughly 5-10x, which
+                // is what lets these fit in a shared Firestore document.
+                slim: (d) => ({
+                    elements: (d.elements || []).map(el => {
+                        const keep = { tags: { name: (el.tags && el.tags.name) || undefined } };
+                        if (isLine) keep.geometry = el.geometry;
+                        else {
+                            keep.lat = el.lat != null ? el.lat : (el.center && el.center.lat);
+                            keep.lon = el.lon != null ? el.lon : (el.center && el.center.lon);
+                        }
+                        return keep;
+                    })
+                })
             });
 
             const features = [];
@@ -2157,42 +2281,38 @@ window.dynamicZones = {};
                 const { poi, km } = nearestTo(mePt, feats);
                 if (!poi || !isFinite(km) || km <= 0) { prog.fail("Couldn't measure that distance."); return; }
 
-                // The reference is THE ONE you measured to, and the region is everywhere
-                // within that same distance of it. You sit exactly on the boundary by
-                // construction — if the edge doesn't run through your dot, it's wrong.
-                const region = ringAround(poi, km);
-                if (!region) { prog.fail("Couldn't build that region."); return; }
+                // Rule: "Compared to me, are you closer to or further from ___?" — both
+                // players measure to their OWN nearest, so the answer region is
+                // everywhere that has one of these within your distance. You sit exactly
+                // on its edge: your nearest is at km, and nothing else is closer.
+                prog.update(`Shading everywhere within ${km.toFixed(2)}km of one…`);
+                const union = unionOfCircles(feats, km);
+                if (!union) { prog.fail("Couldn't build that region."); return; }
 
-                // Unnamed line features fall back to the category label; don't repeat it.
-                const named = poi.properties.name && poi.properties.name !== label
-                    ? ` of ${poi.properties.name}` : '';
-                addConstraint('measure', region,
-                    `${singular(label)} — within ${km.toFixed(2)}km${named}`, region);
-                prog.done(`${km.toFixed(2)}km to ${poi.properties.name}`);
+                addConstraint('measure', union,
+                    `${singular(label)} — nearer than my ${km.toFixed(2)}km`, null);
+                prog.done(`Your nearest ${one} is ${km.toFixed(2)}km away (${poi.properties.name})`);
             } catch (e) {
                 console.error("POI measure failed:", e);
                 prog.fail("Map servers are busy — try again in a minute.");
             }
         };
 
-        // Everywhere within radiusKm of a single feature. Deliberately high-resolution
-        // and never simplified: this edge has to pass through the seeker's position, so
-        // shaving 100m off it with turf.simplify would visibly break the answer.
-        function ringAround(feature, radiusKm) {
-            try {
-                return feature.geometry.type === 'LineString'
-                    ? turf.buffer(feature, radiusKm, { units: 'kilometers', steps: 32 })
-                    : turf.circle(feature.geometry.coordinates, radiusKm, { steps: 180, units: 'kilometers' });
-            } catch (e) { console.error("Couldn't build the measuring ring:", e); return null; }
-        }
-
         // Union of equal-radius circles around a set of points, simplified enough for
         // Firestore. Shared by Measuring and Tentacles.
+        // Union of equal-radius shapes around a set of features. Shared by Measuring
+        // and Tentacles.
+        //
+        // Resolution matters more here than it looks: the seeker stands exactly on this
+        // edge, so a coarse buffer or an aggressive simplify visibly moves the answer
+        // away from their position. Steps are generous, and the simplify tolerance is
+        // scaled to ~1% of the measured distance instead of a flat 0.001 degrees
+        // (~111m), which used to swamp any measurement under a kilometre.
         function unionOfCircles(feats, radiusKm) {
             if (!feats.length) return null;
-            const steps = feats.length > 250 ? 12 : 24;
+            const steps = feats.length > 250 ? 16 : (feats.length > 60 ? 32 : 64);
             const shape = (f) => f.geometry.type === 'LineString'
-                ? turf.buffer(f, radiusKm, { units: 'kilometers', steps: 4 })
+                ? turf.buffer(f, radiusKm, { units: 'kilometers', steps: 16 })
                 : turf.circle(f.geometry.coordinates, radiusKm, { steps: steps, units: 'kilometers' });
             let union = null;
             feats.forEach(f => {
@@ -2203,7 +2323,9 @@ window.dynamicZones = {};
                 } catch (e) {}
             });
             if (!union) return null;
-            try { union = turf.buffer(turf.simplify(union, { tolerance: 0.001, highQuality: false }), 0); } catch (e) {}
+            // Keep Firestore payloads sane without moving the edge off the seeker.
+            const tol = Math.max(0.000002, (radiusKm * 0.01) / 111);
+            try { union = turf.buffer(turf.simplify(union, { tolerance: tol, highQuality: false }), 0); } catch (e) {}
             return union;
         }
 
@@ -2712,7 +2834,8 @@ function resolveCoords(name, missingList) {
                 data = await window.Overpass.run(fullQuery, {
                     key: actualCacheKey,
                     label: 'stations',
-                    onStatus: (m) => prog.update(m)
+                    onStatus: (m) => prog.update(m),
+                    shared: false   // raw ways/relations, routinely over the 1MB doc cap
                 });
             } catch (e) {
                 prog.fail("Map servers are busy — tap ↻ Reload in ⚙️ Settings to try again.");
@@ -3041,12 +3164,33 @@ function processData(d, profile) {
             }
         };
 
+        // The app's own URL with no query string. Leaving has to land here rather
+        // than reload(): a player who joined from an invite link still has ?room= in
+        // the address bar, and reloading just re-ran autoJoinFromUrl() and dropped
+        // them straight back into the room they were trying to leave.
+        window.cleanAppUrl = function() {
+            try {
+                var u = new URL(window.location.href);
+                u.search = '';
+                u.hash = '';
+                return u.toString();
+            } catch (e) { return window.location.pathname || '/'; }
+        };
+
         window.leaveRoom = async function() {
-            if (await window.showConfirm("Leave this room and return to the setup screen?", { confirmLabel: 'Leave' })) {
-                // Detach the live listener, then reload for a clean reset of all UI state.
-                if (window.unsubscribeSnapshot) { window.unsubscribeSnapshot(); window.unsubscribeSnapshot = null; }
-                window.location.reload();
-            }
+            if (!(await window.showConfirm("Leave this room and return to the setup screen?", { confirmLabel: 'Leave' }))) return;
+
+            window.closeSettings();
+            // Detach the live listener before navigating so it can't fire mid-teardown.
+            if (window.unsubscribeSnapshot) { window.unsubscribeSnapshot(); window.unsubscribeSnapshot = null; }
+            window.currentGameId = null;
+            // Scratch constraints are only written when you're NOT in a room; clearing
+            // them stops the last game's shapes reappearing on the next setup screen.
+            try { localStorage.removeItem('gm_constraints_v53'); } catch (e) {}
+
+            var target = window.cleanAppUrl();
+            if (target === window.location.href) window.location.reload();
+            else window.location.replace(target);
         };
 
         // --- LOCAL LIVE GPS TRACKING ---
