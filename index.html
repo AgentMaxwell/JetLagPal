@@ -48,6 +48,33 @@
                 <p class="settings-note">Hides every editing control so you can watch the seekers' deductions without changing anything. Per-device — not shared with the room.</p>
             </div>
 
+            <!-- ---- Your position: the anchor every question is asked from ---- -->
+            <div class="settings-group pos-card" id="posSettingsGroup">
+                <h4>🧍 Your position</h4>
+                <p class="settings-note">Matching and measuring questions are answered <em>from where you are</em>.</p>
+                <input type="text" id="posCoords" inputmode="decimal" placeholder="Paste or type: 53.4808, -2.2426" onchange="window.seekerFromInputs()">
+                <div class="btn-row" style="margin-top:8px;">
+                    <button id="btnPosGps" onclick="window.seekerFromGPS()">🛰️ Update now</button>
+                    <button id="btnPosPick" class="btn-ghost" onclick="window.pickSeekerOnMap(event)">🗺️ Tap the map</button>
+                </div>
+                <div class="pos-readout-row">
+                    <div class="pos-readout" id="posReadout">Not set yet</div>
+                    <button class="btn-ghost pos-copy-btn" id="btnPosCopy" onclick="window.copySeekerPosition()" title="Copy to send to hiders">⧉ Copy</button>
+                </div>
+
+                <label class="switch-row" style="margin-top:12px;">
+                    <input type="checkbox" id="togglePosAuto" onchange="window.setPosAutoUpdate(this.checked)">
+                    <span>🔄 Auto-update from GPS</span>
+                </label>
+                <select id="posAutoInterval" style="margin-top:6px; display:none;" onchange="window.setPosAutoInterval(this.value)">
+                    <option value="1">Every 1 min</option>
+                    <option value="2" selected>Every 2 min</option>
+                    <option value="5">Every 5 min</option>
+                    <option value="10">Every 10 min</option>
+                </select>
+                <p class="settings-note">Keeps your position current in the background — handy mid-game. "Update now" always works even with this off.</p>
+            </div>
+
             <div class="settings-group">
                 <h4>Map style</h4>
                 <div class="seg" id="mapStyleSeg">
@@ -188,35 +215,13 @@
 
         <div id="tab-tools" class="tab-content active">
 
-            <!-- ---- Your position: the anchor every question is asked from ---- -->
-            <div class="tool-card pos-card">
-                <div class="tool-title"><span class="tool-ico">🧍</span>Your position</div>
-                <p class="tool-hint">Matching and measuring questions are answered <em>from where you are</em>. Set it once here.</p>
-                <div class="coord-row">
-                    <label class="coord-field">
-                        <span>Latitude</span>
-                        <input type="number" id="posLat" step="any" inputmode="decimal" placeholder="53.4808" onchange="window.seekerFromInputs()">
-                    </label>
-                    <label class="coord-field">
-                        <span>Longitude</span>
-                        <input type="number" id="posLng" step="any" inputmode="decimal" placeholder="-2.2426" onchange="window.seekerFromInputs()">
-                    </label>
-                </div>
-                <div class="btn-row" style="margin-top:8px;">
-                    <button id="btnPosGps" onclick="window.seekerFromGPS()">🛰️ Use GPS</button>
-                    <button id="btnPosPick" class="btn-ghost" onclick="window.pickSeekerOnMap(event)">🗺️ Tap the map</button>
-                </div>
-                <div class="pos-readout" id="posReadout">Not set yet</div>
-            </div>
-
             <!-- ---- Radar ---- -->
             <div class="tool-card">
                 <div class="tool-title"><span class="tool-ico">🎯</span>Radar</div>
-                <p class="tool-hint">A circle around a point. The answer tells you whether the hider is inside it.</p>
                 <span class="field-label">Radius (km)</span>
                 <input type="number" id="radiusInput" value="5" min="0.1" step="0.1">
-                <div class="chip-row" id="radarChips" style="margin-top:8px;"><!-- from distancePresets.radar --></div>
-                <div class="btn-row" style="margin-top:10px;">
+                <div class="chip-row" id="radarChips" style="margin-top:6px;"><!-- from distancePresets.radar --></div>
+                <div class="btn-row" style="margin-top:8px;">
                     <button id="btnRadius" onclick="startRadiusTool(event)">🗺️ Pick centre</button>
                     <button id="btnGpsRadius" class="btn-accent" onclick="window.radiusAtSeeker()">🧍 On my position</button>
                 </div>
@@ -229,28 +234,17 @@
                     <button type="button" class="seg-btn active" data-mode="thermo" onclick="window.setDividerMode('thermo')">Thermometer</button>
                     <button type="button" class="seg-btn" data-mode="line" onclick="window.setDividerMode('line')">Match a line</button>
                 </div>
-                <p class="tool-hint" id="dividerHint">Tap where you started, then where it got <em>warmer</em>. Also covers Measuring questions — either way the map keeps the half you're closer to.</p>
+                <p class="tool-hint" id="dividerHint">Tap where you started, then where it got <em>warmer</em> (covers Measuring too).</p>
                 <button id="btnDivider" onclick="window.startDividerTool(event)">Tap two points</button>
 
                 <span class="field-label" id="dividerCoordLabel">Or type the warm end</span>
-                <p class="tool-hint" style="margin-top:0;">Measured from <strong>your position</strong> above.</p>
-                <div class="coord-row">
-                    <label class="coord-field">
-                        <span>Latitude</span>
-                        <input type="number" id="dividerLat" step="any" inputmode="decimal" placeholder="53.5500">
-                    </label>
-                    <label class="coord-field">
-                        <span>Longitude</span>
-                        <input type="number" id="dividerLng" step="any" inputmode="decimal" placeholder="-2.1000">
-                    </label>
-                </div>
+                <input type="text" id="dividerCoords" inputmode="decimal" placeholder="Paste or type: 53.5500, -2.1000">
                 <button class="btn-accent" onclick="window.manualDivider()">Draw from my position</button>
             </div>
 
             <!-- ---- Boundary match: borough / county / country / fare zone ---- -->
             <div class="tool-card">
                 <div class="tool-title"><span class="tool-ico">🗺️</span>Boundary match</div>
-                <p class="tool-hint">"Are you in the same one as me?" — the app works out which area you're standing in.</p>
                 <span class="field-label">Level</span>
                 <select id="boundaryLevel" onchange="window.setBoundaryLevel(this.value)">
                     <option value="borough">Borough / district</option>
@@ -259,14 +253,14 @@
                     <option value="zone">Transit fare zone</option>
                 </select>
                 <button class="btn-accent" onclick="window.boundaryMatchFromPosition()">🧍 Same as me?</button>
-                <details class="tool-more">
-                    <summary>Pick an area manually</summary>
+                <div class="tool-sub">
+                    <span class="tool-sub-label">Or pick an area manually</span>
                     <select id="boundarySelect" onfocus="window.ensureBoundaryData()"><option value="">Tap to load areas…</option></select>
                     <div class="btn-row">
                         <button class="btn-ghost" onclick="window.previewBoundary()">👁️ Show me</button>
                         <button onclick="window.addBoundaryLayer()">＋ Add that area</button>
                     </div>
-                </details>
+                </div>
             </div>
 
             <!-- ---- Points of interest: tentacles / nearest catchment ---- -->
@@ -275,30 +269,27 @@
                 <span class="field-label">Feature</span>
                 <select id="poiCategorySelect" onchange="window.onFeatureChange()"><!-- filled from window.FEATURES --></select>
                 <button id="btnShowFeatures" class="btn-ghost" onclick="window.toggleFeaturePreview()">👁️ Show me where they are</button>
-                <div class="seg" id="poiModes" style="margin-top:10px;">
+                <div class="seg" id="poiModes" style="margin-top:8px;">
                     <button type="button" class="seg-btn active" data-mode="match" onclick="window.setPoiMode('match')">Matching</button>
                     <button type="button" class="seg-btn" data-mode="measure" onclick="window.setPoiMode('measure')">Measuring</button>
                     <button type="button" class="seg-btn" data-mode="tentacle" onclick="window.setPoiMode('tentacle')">Tentacles</button>
                 </div>
 
                 <div id="poiMatchMode">
-                    <p class="tool-hint">"Is your nearest one the same as mine?" Finds the one closest to <strong>your position</strong> and shades its catchment.</p>
                     <button class="btn-accent" onclick="window.poiMatchFromPosition()">🧍 Same nearest as me?</button>
-                    <details class="tool-more">
-                        <summary>Pick a specific one instead</summary>
+                    <div class="tool-sub">
+                        <span class="tool-sub-label">Or pick a specific one</span>
                         <button onclick="window.loadPOIVoronoi()">🔍 Find catchments</button>
                         <select id="poiResultSelect"><option value="">Find catchments first…</option></select>
                         <button onclick="window.addPOILayer()">＋ Add that catchment</button>
-                    </details>
+                    </div>
                 </div>
 
                 <div id="poiMeasureMode" style="display:none;">
-                    <p class="tool-hint">"Are you closer to one than I am?" Measures from <strong>your position</strong> to the nearest one, then shades everywhere within that same distance.</p>
                     <button class="btn-accent" onclick="window.poiMeasureFromPosition()">🧍 Closer than me?</button>
                 </div>
 
                 <div id="poiTentacleMode" style="display:none;">
-                    <p class="tool-hint">"Within X of me, which one are you nearest to?" The radius is centred on <strong>your position</strong>; the hider names one of the options it finds.</p>
                     <span class="field-label">Radius (from you)</span>
                     <select id="tentacleRadius"><!-- from distancePresets.tentacle --></select>
                     <button onclick="window.findTentacleCandidates()">🔍 What's in range?</button>
@@ -968,6 +959,9 @@
         window.startGameSession = function(roomCode, knownRegion) {
             window.currentGameId = roomCode;
             window.hasLoadedTransport = false;
+            // Resume opt-in GPS auto-update now that a game is actually starting —
+            // not on the bare landing page, where a permission prompt would be premature.
+            if (localStorage.getItem('gm_pos_auto') === '1') window.setPosAutoUpdate(true);
 
             document.getElementById('setupScreen').style.opacity = '0';
             setTimeout(() => { document.getElementById('setupScreen').style.display = 'none'; }, 300);
@@ -1360,14 +1354,14 @@
         window.dividerMode = 'thermo';
         var DIVIDER_MODES = {
             thermo: {
-                hint: 'Tap where you started, then where it got <em>warmer</em>. Also covers Measuring questions — either way the map keeps the half you\'re closer to.',
+                hint: 'Tap where you started, then where it got <em>warmer</em> (covers Measuring too).',
                 btn: 'Tap start → warm end',
                 toast: 'Tap the WARM end — where it got warmer.',
                 color: '#dc2626',
                 coordLabel: 'Or type the warm end'
             },
             line: {
-                hint: 'Tap two points along the feature you matched (a street, transit line, river). The divider runs through both.',
+                hint: 'Tap two points along the matched line (street, transit line, river).',
                 btn: 'Tap two points on the line',
                 toast: 'Tap a second point along the line.',
                 color: '#334155',
@@ -1431,16 +1425,13 @@
         window.manualDivider = function() {
             var a = requireSeeker();
             if (!a) return;
-            var latEl = document.getElementById('dividerLat');
-            var lngEl = document.getElementById('dividerLng');
-            var lat = parseFloat(latEl.value), lng = parseFloat(lngEl.value);
-            if (isNaN(lat) || isNaN(lng)) {
-                window.showToast("Fill in both the latitude and longitude of the far point.", "warn", { duration: 4000 });
-                (isNaN(lat) ? latEl : lngEl).focus();
+            var coordsEl = document.getElementById('dividerCoords');
+            var b = window.parseLatLng(coordsEl.value);
+            if (!b) {
+                window.showToast("Paste or type the far point's coordinates.", "warn", { duration: 4000 });
+                coordsEl.focus();
                 return;
             }
-            if (Math.abs(lat) > 90 || Math.abs(lng) > 180) { window.showToast("Those coordinates are out of range.", "warn"); return; }
-            var b = { lat: lat, lng: lng };
             if (a.lat === b.lat && a.lng === b.lng) { window.showToast("That's the same as your position — no line to draw.", "warn"); return; }
 
             resetTools();
@@ -1449,7 +1440,7 @@
             } else {
                 drawThermometer(a, b);
             }
-            latEl.value = ''; lngEl.value = '';
+            coordsEl.value = '';
             map.fitBounds(L.latLngBounds([a.lat, a.lng], [b.lat, b.lng]).pad(0.6));
         };
 
@@ -1471,10 +1462,13 @@
                 return false;
             }
             window.seekerPoint = { lat: lat, lng: lng };
-            document.getElementById('posLat').value = fmtCoord(lat);
-            document.getElementById('posLng').value = fmtCoord(lng);
-            document.getElementById('posReadout').textContent = `${fmtCoord(lat)}, ${fmtCoord(lng)}`;
-            document.getElementById('posReadout').classList.add('is-set');
+            var coordsEl = document.getElementById('posCoords');
+            if (coordsEl) coordsEl.value = `${fmtCoord(lat)}, ${fmtCoord(lng)}`;
+            var readout = document.getElementById('posReadout');
+            if (readout) {
+                readout.textContent = `${fmtCoord(lat)}, ${fmtCoord(lng)}`;
+                readout.classList.add('is-set');
+            }
 
             if (seekerMarker) gpsLayer.removeLayer(seekerMarker);
             seekerMarker = L.circleMarker([lat, lng], {
@@ -1487,28 +1481,51 @@
         };
 
         window.seekerFromInputs = function() {
-            var lat = parseFloat(document.getElementById('posLat').value);
-            var lng = parseFloat(document.getElementById('posLng').value);
-            if (isNaN(lat) || isNaN(lng)) return false;
-            return window.setSeekerPoint(lat, lng, { silent: true });
+            var el = document.getElementById('posCoords');
+            var parsed = el && window.parseLatLng(el.value);
+            if (!parsed) return false;
+            return window.setSeekerPoint(parsed.lat, parsed.lng, { silent: true });
         };
 
-        window.seekerFromGPS = function() {
-            if (!navigator.geolocation) { window.showToast("This device has no location services.", "warn"); return; }
+        // opts.silent skips the toast — used by the auto-update timer so it doesn't
+        // spam a toast every couple of minutes.
+        window.seekerFromGPS = function(opts) {
+            opts = opts || {};
+            if (!navigator.geolocation) {
+                if (!opts.silent) window.showToast("This device has no location services.", "warn");
+                return;
+            }
             var btn = document.getElementById('btnPosGps');
-            var old = btn.textContent; btn.textContent = 'Locating…'; btn.disabled = true;
+            var old = btn && btn.textContent;
+            if (btn) { btn.textContent = 'Locating…'; btn.disabled = true; }
             navigator.geolocation.getCurrentPosition(function(pos) {
-                btn.textContent = old; btn.disabled = false;
-                window.setSeekerPoint(pos.coords.latitude, pos.coords.longitude);
-                window.showToast("Position set from GPS.", "success", { duration: 2000 });
+                if (btn) { btn.textContent = old; btn.disabled = false; }
+                window.setSeekerPoint(pos.coords.latitude, pos.coords.longitude, { silent: opts.silent });
+                if (!opts.silent) window.showToast("Position set from GPS.", "success", { duration: 2000 });
             }, function() {
-                btn.textContent = old; btn.disabled = false;
-                window.showToast("Couldn't get your location — type it in instead.", "warn");
+                if (btn) { btn.textContent = old; btn.disabled = false; }
+                if (!opts.silent) window.showToast("Couldn't get your location — type it in instead.", "warn");
             }, { enableHighAccuracy: true, timeout: 12000 });
+        };
+
+        // Copies "lat, lng" so it's easy to drop into a message for the hiders to
+        // check against — same text the paste box above accepts back in.
+        window.copySeekerPosition = async function() {
+            if (!window.seekerPoint) { window.showToast("Set your position first.", "warn"); return; }
+            var text = `${fmtCoord(window.seekerPoint.lat)}, ${fmtCoord(window.seekerPoint.lng)}`;
+            try {
+                await navigator.clipboard.writeText(text);
+                window.showToast("Position copied.", "success", { duration: 2000 });
+            } catch (e) {
+                var el = document.getElementById('posCoords');
+                if (el) { el.focus(); el.select(); }
+                window.showToast("Couldn't copy automatically — selected it for you instead.", "warn");
+            }
         };
 
         window.pickSeekerOnMap = function(e) {
             if (e) e.stopPropagation();
+            window.closeSettings();
             resetTools();
             var btn = document.getElementById('btnPosPick');
             btn.classList.add('active-tool-btn');
@@ -1519,7 +1536,28 @@
                 resetTools();
                 if (document.getElementById('controls').classList.contains('minimized')) window.toggleControls();
                 window.setSeekerPoint(ev.latlng.lat, ev.latlng.lng, { silent: true });
+                window.openSettings();
             });
+        };
+
+        // --- Position auto-update: opt-in GPS refresh every few minutes ---
+        window.posAutoTimer = null;
+        window.setPosAutoUpdate = function(enabled) {
+            if (window.posAutoTimer) { clearInterval(window.posAutoTimer); window.posAutoTimer = null; }
+            localStorage.setItem('gm_pos_auto', enabled ? '1' : '0');
+            var row = document.getElementById('posAutoInterval');
+            if (row) row.style.display = enabled ? 'block' : 'none';
+            var cb = document.getElementById('togglePosAuto');
+            if (cb) cb.checked = !!enabled;
+            if (enabled) {
+                var mins = parseInt((document.getElementById('posAutoInterval') || {}).value, 10) || 2;
+                window.seekerFromGPS({ silent: true });
+                window.posAutoTimer = setInterval(() => window.seekerFromGPS({ silent: true }), mins * 60 * 1000);
+            }
+        };
+        window.setPosAutoInterval = function(mins) {
+            localStorage.setItem('gm_pos_auto_interval', mins);
+            if (document.getElementById('togglePosAuto').checked) window.setPosAutoUpdate(true); // restart with the new interval
         };
 
         // Every position-relative tool funnels through this so the nudge is consistent.
@@ -1527,8 +1565,9 @@
             window.seekerFromInputs();
             if (!window.seekerPoint) {
                 window.showToast("Set <strong>Your position</strong> first — GPS, tap the map, or type it in.", "warn", { duration: 4000 });
-                window.switchTab('tools');
-                document.querySelector('.pos-card').scrollIntoView({ behavior: 'smooth', block: 'center' });
+                window.openSettings();
+                var el = document.getElementById('posSettingsGroup');
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 return null;
             }
             return window.seekerPoint;
@@ -1766,6 +1805,7 @@ window.dynamicBoroughs = {};
             let areaProg = null;
             try {
                 let bbox = "";
+                const areaProfile = window.currentRegion !== 'custom' ? cityProfiles[window.currentRegion] : null;
                 if (window.currentRegion === 'custom' && window.customOverpassBbox) {
                     bbox = window.customOverpassBbox;
                 } else if (cityProfiles[window.currentRegion]) {
@@ -1801,13 +1841,29 @@ window.dynamicBoroughs = {};
                 );
                 out geom qt;`;
 
+                // Preset regions can ship this raw Overpass result as a static file
+                // (profile.staticBoundaryUrl) instead of depending on a live Overpass
+                // call. A forced refresh always goes live.
+                let data = null;
+                if (!opts.force && areaProfile && areaProfile.staticBoundaryUrl) {
+                    try {
+                        const res = await fetch(areaProfile.staticBoundaryUrl);
+                        if (res.ok) data = await res.json();
+                        else console.warn("Static boundary data returned", res.status, "— falling back to Overpass.");
+                    } catch (e) {
+                        console.warn("Static boundary data fetch failed — falling back to Overpass:", e);
+                    }
+                }
+
                 // The raw `out geom` response runs to megabytes, so it is deliberately
                 // not cached; the far smaller derived result below is cached instead.
-                const data = await window.Overpass.run(query, {
-                    cache: false,
-                    label: 'area boundaries',
-                    onStatus: (m) => areaProg.update(m)
-                });
+                if (!data) {
+                    data = await window.Overpass.run(query, {
+                        cache: false,
+                        label: 'area boundaries',
+                        onStatus: (m) => areaProg.update(m)
+                    });
+                }
 
                 const adminFeatures = [];
                 const turfPolysById = {};
@@ -1981,6 +2037,7 @@ window.dynamicZones = {};
 
     let bbox = "";
     let cacheKey = "";
+    const zoneProfile = window.currentRegion !== 'custom' ? cityProfiles[window.currentRegion] : null;
     if (window.currentRegion === 'custom' && window.customOverpassBbox) {
         bbox = window.customOverpassBbox;
         cacheKey = `gm_fare_zones_${window.customOverpassBbox}`;
@@ -2003,11 +2060,25 @@ window.dynamicZones = {};
         );
         out center qt;`;
 
-        const data = await window.Overpass.run(query, {
-            key: cacheKey,
-            label: 'fare zones',
-            onStatus: setStatus
-        });
+        // Preset regions can ship this raw Overpass result as a static file
+        // (profile.staticFareZoneUrl) instead of depending on a live Overpass call.
+        let data = null;
+        if (zoneProfile && zoneProfile.staticFareZoneUrl) {
+            try {
+                const res = await fetch(zoneProfile.staticFareZoneUrl);
+                if (res.ok) data = await res.json();
+                else console.warn("Static fare zone data returned", res.status, "— falling back to Overpass.");
+            } catch (e) {
+                console.warn("Static fare zone data fetch failed — falling back to Overpass:", e);
+            }
+        }
+        if (!data) {
+            data = await window.Overpass.run(query, {
+                key: cacheKey,
+                label: 'fare zones',
+                onStatus: setStatus
+            });
+        }
 
         window.dynamicZones = {};
 
@@ -2081,6 +2152,25 @@ window.dynamicZones = {};
             return null;
         };
 
+        // Preset regions can ship every POI category's (already-slimmed) Overpass
+        // result as one static file (profile.staticPOIUrl). Fetched once per
+        // region and reused for every category, instead of once per category
+        // per device via Overpass.
+        let _staticPOIBundle = null; // { url, data }
+        async function loadStaticPOIBundle(url) {
+            if (_staticPOIBundle && _staticPOIBundle.url === url) return _staticPOIBundle.data;
+            try {
+                const res = await fetch(url);
+                if (!res.ok) return null;
+                const data = await res.json();
+                _staticPOIBundle = { url, data };
+                return data;
+            } catch (e) {
+                console.warn("Static POI data fetch failed:", e);
+                return null;
+            }
+        }
+
         // One fetch+parse for every POI question. Returns turf points with names.
         window.fetchPOIs = async function(category, label, onStatus) {
             const bbox = window.currentBbox();
@@ -2088,26 +2178,35 @@ window.dynamicZones = {};
             const feat = window.FEATURES[category];
             const isLine = feat && feat.kind === 'line';
             const out = isLine ? 'out geom qt;' : 'out center qt;';
-            const query = `[out:json][timeout:40]; ${feat.tags}(${bbox}); ${out}`;
-            const data = await window.Overpass.run(query, {
-                key: `feat_${category}_${bbox}`,
-                label: (label || category).toLowerCase(),
-                onStatus: onStatus,
-                // Keep only what fetchPOIs actually reads. Overpass returns a lot of
-                // tag noise; dropping it shrinks the cached copy roughly 5-10x, which
-                // is what lets these fit in a shared Firestore document.
-                slim: (d) => ({
-                    elements: (d.elements || []).map(el => {
-                        const keep = { tags: { name: (el.tags && el.tags.name) || undefined } };
-                        if (isLine) keep.geometry = el.geometry;
-                        else {
-                            keep.lat = el.lat != null ? el.lat : (el.center && el.center.lat);
-                            keep.lon = el.lon != null ? el.lon : (el.center && el.center.lon);
-                        }
-                        return keep;
+
+            let data = null;
+            const poiProfile = window.currentRegion !== 'custom' ? cityProfiles[window.currentRegion] : null;
+            if (poiProfile && poiProfile.staticPOIUrl) {
+                const bundle = await loadStaticPOIBundle(poiProfile.staticPOIUrl);
+                if (bundle && bundle[category]) data = bundle[category];
+            }
+            if (!data) {
+                const query = `[out:json][timeout:40]; ${feat.tags}(${bbox}); ${out}`;
+                data = await window.Overpass.run(query, {
+                    key: `feat_${category}_${bbox}`,
+                    label: (label || category).toLowerCase(),
+                    onStatus: onStatus,
+                    // Keep only what fetchPOIs actually reads. Overpass returns a lot of
+                    // tag noise; dropping it shrinks the cached copy roughly 5-10x, which
+                    // is what lets these fit in a shared Firestore document.
+                    slim: (d) => ({
+                        elements: (d.elements || []).map(el => {
+                            const keep = { tags: { name: (el.tags && el.tags.name) || undefined } };
+                            if (isLine) keep.geometry = el.geometry;
+                            else {
+                                keep.lat = el.lat != null ? el.lat : (el.center && el.center.lat);
+                                keep.lon = el.lon != null ? el.lon : (el.center && el.center.lon);
+                            }
+                            return keep;
+                        })
                     })
-                })
-            });
+                });
+            }
 
             const features = [];
             const seen = new Set();
@@ -2820,6 +2919,27 @@ function resolveCoords(name, missingList) {
                 actualCacheKey = `gm_transport_data_v3_${window.currentRegion}`;
             }
 
+            // Preset regions can ship their Overpass result as a static file (see
+            // profile.staticDataUrl in mapData.js) instead of depending on a live
+            // Overpass call. Try that first; fall through to the normal cache/
+            // network path if it's missing or fails to load.
+            if (window.currentRegion !== 'custom' && profile.staticDataUrl) {
+                try {
+                    prog.update("Loading map stations…");
+                    const res = await fetch(profile.staticDataUrl);
+                    if (res.ok) {
+                        const staticData = await res.json();
+                        processData(staticData, profile);
+                        if (loader) loader.style.display = 'none';
+                        prog.done(`${Object.keys(window.stationMap).length} stations loaded`);
+                        return;
+                    }
+                    console.warn("Static transport data returned", res.status, "— falling back to Overpass.");
+                } catch (e) {
+                    console.warn("Static transport data fetch failed — falling back to Overpass:", e);
+                }
+            }
+
             // Check Local Storage Cache First
             const savedData = window.Overpass.cacheGet(actualCacheKey);
             if (savedData) {
@@ -3323,14 +3443,27 @@ function processData(d, profile) {
         })();
 
         // Enter submits the coordinate fields rather than doing nothing.
-        ['dividerLat', 'dividerLng'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.addEventListener('keydown', e => { if (e.key === 'Enter') window.manualDivider(); });
-        });
-        ['posLat', 'posLng'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); window.seekerFromInputs(); } });
-        });
+        (function() {
+            const dc = document.getElementById('dividerCoords');
+            if (dc) dc.addEventListener('keydown', e => { if (e.key === 'Enter') window.manualDivider(); });
+            const pc = document.getElementById('posCoords');
+            if (pc) pc.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); window.seekerFromInputs(); } });
+        })();
+
+        // Restore the saved interval choice and checkbox state (display only — the
+        // GPS timer itself only starts once a game session begins, in startGameSession).
+        (function restorePosAutoUI() {
+            const mins = localStorage.getItem('gm_pos_auto_interval');
+            if (mins) {
+                const sel = document.getElementById('posAutoInterval');
+                if (sel) sel.value = mins;
+            }
+            const on = localStorage.getItem('gm_pos_auto') === '1';
+            const cb = document.getElementById('togglePosAuto');
+            if (cb) cb.checked = on;
+            const row = document.getElementById('posAutoInterval');
+            if (row) row.style.display = on ? 'block' : 'none';
+        })();
 
         // Distances come from distancePresets in questions.js — one edit there
         // repoints the chips, the radius dropdown and the question cards together.

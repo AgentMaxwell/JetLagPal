@@ -182,40 +182,43 @@ strong { font-weight: 650; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
 
 /* ============================================================
-   Tool cards
+   Tool cards — dense by design: this panel lives on a phone screen,
+   so vertical space is worth more than breathing room.
    ============================================================ */
 .tool-card {
     background: var(--surface-2); border: 1px solid var(--line);
-    border-radius: var(--r-md); padding: 12px; margin-bottom: 10px;
+    border-radius: var(--r-md); padding: 10px; margin-bottom: 8px;
 }
+/* Auto-number the tool cards (1. Radar, 2. Dividing line, …) like before the
+   redesign — done with a counter instead of hardcoded text so reordering or
+   adding a card never needs a renumber. */
+#tab-tools { counter-reset: toolnum; }
+#tab-tools .tool-card { counter-increment: toolnum; }
+#tab-tools .tool-title::before { content: counter(toolnum) ". "; color: var(--brand); font-weight: 700; }
+
 .tool-title {
-    display: flex; align-items: center; gap: 8px;
-    font-size: .98em; font-weight: 650; color: var(--ink); margin-bottom: 2px;
+    display: flex; align-items: center; gap: 6px;
+    font-size: .96em; font-weight: 650; color: var(--ink); margin-bottom: 2px;
 }
-.tool-title .tool-ico { font-size: 1.15em; }
-.tool-hint { font-size: .82em; color: var(--ink-3); line-height: 1.4; margin: 4px 0 10px; }
+.tool-title .tool-ico { font-size: 1.1em; }
+.tool-hint { font-size: .8em; color: var(--ink-3); line-height: 1.35; margin: 3px 0 7px; }
 .tool-hint:last-child { margin-bottom: 0; }
 
 .field-label {
-    display: block; font-size: .78em; font-weight: 650; letter-spacing: .04em;
-    text-transform: uppercase; color: var(--ink-3); margin: 10px 0 4px;
+    display: block; font-size: .76em; font-weight: 650; letter-spacing: .04em;
+    text-transform: uppercase; color: var(--ink-3); margin: 7px 0 3px;
 }
 .field-label:first-child { margin-top: 0; }
 
-/* Your-position card: the anchor for every matching / measuring question */
-.pos-card { border-color: var(--brand-line); background: var(--brand-soft); }
-.pos-card .tool-hint { color: var(--ink-2); }
-.coord-row { display: flex; gap: 8px; }
-.coord-field { flex: 1; min-width: 0; display: block; }
-.coord-field > span {
-    display: block; font-size: .72em; font-weight: 650; letter-spacing: .04em;
-    text-transform: uppercase; color: var(--ink-3); margin-bottom: 3px;
+/* Your-position box, in Settings: the anchor for every matching / measuring question */
+.pos-card {
+    border: 1px solid var(--brand-line); background: var(--brand-soft);
+    border-radius: var(--r-md); padding: 12px;
 }
-.coord-field input { width: 100%; }
-/* Number inputs: no spinners — they steal width and nobody nudges a latitude by 1 */
-.coord-field input::-webkit-outer-spin-button,
-.coord-field input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-.coord-field input[type=number] { -moz-appearance: textfield; }
+.pos-card .settings-note { color: var(--ink-2); }
+.pos-readout-row { display: flex; gap: 6px; align-items: stretch; margin-top: 8px; }
+.pos-readout-row .pos-readout { flex: 1; margin-top: 0; }
+.pos-copy-btn { width: auto; flex-shrink: 0; margin-top: 0; padding: 0 14px; }
 .pos-readout {
     margin-top: 8px; padding: 7px 10px; border-radius: 8px;
     background: var(--surface); border: 1px dashed var(--line-2);
@@ -224,7 +227,17 @@ strong { font-weight: 650; }
 }
 .pos-readout.is-set { color: var(--brand); font-weight: 650; border-style: solid; border-color: var(--brand-line); }
 
-/* Secondary path tucked behind a disclosure so the primary question stays obvious */
+/* A manual/secondary path, always visible — no tap-to-expand between you and
+   trying a different option. Used inside the Tools panel. */
+.tool-sub {
+    margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--line-2);
+}
+.tool-sub-label {
+    display: block; font-size: .76em; color: var(--ink-3); margin-bottom: 5px;
+}
+
+/* Secondary path tucked behind a disclosure — still used on the setup screen
+   ("Paste a zone code"), a one-off action that's fine hidden by default. */
 .tool-more { margin-top: 10px; }
 .tool-more > summary {
     cursor: pointer; list-style: none; font-size: .84em; color: var(--ink-3);

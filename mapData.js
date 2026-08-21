@@ -105,6 +105,16 @@ zones: {
         center: [52.4814, -1.8998],
         defaultZoom: 11,
         boundingBox: "52.329,-2.193,52.634,-1.458",
+        // Pre-fetched Overpass results for this preset's boundingBox, bundled with
+        // the site so game creation and the Boundary/Zone/POI tools don't depend
+        // on a live Overpass call. See window.loadTransportData, loadDynamicAreas,
+        // loadFareZones, and fetchPOIs in index.html — each tries its static file
+        // first, and only falls back to Overpass if the file is missing or fails
+        // to load (or a forced refresh is requested).
+        staticDataUrl: "data/west_midlands_transport.json",
+        staticBoundaryUrl: "data/west_midlands_boundaries.json",
+        staticFareZoneUrl: "data/west_midlands_farezones.json",
+        staticPOIUrl: "data/west_midlands_pois.json",
         overpassQuery: `node["railway"~"station|tram_stop"]({{bbox}}); way["railway"~"rail|tram|light_rail"]({{bbox}}); relation["type"="route"]["route"~"tram|light_rail"]({{bbox}});`,
     strictStopList: [
         "bloxwichnorth", "bloxwich", "walsall", "bescotstadium", "tamebridgeparkway", 
