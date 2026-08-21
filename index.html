@@ -251,9 +251,11 @@
                 <p class="tool-hint" id="dividerHint">Tap where you started, then where it got <em>warmer</em> (covers Measuring too).</p>
                 <button id="btnDivider" onclick="window.startDividerTool(event)">Tap two points</button>
 
+                <span class="field-label">Start point (blank = your position)</span>
+                <input type="text" id="dividerStartCoords" inputmode="decimal" placeholder="Paste or type: 53.4808, -2.2426 — optional">
                 <span class="field-label" id="dividerCoordLabel">Or type the warm end</span>
                 <input type="text" id="dividerCoords" inputmode="decimal" placeholder="Paste or type: 53.5500, -2.1000">
-                <button class="btn-accent" onclick="window.manualDivider()">Ask from my position</button>
+                <button class="btn-accent" onclick="window.manualDivider()">Ask with these coordinates</button>
             </div>
 
             <!-- ---- Boundary match: borough / county / country / fare zone ---- -->
@@ -1221,6 +1223,26 @@
         // which point the real hit/miss is already known, so there's no
         // default-to-hit moment for the room to see before it's corrected.
         window.pendingAsk = null; // { type, label, sides:{a,b}, build: () => ({geometry, visualGeometry}) }
+        var pendingPreviewLayer = null;
+
+        // Shows the shape itself — the line, circle, catchment — the moment it's
+        // pinned, so you can see what you're about to ask before the hider even
+        // answers. What it does NOT get is the green/red logic: that comes only
+        // from updateLogicMap(), which addConstraint() doesn't call until commit,
+        // so a pending shape can't be mistaken for a settled hit or miss.
+        function showPendingPreview(built) {
+            clearPendingPreview();
+            var geo = built && (built.visualGeometry || built.geometry);
+            if (!geo) return;
+            try {
+                pendingPreviewLayer = L.geoJSON(geo, {
+                    style: { color: '#d97706', weight: 3, dashArray: '6,4', fillColor: '#d97706', fillOpacity: 0.12 }
+                }).addTo(map);
+            } catch (e) { console.warn("Pending preview failed to draw:", e); }
+        }
+        function clearPendingPreview() {
+            if (pendingPreviewLayer) { map.removeLayer(pendingPreviewLayer); pendingPreviewLayer = null; }
+        }
 
         // The bar lives above the tab strip (not inside #sheetScroll), so it's
         // always in view no matter which tab or scroll position you're on.
@@ -1236,7 +1258,11 @@
             var replacing = !!window.pendingAsk;
             cfg.linkedLogId = window.pendingQuestionLink || null;
             window.pendingQuestionLink = null;
+            // Built once here (not lazily at commit) so the preview and the
+            // eventual commit are guaranteed to be the exact same shape.
+            cfg.built = cfg.build();
             window.pendingAsk = cfg;
+            showPendingPreview(cfg.built);
             renderPendingAsk();
             window.showToast(
                 replacing
@@ -1260,15 +1286,17 @@
         window.commitPendingAsk = function(state) {
             const p = window.pendingAsk;
             if (!p) return;
-            const built = p.build();
+            const built = p.built || p.build();
             if (!built) { window.cancelPendingAsk(); return; }
             window.pendingQuestionLink = p.linkedLogId || null;
             addConstraint(p.type, built.geometry, p.label, built.visualGeometry, state);
+            clearPendingPreview();
             window.pendingAsk = null;
             renderPendingAsk();
         };
 
         window.cancelPendingAsk = function() {
+            clearPendingPreview();
             window.pendingAsk = null;
             renderPendingAsk();
             window.showToast("Question cancelled — nothing was drawn.", "info", { duration: 2000 });
@@ -1507,21 +1535,28 @@
 
         // Draw the divider from two typed coordinates, honouring the current mode.
         // Same geometry as the tap flow — this just skips the map interaction, which
-        // matters when a teammate reads coordinates out over the phone.
-        // Draw the divider from your position to a typed far point. Same geometry as
-        // the tap flow; this just skips the map interaction, which matters when a
-        // teammate reads coordinates out over the phone.
-        window.manualDivider = function() {
-            var a = requireSeeker();
-            if (!a) return;
+        // matters when a teammate reads coordinates out over the phone. The start
+        // point is optional: leave it blank to use your (freshly pinned) position,
+        // or fill in both ends for a fully manual line that isn't about where you
+        // are at all — e.g. relaying two points a teammate read out.
+        window.manualDivider = async function() {
+            var startEl = document.getElementById('dividerStartCoords');
             var coordsEl = document.getElementById('dividerCoords');
+            var typedStart = startEl.value.trim() ? window.parseLatLng(startEl.value) : null;
+            if (startEl.value.trim() && !typedStart) {
+                window.showToast("Couldn't read the start point's coordinates.", "warn", { duration: 4000 });
+                startEl.focus();
+                return;
+            }
+            var a = typedStart || await pinSeekerForAsk();
+            if (!a) return;
             var b = window.parseLatLng(coordsEl.value);
             if (!b) {
                 window.showToast("Paste or type the far point's coordinates.", "warn", { duration: 4000 });
                 coordsEl.focus();
                 return;
             }
-            if (a.lat === b.lat && a.lng === b.lng) { window.showToast("That's the same as your position — no line to draw.", "warn"); return; }
+            if (a.lat === b.lat && a.lng === b.lng) { window.showToast("Those two points are the same — no line to draw.", "warn"); return; }
 
             resetTools();
             if (window.dividerMode === 'line') {
@@ -1529,7 +1564,7 @@
             } else {
                 stageThermometer(a, b);
             }
-            coordsEl.value = '';
+            startEl.value = ''; coordsEl.value = '';
             map.fitBounds(L.latLngBounds([a.lat, a.lng], [b.lat, b.lng]).pad(0.6));
         };
 
@@ -1577,24 +1612,30 @@
         };
 
         // opts.silent skips the toast — used by the auto-update timer so it doesn't
-        // spam a toast every couple of minutes.
+        // spam a toast every couple of minutes. Resolves with the new {lat,lng}, or
+        // null if it failed / isn't available — callers that don't care are free to
+        // ignore the return value, same as before this became awaitable.
         window.seekerFromGPS = function(opts) {
             opts = opts || {};
             if (!navigator.geolocation) {
                 if (!opts.silent) window.showToast("This device has no location services.", "warn");
-                return;
+                return Promise.resolve(null);
             }
             var btn = document.getElementById('btnPosGps');
             var old = btn && btn.textContent;
             if (btn) { btn.textContent = 'Locating…'; btn.disabled = true; }
-            navigator.geolocation.getCurrentPosition(function(pos) {
-                if (btn) { btn.textContent = old; btn.disabled = false; }
-                window.setSeekerPoint(pos.coords.latitude, pos.coords.longitude, { silent: opts.silent });
-                if (!opts.silent) window.showToast("Position set from GPS.", "success", { duration: 2000 });
-            }, function() {
-                if (btn) { btn.textContent = old; btn.disabled = false; }
-                if (!opts.silent) window.showToast("Couldn't get your location — type it in instead.", "warn");
-            }, { enableHighAccuracy: true, timeout: 12000 });
+            return new Promise(function(resolve) {
+                navigator.geolocation.getCurrentPosition(function(pos) {
+                    if (btn) { btn.textContent = old; btn.disabled = false; }
+                    window.setSeekerPoint(pos.coords.latitude, pos.coords.longitude, { silent: opts.silent });
+                    if (!opts.silent) window.showToast("Position set from GPS.", "success", { duration: 2000 });
+                    resolve(window.seekerPoint);
+                }, function() {
+                    if (btn) { btn.textContent = old; btn.disabled = false; }
+                    if (!opts.silent) window.showToast("Couldn't get your location — type it in instead.", "warn");
+                    resolve(null);
+                }, { enableHighAccuracy: true, timeout: 12000 });
+            });
         };
 
         // Copies "lat, lng" so it's easy to drop into a message for the hiders to
@@ -1662,6 +1703,20 @@
             return window.seekerPoint;
         }
 
+        // Every "ask from my position" tool funnels through this instead of
+        // requireSeeker() directly. "Ask from here" means right now, not whatever
+        // reading happened to already be sitting in window.seekerPoint, so this
+        // refreshes from GPS first — falling back to that existing point if GPS
+        // isn't available or the seeker hasn't granted permission — then copies
+        // the result, the same as tapping Copy in Settings, so it's on hand to
+        // read out or paste to the hiders however they're being asked.
+        async function pinSeekerForAsk() {
+            if (navigator.geolocation) await window.seekerFromGPS({ silent: true });
+            var pt = requireSeeker();
+            if (pt) window.copySeekerPosition();
+            return pt;
+        }
+
         // Quick-select radius chips.
         window.setRadius = function(km) {
             var input = document.getElementById('radiusInput');
@@ -1701,8 +1756,8 @@
             updateLayerList();
             updateLogicMap();
         };
-        window.radiusAtSeeker = function() {
-            var pt = requireSeeker();
+        window.radiusAtSeeker = async function() {
+            var pt = await pinSeekerForAsk();
             if (pt) stageRadiusAt(pt.lat, pt.lng);
         };
 
@@ -2471,7 +2526,7 @@ window.dynamicZones = {};
         // MATCHING — "is your nearest museum the same as mine?" The answer region is
         // the catchment (Voronoi cell) of whichever one is nearest to your position.
         window.poiMatchFromPosition = async function() {
-            const me = requireSeeker();
+            const me = await pinSeekerForAsk();
             if (!me) return;
             const { category, label } = poiSelection();
             const one = singular(label).toLowerCase();
@@ -2506,7 +2561,7 @@ window.dynamicZones = {};
         // nearest one becomes the radius: everywhere inside the union of circles of
         // that radius is exactly the region whose nearest one is closer than yours.
         window.poiMeasureFromPosition = async function() {
-            const me = requireSeeker();
+            const me = await pinSeekerForAsk();
             if (!me) return;
             const { category, label } = poiSelection();
             const one = singular(label).toLowerCase();
@@ -2597,7 +2652,7 @@ window.dynamicZones = {};
         window.tentacleCandidates = [];
 
         window.findTentacleCandidates = async function() {
-            const me = requireSeeker();
+            const me = await pinSeekerForAsk();
             if (!me) return;
             const { category, label } = poiSelection();
             const radiusKm = parseFloat(document.getElementById('tentacleRadius').value);
@@ -3287,7 +3342,7 @@ function processData(d, profile) {
         // MATCHING — "are you in the same borough as me?" Works out which area at
         // this level contains your position, so nobody has to know its name.
         window.boundaryMatchFromPosition = async function() {
-            const me = requireSeeker();
+            const me = await pinSeekerForAsk();
             if (!me) return;
             const level = window.boundaryLevel;
             const cfg = window.BOUNDARY_LEVELS[level];
@@ -3534,6 +3589,8 @@ function processData(d, profile) {
 
         // Enter submits the coordinate fields rather than doing nothing.
         (function() {
+            const ds = document.getElementById('dividerStartCoords');
+            if (ds) ds.addEventListener('keydown', e => { if (e.key === 'Enter') window.manualDivider(); });
             const dc = document.getElementById('dividerCoords');
             if (dc) dc.addEventListener('keydown', e => { if (e.key === 'Enter') window.manualDivider(); });
             const pc = document.getElementById('posCoords');
