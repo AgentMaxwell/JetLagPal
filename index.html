@@ -2138,9 +2138,31 @@ window.dynamicZones = {};
             water:       { label: 'Bodies of water',      tags: 'nwr["natural"="water"]' },
             coastline:   { label: 'Coastline',            tags: 'way["natural"="coastline"]', kind: 'line' },
             highspeed:   { label: 'High-speed rail',      tags: 'way["railway"="rail"]["highspeed"="yes"]', kind: 'line' },
+            // UK administrative boundaries are almost never tagged on the way itself —
+            // only the enclosing relation carries admin_level. A plain
+            // way[admin_level=N](bbox) query (what these used to be) therefore only
+            // catches the rare directly-tagged fragment: e.g. querying admin_level=6
+            // around Birmingham returns ~20 stray way segments when four whole
+            // counties (Warwickshire, Staffordshire, Worcestershire, Leicestershire)
+            // actually border the area. buildQuery instead selects the relation by
+            // tag+bbox, then asks for its member ways — bbox-filtered again, since a
+            // bbox "intersects" a country-sized relation (e.g. the UK) the moment any
+            // point in the box is inside it, and pulling that relation's members is
+            // exactly the problem: Overpass has to load the whole thing (tens of
+            // thousands of ways for a national boundary) before it can even apply the
+            // second bbox filter, which reliably 500s on the public mirrors.
+            // admin_level 6 (shire county) relations are small enough for this to
+            // work; admin_level 2 (international) and 4 (England/Wales/Scotland) are
+            // not, and — for a single-city game like this one — never relevant
+            // anyway, so border_intl/border_1 are left on the simple, cheap query
+            // and will legitimately read 0 for any region that isn't itself near a
+            // national border. `tags` is kept as the fallback all three use, and is
+            // also what loadPOIVoronoi/POI_TAGS still read — Voronoi catchments off a
+            // border line aren't meaningful anyway, so that path doesn't need this.
             border_intl: { label: 'International borders',tags: 'way["boundary"="administrative"]["admin_level"="2"]', kind: 'line' },
             border_1:    { label: '1st division borders', tags: 'way["boundary"="administrative"]["admin_level"="4"]', kind: 'line' },
-            border_2:    { label: '2nd division borders', tags: 'way["boundary"="administrative"]["admin_level"="6"]', kind: 'line' }
+            border_2:    { label: '2nd division borders', tags: 'way["boundary"="administrative"]["admin_level"="6"]', kind: 'line',
+                buildQuery: (bbox) => `relation["boundary"="administrative"]["admin_level"="6"](${bbox});way(r)(${bbox});out geom qt;` }
         };
         // Kept as an alias so nothing that still reads POI_TAGS breaks.
         window.POI_TAGS = Object.fromEntries(Object.entries(window.FEATURES).map(([k, v]) => [k, v.tags]));
@@ -2186,7 +2208,9 @@ window.dynamicZones = {};
                 if (bundle && bundle[category]) data = bundle[category];
             }
             if (!data) {
-                const query = `[out:json][timeout:40]; ${feat.tags}(${bbox}); ${out}`;
+                const query = feat.buildQuery
+                    ? `[out:json][timeout:40];${feat.buildQuery(bbox)}`
+                    : `[out:json][timeout:40]; ${feat.tags}(${bbox}); ${out}`;
                 data = await window.Overpass.run(query, {
                     key: `feat_${category}_${bbox}`,
                     label: (label || category).toLowerCase(),
