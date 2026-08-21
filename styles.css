@@ -82,10 +82,12 @@ h1, h3 { margin: 0; }
 strong { font-weight: 650; }
 
 /* ============================================================
-   Control panel  (desktop card → mobile bottom sheet)
+   Control panel — one floating card, top-left, on every screen size.
+   Closed (.minimized) it's just the header bar with the ☰ button;
+   opening it doesn't slide or animate, it just appears.
    ============================================================ */
 #controls {
-    position: absolute; top: 12px; right: 12px;
+    position: absolute; top: 12px; left: 12px;
     background: var(--surface);
     border: 1px solid var(--line);
     border-radius: var(--r-lg);
@@ -97,7 +99,6 @@ strong { font-weight: 650; }
 }
 .controls-header, #connectionStatus, .tab-bar { flex-shrink: 0; }
 #sheetScroll { flex: 1 1 auto; overflow-y: auto; min-height: 0; padding: 0 14px 16px; overscroll-behavior: contain; }
-#sheetHandle, #sheetSummary { display: none; }
 
 .controls-header {
     display: flex; justify-content: space-between; align-items: center; gap: 8px;
@@ -155,6 +156,32 @@ strong { font-weight: 650; }
 .conn-copy:hover { background: var(--brand-line); }
 .conn-copy:disabled { background: var(--surface-3); color: var(--ink-3); border-color: var(--line); }
 .conn-region { font-size: .92em; color: var(--ink-3); margin-top: 5px; }
+
+/* ---------- Pending question — pinned position, waiting on an answer ---------- */
+.pending-ask {
+    margin: 10px 14px 0; padding: 10px 11px;
+    background: color-mix(in srgb, var(--warn) 14%, var(--surface-2));
+    border: 1px solid color-mix(in srgb, var(--warn) 45%, transparent);
+    border-radius: var(--r-md);
+}
+.pending-ask-row { display: flex; align-items: flex-start; gap: 8px; }
+.pending-ask-text { flex: 1; min-width: 0; }
+.pending-ask-label { font-weight: 650; font-size: .92em; color: var(--ink); }
+.pending-ask-sub { font-size: .78em; color: var(--ink-3); margin-top: 2px; }
+.pending-ask-cancel {
+    width: 26px; height: 26px; padding: 0; margin: 0; flex-shrink: 0;
+    background: var(--surface); color: var(--ink-3);
+    border: 1px solid var(--line-2); border-radius: 8px; font-size: .85em; line-height: 1;
+    display: flex; align-items: center; justify-content: center;
+}
+.pending-ask-cancel:hover { color: var(--danger); border-color: var(--danger); }
+.pending-ask-btns { display: flex; gap: 6px; margin-top: 8px; }
+.pending-ask-btn {
+    flex: 1; margin: 0; padding: 10px; font-weight: 650;
+    border-radius: 9px; border: 1px solid transparent;
+}
+.pending-ask-btn.hit  { background: var(--hit); color: #fff; }
+.pending-ask-btn.miss { background: var(--miss); color: #fff; }
 
 /* ---------- Tabs ---------- */
 .tab-bar {
@@ -612,44 +639,13 @@ body.hider-mode #tab-log .btn-danger { display: none !important; }
 body.hider-mode .q-btn { pointer-events: none; opacity: .85; }
 
 /* ============================================================
-   Bottom sheet on narrow viewports
+   Narrow viewports — same card, same top-left spot, same ☰/✕ toggle
+   as desktop. Just tighter type/spacing so it fits a phone screen.
    ============================================================ */
 @media (max-width: 640px) {
-    #controls {
-        top: auto; bottom: 0; left: 0; right: 0;
-        width: 100%; max-width: 100%; max-height: none;
-        border-radius: 20px 20px 0 0; border-width: 1px 0 0;
-        box-shadow: 0 -6px 24px rgba(6, 20, 26, .3);
-        transition: height .25s ease;
-        padding-bottom: env(safe-area-inset-bottom, 0);
-    }
-    #minBtn { display: none; }
-    #controls.minimized { height: auto; }
-    #controls.minimized #connectionStatus,
-    #controls.minimized .tab-bar,
-    #controls.minimized #sheetScroll { display: block !important; }
-
-    #sheetHandle {
-        display: flex; flex-direction: column; align-items: center; gap: 5px;
-        padding: 9px 12px 5px; cursor: grab; flex-shrink: 0;
-        touch-action: none; user-select: none;
-    }
-    .sheet-grip { width: 40px; height: 4px; border-radius: 3px; background: var(--line-2); }
-    #sheetSummary { display: none; font-size: .84em; color: var(--ink-2); font-weight: 600; }
-
-    #controls.sheet-collapsed { height: auto; }
-    #controls.sheet-collapsed .controls-header,
-    #controls.sheet-collapsed #connectionStatus,
-    #controls.sheet-collapsed #hiderBadge,
-    #controls.sheet-collapsed #sheetScroll { display: none; }
-    #controls.sheet-collapsed #sheetSummary { display: block; padding-bottom: 4px; }
-
-    #controls.sheet-half { height: 46vh; }
-    #controls.sheet-full { height: 90vh; }
-
+    #controls { padding-bottom: env(safe-area-inset-bottom, 0); }
     .controls-header { padding: 8px 14px 10px; }
     .q-grid { grid-template-columns: 1fr 1fr; }
-    /* Keep the tab strip from eating the sheet on small screens. */
     .tab-bar { margin: 10px 14px 12px; }
     .tab-btn { padding: 6px 3px; font-size: .76em; gap: 1px; }
     .tab-btn .tab-ico { font-size: 1.1em; }

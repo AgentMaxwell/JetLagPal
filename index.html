@@ -173,11 +173,6 @@
 
 <!-- ============ CONTROL PANEL ============ -->
 <div id="controls">
-    <div id="sheetHandle" title="Drag or tap to resize">
-        <div class="sheet-grip"></div>
-        <div id="sheetSummary"></div>
-    </div>
-
     <div class="controls-header">
         <div class="brand-lockup">
             <span class="brand-mark">🕵️</span>
@@ -187,7 +182,7 @@
             <button class="icon-btn-header" id="btnUndoHeader" onclick="undoLast()" title="Undo last layer">↩</button>
             <button class="icon-btn-header help-btn" onclick="openTutorial()" title="How to play">?</button>
             <button class="icon-btn-header" onclick="window.openSettings()" title="Settings">⚙️</button>
-            <button class="icon-btn-header" id="minBtn" onclick="toggleControls()" title="Collapse panel">−</button>
+            <button class="icon-btn-header" id="minBtn" onclick="toggleControls()" title="Close menu">✕</button>
         </div>
     </div>
 
@@ -202,6 +197,25 @@
             <button class="conn-copy" id="btnCopyLink" onclick="window.copyInviteLink()" title="Copy invite link">🔗</button>
         </div>
         <div class="conn-region"><span id="displayRegion">No region</span> · <span id="connState">connecting…</span></div>
+    </div>
+
+    <!-- A seeker can walk on while the hider is still thinking, so the shape a
+         question resolves to must use where you were WHEN YOU ASKED — not
+         wherever you happen to be standing once you come back to tap an
+         answer. Every "from my position" tool pins that spot here and holds
+         off drawing anything until you say how the hider actually answered. -->
+    <div id="pendingAskBar" class="pending-ask" style="display:none;">
+        <div class="pending-ask-row">
+            <div class="pending-ask-text">
+                <div class="pending-ask-label" id="pendingAskLabel"></div>
+                <div class="pending-ask-sub">Pinned to where you asked — waiting on the hider's answer</div>
+            </div>
+            <button class="pending-ask-cancel" onclick="window.cancelPendingAsk()" title="Cancel this question">✕</button>
+        </div>
+        <div class="pending-ask-btns">
+            <button class="pending-ask-btn hit" id="pendingAskA" onclick="window.commitPendingAsk('hit')"></button>
+            <button class="pending-ask-btn miss" id="pendingAskB" onclick="window.commitPendingAsk('miss')"></button>
+        </div>
     </div>
 
     <div class="tab-bar">
@@ -223,7 +237,7 @@
                 <div class="chip-row" id="radarChips" style="margin-top:6px;"><!-- from distancePresets.radar --></div>
                 <div class="btn-row" style="margin-top:8px;">
                     <button id="btnRadius" onclick="startRadiusTool(event)">🗺️ Pick centre</button>
-                    <button id="btnGpsRadius" class="btn-accent" onclick="window.radiusAtSeeker()">🧍 On my position</button>
+                    <button id="btnGpsRadius" class="btn-accent" onclick="window.radiusAtSeeker()">🧍 Ask from here</button>
                 </div>
             </div>
 
@@ -239,7 +253,7 @@
 
                 <span class="field-label" id="dividerCoordLabel">Or type the warm end</span>
                 <input type="text" id="dividerCoords" inputmode="decimal" placeholder="Paste or type: 53.5500, -2.1000">
-                <button class="btn-accent" onclick="window.manualDivider()">Draw from my position</button>
+                <button class="btn-accent" onclick="window.manualDivider()">Ask from my position</button>
             </div>
 
             <!-- ---- Boundary match: borough / county / country / fare zone ---- -->
@@ -652,7 +666,10 @@
         window.addEventListener('offline', () => { window.setConnState('offline'); });
 
         // === LEAFLET SETUP ===
-        var map = L.map('map').setView([53.4808, -2.2426], 11);
+        // Zoom control moves to the top-right — the top-left corner belongs to the
+        // control panel now.
+        var map = L.map('map', { zoomControl: false }).setView([53.4808, -2.2426], 11);
+        L.control.zoom({ position: 'topright' }).addTo(map);
         // Basemap. Light by default — this gets used outdoors in daylight, and the
         // red "ruled out" wash on top of dark tiles turned the map to mud. Dark is
         // opt-in from Settings and remembered per device.
@@ -969,7 +986,6 @@
             document.getElementById('displayRoomCode').innerText = roomCode;
             document.getElementById('displayRoomCode').style.color = "#28a745";
             window.setConnState('connecting');
-            if (window.updateSheetSummary) window.updateSheetSummary();
             // Reflect the room in the URL so a refresh rejoins and the link is shareable.
             try {
                 const url = new URL(window.location.href);
@@ -1183,14 +1199,80 @@
         // === UI & GLOBAL FUNCTIONS ===
         window.openPopup = function(url) { window.open(url, "TransitInfo", "width=400,height=600,resizable=yes,scrollbars=yes,status=yes"); };
 
-        function addConstraint(type, geoJsonShape, label, visualGeoJSON) {
+        function addConstraint(type, geoJsonShape, label, visualGeoJSON, initialState) {
             var id = Date.now(); var layer = null;
             if (visualGeoJSON) layer = L.geoJSON(visualGeoJSON, { style: { color: 'black', weight: 2, dashArray: '5, 5', fill: false } }).addTo(guideLayer);
-            myConstraints.push({ id: id, type: type, geometry: fixGeometry(geoJsonShape), state: 'hit', name: label, leafletLayer: layer, visualGeometry: visualGeoJSON });
+            myConstraints.push({ id: id, type: type, geometry: fixGeometry(geoJsonShape), state: initialState || 'hit', name: label, leafletLayer: layer, visualGeometry: visualGeoJSON });
             window.saveConstraints(); updateLayerList(); updateLogicMap(); window.switchTab('layers');
             // If this layer resulted from a "Draw it" question shortcut, link them.
             if (window.pendingQuestionLink && typeof linkConstraintToLog === 'function') linkConstraintToLog(id, label);
         }
+
+        // ==========================================
+        // PENDING QUESTION — pin now, draw once the answer is in
+        // ==========================================
+        // A seeker can keep walking while the hider thinks it over, so any
+        // "from my position" tool must use where the seeker WAS when they asked,
+        // not wherever they're standing when they come back to log the answer.
+        // Every such tool stages its shape here instead of calling addConstraint
+        // directly: staging freezes whatever it needs right now (position,
+        // radius, nearest POI, …) into a `build()` closure, and nothing reaches
+        // the map or Firestore until commitPendingAsk() actually runs it — at
+        // which point the real hit/miss is already known, so there's no
+        // default-to-hit moment for the room to see before it's corrected.
+        window.pendingAsk = null; // { type, label, sides:{a,b}, build: () => ({geometry, visualGeometry}) }
+
+        // The bar lives above the tab strip (not inside #sheetScroll), so it's
+        // always in view no matter which tab or scroll position you're on.
+        //
+        // A "Draw it" shortcut from the Log (offerDrawShortcut) links the layer
+        // it's about to create back to that log entry via window.pendingQuestionLink
+        // — but that's a single global flag, and this shape might now sit pending
+        // for as long as the hider takes to answer. Snapshot it onto the staged
+        // ask itself and clear the global right away, so nothing unrelated that
+        // resolves in the meantime (a different tool, a Tentacle answer) can steal
+        // it, and so it survives no matter how long the wait turns out to be.
+        function stagePendingAsk(cfg) {
+            var replacing = !!window.pendingAsk;
+            cfg.linkedLogId = window.pendingQuestionLink || null;
+            window.pendingQuestionLink = null;
+            window.pendingAsk = cfg;
+            renderPendingAsk();
+            window.showToast(
+                replacing
+                    ? "Replaced your previous pending question — record this one's answer when it comes in."
+                    : "Position pinned — record the hider's answer when it comes in.",
+                "info", { duration: 2800 }
+            );
+        }
+
+        function renderPendingAsk() {
+            const bar = document.getElementById('pendingAskBar');
+            if (!bar) return;
+            const p = window.pendingAsk;
+            if (!p) { bar.style.display = 'none'; return; }
+            bar.style.display = 'block';
+            document.getElementById('pendingAskLabel').textContent = p.label;
+            const a = document.getElementById('pendingAskA'), b = document.getElementById('pendingAskB');
+            a.textContent = p.sides.a; b.textContent = p.sides.b;
+        }
+
+        window.commitPendingAsk = function(state) {
+            const p = window.pendingAsk;
+            if (!p) return;
+            const built = p.build();
+            if (!built) { window.cancelPendingAsk(); return; }
+            window.pendingQuestionLink = p.linkedLogId || null;
+            addConstraint(p.type, built.geometry, p.label, built.visualGeometry, state);
+            window.pendingAsk = null;
+            renderPendingAsk();
+        };
+
+        window.cancelPendingAsk = function() {
+            window.pendingAsk = null;
+            renderPendingAsk();
+            window.showToast("Question cancelled — nothing was drawn.", "info", { duration: 2000 });
+        };
 
         window.removeConstraint = function(id) {
             var idx = myConstraints.findIndex(c => c.id === id);
@@ -1246,22 +1328,23 @@
             return dirs[Math.round((((b % 360) + 360) % 360) / 45) % 8];
         }
 
-        // For directional constraints, derive human "which side" labels from the
-        // persisted guide line so both players see the same spatial wording.
-        function directionalSides(c) {
+        // For directional constraints, derive human "which side" labels from a
+        // guide line so both players see the same spatial wording.
+        function directionalSidesFromLine(g) {
             try {
-                var g = c.visualGeometry, coords = null;
+                var coords = null;
                 if (g && g.geometry && g.geometry.type === 'LineString') coords = g.geometry.coordinates;
                 else if (g && g.type === 'LineString') coords = g.coordinates;
                 if (!coords || coords.length < 2) return { a: 'Side A', b: 'Side B' };
                 var bearing = turf.bearing(turf.point(coords[0]), turf.point(coords[coords.length - 1]));
-                // The kept half-plane (state 'hit') faces bearing - 90 (see drawAngleAt).
+                // The kept half-plane (state 'hit') faces bearing - 90 (see buildAngleShape).
                 return { a: `${bearingToCompass(bearing - 90)} side`, b: `${bearingToCompass(bearing + 90)} side` };
             } catch (e) { return { a: 'Side A', b: 'Side B' }; }
         }
+        // Same thing, but reading it back off an already-saved constraint.
+        function directionalSides(c) { return directionalSidesFromLine(c.visualGeometry); }
 
         function updateLayerList() {
-            if (window.updateSheetSummary) window.updateSheetSummary();
             var list = document.getElementById('layerList'); list.innerHTML = "";
             var badge = document.getElementById('layerCount');
             if (badge) badge.textContent = myConstraints.length ? String(myConstraints.length) : '';
@@ -1287,9 +1370,15 @@
             });
         }
 
+        // Burger toggle — ☰ when the menu is closed (tap to open), ✕ once it's
+        // open (tap to close). Same class/behaviour on mobile and desktop.
         window.toggleControls = function() {
-            var c = document.getElementById('controls'); c.classList.toggle('minimized');
-            document.getElementById('minBtn').innerText = c.classList.contains('minimized') ? "+" : "−";
+            var c = document.getElementById('controls');
+            c.classList.toggle('minimized');
+            var closed = c.classList.contains('minimized');
+            var btn = document.getElementById('minBtn');
+            btn.innerText = closed ? "☰" : "✕";
+            btn.title = closed ? "Open menu" : "Close menu";
         };
 
         function resetTools() {
@@ -1306,7 +1395,7 @@
             resetTools();
             document.getElementById('btnRadius').classList.add('active-tool-btn'); document.getElementById('map').classList.add('crosshair-cursor');
             if (!document.getElementById('controls').classList.contains('minimized')) window.toggleControls();
-            map.once('click', function(ev) { drawRadiusAt(ev.latlng.lat, ev.latlng.lng); resetTools(); if (document.getElementById('controls').classList.contains('minimized')) window.toggleControls(); });
+            map.once('click', function(ev) { stageRadiusAt(ev.latlng.lat, ev.latlng.lng); resetTools(); if (document.getElementById('controls').classList.contains('minimized')) window.toggleControls(); });
         };
 
         var angleGhost = null; var angleMoveHandler = null; var angleMapMoveHandler = null; var centerMarker = null;
@@ -1387,9 +1476,9 @@
             startTwoPointTool('btnDivider', cfg.color, cfg.toast, function(p1, p2) {
                 if (mode === 'line') {
                     var b = turf.rhumbBearing([p1.lng, p1.lat], [p2.lng, p2.lat]);
-                    drawAngleAt(p1.lat, p1.lng, b);
+                    stageAngle(p1.lat, p1.lng, b);
                 } else {
-                    drawThermometer(p1, p2);
+                    stageThermometer(p1, p2);
                 }
             });
         };
@@ -1436,9 +1525,9 @@
 
             resetTools();
             if (window.dividerMode === 'line') {
-                drawAngleAt(a.lat, a.lng, turf.rhumbBearing([a.lng, a.lat], [b.lng, b.lat]));
+                stageAngle(a.lat, a.lng, turf.rhumbBearing([a.lng, a.lat], [b.lng, b.lat]));
             } else {
-                drawThermometer(a, b);
+                stageThermometer(a, b);
             }
             coordsEl.value = '';
             map.fitBounds(L.latLngBounds([a.lat, a.lng], [b.lat, b.lng]).pad(0.6));
@@ -1614,7 +1703,7 @@
         };
         window.radiusAtSeeker = function() {
             var pt = requireSeeker();
-            if (pt) drawRadiusAt(pt.lat, pt.lng);
+            if (pt) stageRadiusAt(pt.lat, pt.lng);
         };
 
 
@@ -1624,7 +1713,9 @@
             return points;
         }
 
-        function drawAngleAt(lat, lng, bearing) {
+        // Pure geometry — no side effects — so it can be pinned now and only
+        // turned into a constraint once the hider's answer actually arrives.
+        function buildAngleShape(lat, lng, bearing) {
             try {
                 var sizeKm = 200; var origin = turf.point([lng, lat]);
                 var pForw = turf.rhumbDestination(origin, sizeKm, bearing); var pBack = turf.rhumbDestination(origin, sizeKm, bearing + 180);
@@ -1633,30 +1724,44 @@
                 var s4 = getSegmentPoints(pBackLeft, pBack); var s5 = getSegmentPoints(pBack, origin);
                 var ring = [...s1, ...s2.slice(1), ...s3.slice(1), ...s4.slice(1), ...s5.slice(1), s1[0]];
                 var poly = turf.polygon([ring]); var guideLine = turf.lineString([pBack.geometry.coordinates, pForw.geometry.coordinates]);
-                addConstraint('angle', poly, `Line ${Math.round(bearing)}°`, guideLine);
-            } catch(e) { console.error("Geometry Gen Error", e); }
+                return { poly: poly, guideLine: guideLine };
+            } catch(e) { console.error("Geometry Gen Error", e); return null; }
         }
 
-        // The perpendicular bisector of start→end. drawAngleAt builds the kept half
-        // facing (perpBearing - 90) = bearing(start→end), i.e. toward the warm end —
-        // so HIT = warmer / closer to the second tap. Legacy 'bisect' layers from
-        // older rooms share this geometry and still render.
-        function drawThermometer(start, end) {
+        // Stages a directional split (Match-a-line, or the raw half-plane behind
+        // Thermometer) — pins the shape now, waits for hit/miss before committing.
+        function stageAngle(lat, lng, bearing, opts) {
+            opts = opts || {};
+            var built = buildAngleShape(lat, lng, bearing);
+            if (!built) return;
+            var type = opts.type || 'angle';
+            var label = opts.label || `Line ${Math.round(bearing)}°`;
+            var sides = type === 'thermo' ? { a: '🔥 Warmer', b: '❄️ Colder' } : directionalSidesFromLine(built.guideLine);
+            stagePendingAsk({
+                type: type, label: label, sides: sides,
+                build: function() { return { geometry: built.poly, visualGeometry: built.guideLine }; }
+            });
+        }
+
+        // The perpendicular bisector of start→end. buildAngleShape builds the kept
+        // half facing (perpBearing - 90) = bearing(start→end), i.e. toward the warm
+        // end — so HIT = warmer / closer to the second tap. Legacy 'bisect' layers
+        // from older rooms share this geometry and still render.
+        function stageThermometer(start, end) {
             try {
                 var pt1 = turf.point([start.lng, start.lat]); var pt2 = turf.point([end.lng, end.lat]);
                 var mid = turf.midpoint(pt1, pt2); var bearing = turf.rhumbBearing(pt1, pt2); var perpBearing = (bearing + 90) % 360;
-                drawAngleAt(mid.geometry.coordinates[1], mid.geometry.coordinates[0], perpBearing);
-                if (myConstraints.length > 0) {
-                    var last = myConstraints[myConstraints.length - 1];
-                    last.name = "Thermometer"; last.type = "thermo";
-                    window.saveConstraints(); updateLayerList();
-                }
+                stageAngle(mid.geometry.coordinates[1], mid.geometry.coordinates[0], perpBearing, { type: 'thermo', label: 'Thermometer' });
             } catch(e) { console.error(e); }
         }
 
-        function drawRadiusAt(lat, lng) {
-            var r = parseFloat(document.getElementById('radiusInput').value); var poly = turf.circle([lng, lat], r, {steps: 128, units: 'kilometers'});
-            addConstraint('radius', poly, `Radius ${r}km`, poly);
+        function stageRadiusAt(lat, lng) {
+            var r = parseFloat(document.getElementById('radiusInput').value);
+            var poly = turf.circle([lng, lat], r, {steps: 128, units: 'kilometers'});
+            stagePendingAsk({
+                type: 'radius', label: `Radius ${r}km`, sides: { a: 'HIT', b: 'MISS' },
+                build: function() { return { geometry: poly, visualGeometry: poly }; }
+            });
         }
 
         // ==========================================
@@ -2156,16 +2261,14 @@ window.dynamicZones = {};
             // not, and — for a single-city game like this one — never relevant
             // anyway, so border_intl/border_1 are left on the simple, cheap query
             // and will legitimately read 0 for any region that isn't itself near a
-            // national border. `tags` is kept as the fallback all three use, and is
-            // also what loadPOIVoronoi/POI_TAGS still read — Voronoi catchments off a
-            // border line aren't meaningful anyway, so that path doesn't need this.
+            // national border. `tags` is kept as the query getPOIRawData falls back
+            // to whenever a category has no buildQuery (border_2 included, once its
+            // static bundle or cache is stale and a forced refresh goes live).
             border_intl: { label: 'International borders',tags: 'way["boundary"="administrative"]["admin_level"="2"]', kind: 'line' },
             border_1:    { label: '1st division borders', tags: 'way["boundary"="administrative"]["admin_level"="4"]', kind: 'line' },
             border_2:    { label: '2nd division borders', tags: 'way["boundary"="administrative"]["admin_level"="6"]', kind: 'line',
                 buildQuery: (bbox) => `relation["boundary"="administrative"]["admin_level"="6"](${bbox});way(r)(${bbox});out geom qt;` }
         };
-        // Kept as an alias so nothing that still reads POI_TAGS breaks.
-        window.POI_TAGS = Object.fromEntries(Object.entries(window.FEATURES).map(([k, v]) => [k, v.tags]));
 
         // Resolve the Overpass bbox for the current region (custom or predefined).
         window.currentBbox = function() {
@@ -2193,44 +2296,52 @@ window.dynamicZones = {};
             }
         }
 
+        // Raw Overpass-shaped {elements:[...]} for one POI category — the static
+        // bundle first if this region ships one, live Overpass otherwise. Shared by
+        // fetchPOIs (Matching/Measuring/Tentacles) and loadPOIVoronoi (Find
+        // catchments) so neither one can drift back to calling Overpass directly.
+        async function getPOIRawData(category, bbox, label, onStatus) {
+            const feat = window.FEATURES[category];
+            const isLine = feat && feat.kind === 'line';
+            const out = isLine ? 'out geom qt;' : 'out center qt;';
+
+            const poiProfile = window.currentRegion !== 'custom' ? cityProfiles[window.currentRegion] : null;
+            if (poiProfile && poiProfile.staticPOIUrl) {
+                const bundle = await loadStaticPOIBundle(poiProfile.staticPOIUrl);
+                if (bundle && bundle[category]) return bundle[category];
+            }
+
+            const query = feat.buildQuery
+                ? `[out:json][timeout:40];${feat.buildQuery(bbox)}`
+                : `[out:json][timeout:40]; ${feat.tags}(${bbox}); ${out}`;
+            return window.Overpass.run(query, {
+                key: `feat_${category}_${bbox}`,
+                label: (label || category).toLowerCase(),
+                onStatus: onStatus,
+                // Keep only what callers actually read. Overpass returns a lot of tag
+                // noise; dropping it shrinks the cached copy roughly 5-10x, which is
+                // what lets these fit in a shared Firestore document.
+                slim: (d) => ({
+                    elements: (d.elements || []).map(el => {
+                        const keep = { tags: { name: (el.tags && el.tags.name) || undefined } };
+                        if (isLine) keep.geometry = el.geometry;
+                        else {
+                            keep.lat = el.lat != null ? el.lat : (el.center && el.center.lat);
+                            keep.lon = el.lon != null ? el.lon : (el.center && el.center.lon);
+                        }
+                        return keep;
+                    })
+                })
+            });
+        }
+
         // One fetch+parse for every POI question. Returns turf points with names.
         window.fetchPOIs = async function(category, label, onStatus) {
             const bbox = window.currentBbox();
             if (!bbox) throw new Error("No game region set.");
             const feat = window.FEATURES[category];
             const isLine = feat && feat.kind === 'line';
-            const out = isLine ? 'out geom qt;' : 'out center qt;';
-
-            let data = null;
-            const poiProfile = window.currentRegion !== 'custom' ? cityProfiles[window.currentRegion] : null;
-            if (poiProfile && poiProfile.staticPOIUrl) {
-                const bundle = await loadStaticPOIBundle(poiProfile.staticPOIUrl);
-                if (bundle && bundle[category]) data = bundle[category];
-            }
-            if (!data) {
-                const query = feat.buildQuery
-                    ? `[out:json][timeout:40];${feat.buildQuery(bbox)}`
-                    : `[out:json][timeout:40]; ${feat.tags}(${bbox}); ${out}`;
-                data = await window.Overpass.run(query, {
-                    key: `feat_${category}_${bbox}`,
-                    label: (label || category).toLowerCase(),
-                    onStatus: onStatus,
-                    // Keep only what fetchPOIs actually reads. Overpass returns a lot of
-                    // tag noise; dropping it shrinks the cached copy roughly 5-10x, which
-                    // is what lets these fit in a shared Firestore document.
-                    slim: (d) => ({
-                        elements: (d.elements || []).map(el => {
-                            const keep = { tags: { name: (el.tags && el.tags.name) || undefined } };
-                            if (isLine) keep.geometry = el.geometry;
-                            else {
-                                keep.lat = el.lat != null ? el.lat : (el.center && el.center.lat);
-                                keep.lon = el.lon != null ? el.lon : (el.center && el.center.lon);
-                            }
-                            return keep;
-                        })
-                    })
-                });
-            }
+            const data = await getPOIRawData(category, bbox, label, onStatus);
 
             const features = [];
             const seen = new Set();
@@ -2379,7 +2490,11 @@ window.dynamicZones = {};
                 const cell = cells.features[idx];
                 if (!cell) { prog.fail("Couldn't work out that catchment."); return; }
 
-                addConstraint('match', cell, `Same nearest ${one}: ${poi.properties.name}`, cell);
+                const matchLabel = `Same nearest ${one}: ${poi.properties.name}`;
+                stagePendingAsk({
+                    type: 'match', label: matchLabel, sides: { a: '🟰 Same', b: '✖ Different' },
+                    build: () => ({ geometry: cell, visualGeometry: cell })
+                });
                 prog.done(`Nearest ${one}: ${poi.properties.name} (${km.toFixed(1)}km)`);
             } catch (e) {
                 console.error("POI match failed:", e);
@@ -2412,8 +2527,11 @@ window.dynamicZones = {};
                 const union = unionOfCircles(feats, km);
                 if (!union) { prog.fail("Couldn't build that region."); return; }
 
-                addConstraint('measure', union,
-                    `${singular(label)} — nearer than my ${km.toFixed(2)}km`, null);
+                const measureLabel = `${singular(label)} — nearer than my ${km.toFixed(2)}km`;
+                stagePendingAsk({
+                    type: 'measure', label: measureLabel, sides: { a: '📏 Closer', b: '➖ Further' },
+                    build: () => ({ geometry: union, visualGeometry: null })
+                });
                 prog.done(`Your nearest ${one} is ${km.toFixed(2)}km away (${poi.properties.name})`);
             } catch (e) {
                 console.error("POI measure failed:", e);
@@ -2494,7 +2612,13 @@ window.dynamicZones = {};
                     .filter(x => x.km <= radiusKm)
                     .sort((a, b) => a.km - b.km);
 
-                window.tentacleCandidates = { pts: inRange.map(x => x.f), radiusKm: radiusKm, me: me, label: label };
+                // Same snapshot-and-consume as stagePendingAsk: pin the log link now,
+                // in case the hider's answer (in range or not) is a while coming.
+                window.tentacleCandidates = {
+                    pts: inRange.map(x => x.f), radiusKm: radiusKm, me: me, label: label,
+                    linkedLogId: window.pendingQuestionLink || null
+                };
+                window.pendingQuestionLink = null;
 
                 if (!inRange.length) {
                     sel.innerHTML = '<option value="">None in range</option>';
@@ -2530,22 +2654,22 @@ window.dynamicZones = {};
                 }
             } catch (e) { console.warn("Tentacle catchment fell back to the full circle:", e); }
 
+            window.pendingQuestionLink = c.linkedLogId || null;
             addConstraint('tentacle', region,
                 `Tentacle: nearest ${singular(c.label).toLowerCase()} is ${named.properties.name}`, null);
         };
 
         // "Out of range" is an answer too — it rules out the whole tentacle circle.
+        // Uses the position and radius pinned by "What's in range?", not a fresh
+        // read — the seeker may well have kept moving while the hider thought it
+        // over, and the circle has to stay where it was actually asked from.
         window.addTentacleOutOfRange = function() {
-            const me = requireSeeker();
-            if (!me) return;
-            const radiusKm = parseFloat(document.getElementById('tentacleRadius').value);
-            const { label } = poiSelection();
-            const circle = turf.circle([me.lng, me.lat], radiusKm, { steps: 96, units: 'kilometers' });
-            const c = addConstraint('tentacle', circle,
-                `Tentacle: no ${label.toLowerCase()} in range (${radiusKm}km)`, null);
-            // Out of range means NOT inside the circle.
-            const last = myConstraints[myConstraints.length - 1];
-            if (last) { last.state = 'miss'; window.saveConstraints(); updateLayerList(); updateLogicMap(); }
+            const c = window.tentacleCandidates;
+            if (!c) { window.showToast("Tap “What's in range?” first.", "warn"); return; }
+            const circle = turf.circle([c.me.lng, c.me.lat], c.radiusKm, { steps: 96, units: 'kilometers' });
+            window.pendingQuestionLink = c.linkedLogId || null;
+            addConstraint('tentacle', circle,
+                `Tentacle: no ${c.label.toLowerCase()} in range (${c.radiusKm}km)`, null, 'miss');
         };
 
         window.loadPOIVoronoi = async function() {
@@ -2553,8 +2677,6 @@ window.dynamicZones = {};
             const resSelect = document.getElementById('poiResultSelect');
             if (!resSelect) return;
             const catLabel = catSelect.selectedOptions[0].textContent.toLowerCase();
-
-            const poiTags = window.POI_TAGS;
 
             const prog = window.showProgress("Loading POI catchments…");
             try {
@@ -2574,15 +2696,10 @@ window.dynamicZones = {};
                 window.poiPreviewLayer = L.layerGroup();
 
                 const category = catSelect.value;
-                const tagQuery = poiTags[category];
-
-                // Same cache key as Tentacles — asking for museums twice costs one request.
-                const query = `[out:json][timeout:40]; ${tagQuery}(${bbox}); out center qt;`;
-                const data = await window.Overpass.run(query, {
-                    key: `poi_${category}_${bbox}`,
-                    label: catLabel,
-                    onStatus: (m) => prog.update(m)
-                });
+                // Same helper (and cache key) as Tentacles/Matching/Measuring — static
+                // bundle first for preset regions, live Overpass as the fallback, and
+                // asking for the same category twice only ever costs one request.
+                const data = await getPOIRawData(category, bbox, catLabel, (m) => prog.update(m));
 
                 let poiPoints = [];
                 let seenNames = new Set();
@@ -2592,10 +2709,16 @@ window.dynamicZones = {};
                         const name = el.tags.name;
                         if (seenNames.has(name)) return;
 
-                        let lat = el.lat || (el.center && el.center.lat);
-                        let lon = el.lon || (el.center && el.center.lon);
+                        let lat = el.lat != null ? el.lat : (el.center && el.center.lat);
+                        let lon = el.lon != null ? el.lon : (el.center && el.center.lon);
+                        // Line features (coastline, borders, …) carry geometry instead
+                        // of a single point — fall back to its midpoint as the seed.
+                        if ((lat == null || lon == null) && el.geometry && el.geometry.length) {
+                            const mid = el.geometry[Math.floor(el.geometry.length / 2)];
+                            lat = mid.lat; lon = mid.lon;
+                        }
 
-                        if (lat && lon) {
+                        if (lat != null && lon != null) {
                             seenNames.add(name);
                             poiPoints.push(turf.point([lon, lat], { name: name }));
                         }
@@ -2699,7 +2822,6 @@ window.dynamicZones = {};
         window.switchTab = function(t) {
             document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active')); document.getElementById('tab-'+t).classList.add('active');
             document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active')); document.getElementById('btn-tab-'+t).classList.add('active');
-            if (window.updateSheetSummary) window.updateSheetSummary();
         };
 
         // --- QUESTION & LOG LOGIC ---
@@ -3208,7 +3330,11 @@ function processData(d, profile) {
 
                 let poly = hit.poly;
                 try { poly = turf.buffer(turf.simplify(poly, { tolerance: 0.001, highQuality: false }), 0); } catch (e) {}
-                addConstraint('match', poly, `Same ${cfg.label.toLowerCase()}: ${hit.name}`, poly);
+                const boundaryLabel = `Same ${cfg.label.toLowerCase()}: ${hit.name}`;
+                stagePendingAsk({
+                    type: 'match', label: boundaryLabel, sides: { a: '🟰 Same', b: '✖ Different' },
+                    build: () => ({ geometry: poly, visualGeometry: poly })
+                });
                 prog.done(`You're in ${hit.name}`);
             } catch (e) {
                 console.error("Boundary match failed:", e);
@@ -3405,66 +3531,6 @@ function processData(d, profile) {
                 }
             }
         };
-        // === MOBILE BOTTOM SHEET ===
-        // On narrow viewports #controls becomes a bottom sheet with three states
-        // (collapsed pill / half / full). Tap the handle to cycle, or drag it.
-        (function initBottomSheet() {
-            const controls = document.getElementById('controls');
-            const handle = document.getElementById('sheetHandle');
-            if (!controls || !handle) return;
-            const states = ['sheet-collapsed', 'sheet-half', 'sheet-full'];
-            const mq = window.matchMedia('(max-width: 600px)');
-
-            function currentIndex() {
-                for (let i = 0; i < states.length; i++) if (controls.classList.contains(states[i])) return i;
-                return 1; // default: half
-            }
-            function apply(i) {
-                i = Math.max(0, Math.min(states.length - 1, i));
-                states.forEach(s => controls.classList.remove(s));
-                controls.classList.add(states[i]);
-                window.updateSheetSummary();
-            }
-            window.setSheetState = function(name) { const i = states.indexOf('sheet-' + name); if (i >= 0) apply(i); };
-            window.updateSheetSummary = function() {
-                const summary = document.getElementById('sheetSummary');
-                if (!summary) return;
-                const room = window.currentGameId || '—';
-                const n = (typeof myConstraints !== 'undefined') ? myConstraints.length : 0;
-                summary.textContent = `Room ${room} · ${n} layer${n === 1 ? '' : 's'} — tap to open`;
-            };
-
-            // Pointer drag / tap changes the state (pointer events cover touch).
-            let startY = null, startIdx = 1, moved = false;
-            handle.addEventListener('pointerdown', (e) => {
-                if (!mq.matches) return;
-                startY = e.clientY; startIdx = currentIndex(); moved = false;
-                try { handle.setPointerCapture(e.pointerId); } catch (err) {}
-            });
-            handle.addEventListener('pointermove', (e) => {
-                if (startY === null) return;
-                if (Math.abs(e.clientY - startY) > 8) moved = true;
-            });
-            handle.addEventListener('pointerup', (e) => {
-                if (startY === null) return;
-                const draggedUp = (startY - e.clientY) > 0;
-                if (!moved) apply((startIdx + 1) % states.length);   // tap cycles
-                else apply(startIdx + (draggedUp ? 1 : -1));          // drag by direction
-                startY = null;
-            });
-
-            function syncForViewport() {
-                if (mq.matches) {
-                    if (!states.some(s => controls.classList.contains(s))) apply(1);
-                    else window.updateSheetSummary();
-                } else {
-                    states.forEach(s => controls.classList.remove(s));
-                }
-            }
-            if (mq.addEventListener) mq.addEventListener('change', syncForViewport);
-            else if (mq.addListener) mq.addListener(syncForViewport);
-            syncForViewport();
-        })();
 
         // Enter submits the coordinate fields rather than doing nothing.
         (function() {

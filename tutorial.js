@@ -33,13 +33,13 @@ export const tutorialHTML = `
                     <div>
                         <strong>Set your position first.</strong>
                         Matching and measuring questions are answered <em>from where you
-                        are</em> &mdash; tap <em>Use GPS</em>, tap the map, or type a latitude
-                        and longitude into the two boxes at the top of the Tools tab. The app
-                        then works out which borough you're in, or which museum is nearest,
-                        so you never have to look it up.
+                        are</em> &mdash; open &#9881;&#65039; <em>Settings</em> and tap <em>Update
+                        now</em>, tap the map, or paste in a "lat, lng" pair. The app then works
+                        out which borough you're in, or which museum is nearest, so you never
+                        have to look it up. Turn on <em>Auto-update</em> there too, and it'll
+                        keep refreshing from GPS on its own.
                     </div>
                 </div>
-
                 <div class="tut-step">
                     <div class="tut-icon">4</div>
                     <div>
@@ -61,13 +61,18 @@ export const tutorialHTML = `
                 <div class="tut-step">
                     <div class="tut-icon">5</div>
                     <div>
-                        <strong>Answer the question.</strong>
-                        Every tool adds a layer to the <em>Layers</em> tab, with its two buttons
-                        worded the way you asked &mdash; Same/Different, Closer/Further,
-                        Warmer/Colder. Tap the true one and the map shades
-                        <strong style="color:#15803d;">green</strong> where the hider could still be
-                        and <strong style="color:#b91c1c;">red</strong> where they're ruled out.
-                        Got it wrong? <strong>↩ Undo</strong> has a one-tap Restore.
+                        <strong>Ask, then answer.</strong>
+                        A seeker can easily walk on before the hider replies, so tapping a
+                        question's button doesn't draw anything straight away &mdash; it pins
+                        your position and shows the question as <em>pending</em> above the tabs.
+                        Ask the hider out loud, and once they actually answer, tap the matching
+                        button there (Hit/Miss, Same/Different, Warmer/Colder, …) to draw it —
+                        still from where you asked, however long that took. The map then shades
+                        <strong style="color:#15803d;">green</strong> where the hider could still
+                        be and <strong style="color:#b91c1c;">red</strong> where they're ruled
+                        out; got it wrong, or need to flip it later? Its entry in the
+                        <em>Layers</em> tab has the same two buttons. <strong>↩ Undo</strong> has
+                        a one-tap Restore too.
                     </div>
                 </div>
 
