@@ -239,6 +239,9 @@
                     <button id="btnRadius" onclick="startRadiusTool(event)">🗺️ Pick centre</button>
                     <button id="btnGpsRadius" class="btn-accent" onclick="window.radiusAtSeeker()">🧍 Ask from here</button>
                 </div>
+                <span class="field-label">Or type the centre</span>
+                <input type="text" id="radiusCoords" inputmode="decimal" placeholder="Paste or type: 53.4808, -2.2426">
+                <button class="btn-accent" onclick="window.manualRadius()">Ask with these coordinates</button>
             </div>
 
             <!-- ---- Dividing line: thermometer / measuring / line match ---- -->
@@ -1423,7 +1426,12 @@
             resetTools();
             document.getElementById('btnRadius').classList.add('active-tool-btn'); document.getElementById('map').classList.add('crosshair-cursor');
             if (!document.getElementById('controls').classList.contains('minimized')) window.toggleControls();
-            map.once('click', function(ev) { stageRadiusAt(ev.latlng.lat, ev.latlng.lng); resetTools(); if (document.getElementById('controls').classList.contains('minimized')) window.toggleControls(); });
+            map.once('click', function(ev) {
+                stageRadiusAt(ev.latlng.lat, ev.latlng.lng);
+                copyCoords(ev.latlng.lat, ev.latlng.lng, 'Centre');
+                resetTools();
+                if (document.getElementById('controls').classList.contains('minimized')) window.toggleControls();
+            });
         };
 
         var angleGhost = null; var angleMoveHandler = null; var angleMapMoveHandler = null; var centerMarker = null;
@@ -1578,6 +1586,19 @@
         var seekerMarker = null;
 
         function fmtCoord(n) { return Number(n).toFixed(5); }
+
+        // Copies any freshly-acquired "lat, lng" pair — used wherever picking a
+        // point (map tap, GPS) hands back a coordinate worth having on the
+        // clipboard to read out or paste to the hiders. Best-effort: a typed-in
+        // point already came from the clipboard or a teammate, so this isn't
+        // called for those, and a failure here shouldn't interrupt the flow.
+        async function copyCoords(lat, lng, label) {
+            var text = `${fmtCoord(lat)}, ${fmtCoord(lng)}`;
+            try {
+                await navigator.clipboard.writeText(text);
+                window.showToast(`${label || 'Point'} copied: ${text}`, "success", { duration: 2000 });
+            } catch (e) { /* clipboard permission denied or unavailable — not worth interrupting */ }
+        }
 
         window.setSeekerPoint = function(lat, lng, opts) {
             opts = opts || {};
@@ -1818,6 +1839,23 @@
                 build: function() { return { geometry: poly, visualGeometry: poly }; }
             });
         }
+
+        // A third way to set the centre, alongside tapping the map and "Ask from
+        // here" — paste or type it directly, for a landmark you already have
+        // coordinates for or one a teammate reads out.
+        window.manualRadius = function() {
+            var coordsEl = document.getElementById('radiusCoords');
+            var pt = window.parseLatLng(coordsEl.value);
+            if (!pt) {
+                window.showToast("Paste or type the centre's coordinates.", "warn", { duration: 4000 });
+                coordsEl.focus();
+                return;
+            }
+            resetTools();
+            stageRadiusAt(pt.lat, pt.lng);
+            coordsEl.value = '';
+            map.panTo([pt.lat, pt.lng]);
+        };
 
         // ==========================================
         // CUSTOM ZONE STATE
@@ -2625,6 +2663,27 @@ window.dynamicZones = {};
             return union;
         }
 
+        // Line features (coastline, borders, high-speed rail) only make sense for
+        // Measuring — a Voronoi catchment or a Tentacles radius needs a POINT to
+        // build from, and Tentacles' own candidate search silently filters
+        // LineString results anyway, so leaving them selectable there just walked
+        // you into a category that could never return anything. Matching and
+        // Tentacles now only offer point features; Measuring still offers all of
+        // them, since "closer to the coastline than me" is a real question.
+        function refreshFeatureOptions(mode) {
+            const sel = document.getElementById('poiCategorySelect');
+            if (!sel) return;
+            const prevValue = sel.value;
+            const entries = Object.entries(window.FEATURES)
+                .filter(([, v]) => mode === 'measure' || v.kind !== 'line');
+            sel.innerHTML = entries.map(([k, v]) => `<option value="${k}">${v.label}</option>`).join('');
+            // Keep the same category selected across a mode switch when it's still
+            // valid; otherwise fall back to the first option rather than leaving a
+            // stale, filtered-out value silently selected.
+            if (entries.some(([k]) => k === prevValue)) sel.value = prevValue;
+            window.onFeatureChange();
+        }
+
         // Both POI tools answer questions about the same category list, so they
         // share one dropdown and a mode switch instead of two near-identical cards.
         window.poiMode = 'match';
@@ -2636,6 +2695,7 @@ window.dynamicZones = {};
                 const el = document.getElementById('poi' + m.charAt(0).toUpperCase() + m.slice(1) + 'Mode');
                 if (el) el.style.display = (m === mode) ? 'block' : 'none';
             });
+            refreshFeatureOptions(mode);
             // Drop any catchment preview when leaving matching.
             if (mode !== 'match' && window.poiPreviewLayer && window.leafletEngine) {
                 window.leafletEngine.removeLayer(window.poiPreviewLayer);
@@ -3002,10 +3062,25 @@ window.dynamicZones = {};
             return null;
         }
 
+        // Not every "Matching" item is a POI nearest-catchment question — some
+        // belong to Dividing line or Boundary match instead, and a few have no
+        // tool at all yet. Checked before the generic POI branch below so those
+        // don't get routed into the wrong tool (or the right tool with nothing
+        // useful preselected).
+        var LINE_MATCH_ITEMS = /^Same (Street or Path|Transit Line)$/i;
+        var UNSUPPORTED_ITEMS = /^(Same Landmass|Station's Name Length|Sea Level|Metro Lines)$/i;
+        // "Nth Division" is inherently country-specific — our boundary data only
+        // has three general-purpose levels, so this is a best-effort mapping
+        // (country / county / borough), not a precise match to any one country's
+        // administrative structure. 3rd and 4th both fall back to borough, the
+        // most local level available.
+        var DIVISION_LEVELS = { '1': 'country', '2': 'county', '3': 'borough', '4': 'borough' };
+
         // When a question maps to a drawing tool, offer a one-tap "Draw it" shortcut.
         // The resulting layer is linked back to the log entry via pendingQuestionLink.
         function offerDrawShortcut(catName, itemName, logId) {
             var run = null;
+            var divisionMatch = itemName.match(/^Same (\d)(?:st|nd|rd|th) Division$/i);
             if (/Radar/i.test(catName)) {
                 var km = parseRadiusKm(itemName);
                 run = function() {
@@ -3021,6 +3096,25 @@ window.dynamicZones = {};
                     window.pendingQuestionLink = logId;
                     window.startDividerTool();
                 };
+            } else if (/Matching/i.test(catName) && LINE_MATCH_ITEMS.test(itemName)) {
+                run = function() {
+                    window.switchTab('tools');
+                    window.setDividerMode('line');
+                    window.pendingQuestionLink = logId;
+                    window.startDividerTool();
+                };
+            } else if (/Matching/i.test(catName) && divisionMatch) {
+                var level = DIVISION_LEVELS[divisionMatch[1]] || 'borough';
+                run = function() {
+                    window.switchTab('tools');
+                    window.setBoundaryLevel(level);
+                    var lvlSel = document.getElementById('boundaryLevel');
+                    if (lvlSel) { lvlSel.value = level; lvlSel.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+                    window.pendingQuestionLink = logId;
+                    window.showToast(`Set to ${level} — check that's the level being asked about.`, "info", { duration: 3500 });
+                };
+            } else if (UNSUPPORTED_ITEMS.test(itemName)) {
+                run = null; // no tool for these yet — no shortcut is better than a wrong one
             } else if (/Matching|Measuring|Tentacles/i.test(catName)) {
                 // Jump to the right POI mode and preselect the feature the question named.
                 var mode = /Measuring/i.test(catName) ? 'measure'
@@ -3589,6 +3683,8 @@ function processData(d, profile) {
 
         // Enter submits the coordinate fields rather than doing nothing.
         (function() {
+            const rc = document.getElementById('radiusCoords');
+            if (rc) rc.addEventListener('keydown', e => { if (e.key === 'Enter') window.manualRadius(); });
             const ds = document.getElementById('dividerStartCoords');
             if (ds) ds.addEventListener('keydown', e => { if (e.key === 'Enter') window.manualDivider(); });
             const dc = document.getElementById('dividerCoords');
@@ -3629,19 +3725,12 @@ function processData(d, profile) {
             }
         })();
 
-        // Feature dropdown is generated so the catalogue is the single source of truth.
-        (function buildFeatureSelect() {
-            const sel = document.getElementById('poiCategorySelect');
-            if (!sel) return;
-            sel.innerHTML = Object.entries(window.FEATURES)
-                .map(([k, v]) => `<option value="${k}">${v.label}</option>`).join('');
-        })();
         window.refreshSavedAreas();
 
         // === INITIALIZE ===
         window.setRadius(distancePresets.radar[Math.min(3, distancePresets.radar.length - 1)]);
         window.setDividerMode('thermo');     // sync the divider hint + button label
-        window.setPoiMode('match');
+        window.setPoiMode('match');          // also builds the feature dropdown, filtered for this mode
         updateLayerList();                   // paint the empty state on first run
         renderLog();
         renderQuestions();
