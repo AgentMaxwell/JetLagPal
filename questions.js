@@ -39,6 +39,23 @@ function tentacleKm(note, fallback) {
     return hit ? hit.km : fallback;
 }
 
+// Every category heading below already states its curse-card cost — "Draw 3,
+// Pick 1", "Draw 1" — so the linked-room notify/answer flow reads the card
+// count straight from there instead of needing a separate table to keep in
+// sync. Returns null for a heading with no draw/pick wording.
+export function drawPickForCategory(catKey) {
+    const m = catKey.match(/Draw\s+(\d+)(?:\s*,\s*Pick\s+(\d+))?/i);
+    if (!m) return null;
+    return { draw: parseInt(m[1], 10), pick: m[2] ? parseInt(m[2], 10) : null };
+}
+
+// Same lookup, but by question key ("catKey_subName_item") as used in
+// questionState/logEntries, for callers that only have that.
+export function drawPickForQuestionKey(questionKey) {
+    const catKey = Object.keys(questionData).find(k => questionKey.indexOf(k + '_') === 0);
+    return catKey ? drawPickForCategory(catKey) : null;
+}
+
 // Category keys are matched case-insensitively by offerDrawShortcut() in
 // index.html to decide which tool a question maps to, so keep the words
 // "Matching", "Measuring", "Thermometer", "Radar", "Tentacles" and "Photos".

@@ -6,12 +6,13 @@
     <!-- CSP allowlists only the hosts this app actually uses:
          scripts/styles from unpkg (Leaflet, Turf, osmtogeojson) + gstatic (Firebase),
          data from Overpass mirrors and Firebase/Firestore (*.googleapis.com),
-         and map tiles from CARTO. 'unsafe-inline'/'unsafe-eval' remain because the
-         app relies on inline onclick handlers, an inline module, and the Firebase SDK. -->
+         map tiles from CARTO, and the linked-room push relay on Vercel.
+         'unsafe-inline'/'unsafe-eval' remain because the app relies on inline
+         onclick handlers, an inline module, and the Firebase SDK. -->
     <meta http-equiv="Content-Security-Policy" content="
         default-src 'self';
         script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://www.gstatic.com;
-        connect-src 'self' https://*.googleapis.com https://*.gstatic.com https://overpass-api.de https://overpass.kumi.systems https://lz4.overpass-api.de;
+        connect-src 'self' https://*.googleapis.com https://*.gstatic.com https://overpass-api.de https://overpass.kumi.systems https://lz4.overpass-api.de https://*.vercel.app;
         img-src 'self' data: blob: https://*.basemaps.cartocdn.com https://unpkg.com;
         style-src 'self' 'unsafe-inline' https://unpkg.com;
         worker-src 'self' blob:;
@@ -132,6 +133,23 @@
                 <button class="btn-ghost" onclick="window.leaveRoom()">🚪 Leave room / change city</button>
             </div>
 
+            <!-- ---- Linked room: notify + answer flow ---- -->
+            <div class="settings-group">
+                <h4>🔗 Linked room</h4>
+                <p class="settings-note">Link the seeker room and the hider room so asking a question in one notifies the other, and answers come back with the card count.</p>
+                <div id="linkedRoomStatus" class="settings-note" style="display:none;"></div>
+                <input type="text" id="linkRoomInput" inputmode="numeric" placeholder="Other room's 5-digit code">
+                <div class="btn-row" style="margin-top:8px;">
+                    <button class="btn-accent" onclick="window.linkRoom()">🔗 Link rooms</button>
+                    <button class="btn-ghost" id="btnUnlinkRoom" onclick="window.unlinkRoom()" style="display:none;">Unlink</button>
+                </div>
+                <label class="switch-row" style="margin-top:12px;">
+                    <input type="checkbox" id="toggleNotifications" onchange="window.setNotificationsEnabled(this.checked)">
+                    <span>🔔 Notify this device</span>
+                </label>
+                <p class="settings-note">Needs a linked room, and only fires while you're online — same as any other message.</p>
+            </div>
+
             <div class="settings-group">
                 <h4>Support</h4>
                 <a href="https://ko-fi.com/jetlagpal" target="_blank" rel="noopener" class="kofi-sidebar-btn">☕ Buy the developer a coffee</a>
@@ -230,6 +248,7 @@
         <button id="btn-tab-layers" class="tab-btn" onclick="switchTab('layers')"><span class="tab-ico">🗂️</span>Layers <span class="tab-count" id="layerCount"></span></button>
         <button id="btn-tab-questions" class="tab-btn" onclick="switchTab('questions')"><span class="tab-ico">❓</span>Ask</button>
         <button id="btn-tab-log" class="tab-btn" onclick="switchTab('log')"><span class="tab-ico">📜</span>Log</button>
+        <button id="btn-tab-answers" class="tab-btn" onclick="switchTab('answers')" style="display:none;"><span class="tab-ico">🙈</span>Answers <span class="tab-count" id="answersCount"></span></button>
     </div>
 
     <div id="sheetScroll">
@@ -279,6 +298,9 @@
                     <option value="zone">Transit fare zone</option>
                 </select>
                 <button class="btn-accent" onclick="window.boundaryMatchFromPosition()">🧍 Same as me?</button>
+                <span class="field-label">Or type a coordinate</span>
+                <input type="text" id="boundaryCoords" inputmode="decimal" placeholder="Paste or type: 53.4808, -2.2426">
+                <button class="btn-ghost" onclick="window.boundaryMatchFromCoords()">Same as that point?</button>
                 <div class="tool-sub">
                     <span class="tool-sub-label">Or pick an area manually</span>
                     <select id="boundarySelect" onfocus="window.ensureBoundaryData()"><option value="">Tap to load areas…</option></select>
@@ -295,6 +317,8 @@
                 <span class="field-label">Feature</span>
                 <select id="poiCategorySelect" onchange="window.onFeatureChange()"><!-- filled from window.FEATURES --></select>
                 <button id="btnShowFeatures" class="btn-ghost" onclick="window.toggleFeaturePreview()">👁️ Show me where they are</button>
+                <span class="field-label">Or type a coordinate (used below instead of your position)</span>
+                <input type="text" id="poiCoords" inputmode="decimal" placeholder="Paste or type: 53.4808, -2.2426">
                 <div class="seg" id="poiModes" style="margin-top:8px;">
                     <button type="button" class="seg-btn active" data-mode="match" onclick="window.setPoiMode('match')">Matching</button>
                     <button type="button" class="seg-btn" data-mode="measure" onclick="window.setPoiMode('measure')">Measuring</button>
@@ -302,7 +326,10 @@
                 </div>
 
                 <div id="poiMatchMode">
-                    <button class="btn-accent" onclick="window.poiMatchFromPosition()">🧍 Same nearest as me?</button>
+                    <div class="btn-row">
+                        <button class="btn-accent" onclick="window.poiMatchFromPosition()">🧍 Same nearest as me?</button>
+                        <button class="btn-ghost" onclick="window.poiMatchFromCoords()">Same as that point?</button>
+                    </div>
                     <div class="tool-sub">
                         <span class="tool-sub-label">Or pick a specific one</span>
                         <button onclick="window.loadPOIVoronoi()">🔍 Find catchments</button>
@@ -312,13 +339,19 @@
                 </div>
 
                 <div id="poiMeasureMode" style="display:none;">
-                    <button class="btn-accent" onclick="window.poiMeasureFromPosition()">🧍 Closer than me?</button>
+                    <div class="btn-row">
+                        <button class="btn-accent" onclick="window.poiMeasureFromPosition()">🧍 Closer than me?</button>
+                        <button class="btn-ghost" onclick="window.poiMeasureFromCoords()">Closer than that point?</button>
+                    </div>
                 </div>
 
                 <div id="poiTentacleMode" style="display:none;">
                     <span class="field-label">Radius (from you)</span>
                     <select id="tentacleRadius"><!-- from distancePresets.tentacle --></select>
-                    <button onclick="window.findTentacleCandidates()">🔍 What's in range?</button>
+                    <div class="btn-row">
+                        <button onclick="window.findTentacleCandidates()">🔍 What's in range?</button>
+                        <button class="btn-ghost" onclick="window.findTentacleCandidatesFromCoords()">From that point</button>
+                    </div>
                     <span class="field-label">They said they're nearest to</span>
                     <select id="tentacleAnswer"><option value="">Check what's in range first…</option></select>
                     <button class="btn-accent" onclick="window.addTentacleAnswer()">🐙 Add that answer</button>
@@ -354,6 +387,11 @@
             <button class="btn-danger" onclick="clearLog()" style="margin-top:12px;">Clear log</button>
         </div>
 
+        <div id="tab-answers" class="tab-content">
+            <p class="tool-hint">Questions the linked room has asked, waiting on a hit/miss from you.</p>
+            <div id="answersList"></div>
+        </div>
+
     </div><!-- /#sheetScroll -->
 </div>
 
@@ -365,14 +403,24 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-        import { getFirestore, doc, setDoc, getDoc, onSnapshot, runTransaction, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, getDoc, onSnapshot, runTransaction, enableIndexedDbPersistence, arrayUnion, arrayRemove } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
         import { firebaseConfig } from './firebase-config.js';
         import { setupTutorial } from './tutorial.js';
-        import { questionData, distancePresets, kmLabel } from './questions.js';
+        import { questionData, distancePresets, kmLabel, drawPickForQuestionKey } from './questions.js';
         import { cityProfiles} from './mapData.js';
         import { installNotifications } from './ui.js';
         // Universal pause function (time in milliseconds)
         window.sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+        // === LINKED-ROOM NOTIFICATIONS ===
+        // Public half of a VAPID keypair — safe to ship in client code, this
+        // is what proves push subscriptions were made for this app (the
+        // private half lives only in the Vercel function's env vars, never
+        // in this repo). Generated once with Node's crypto module.
+        const VAPID_PUBLIC_KEY = 'BGMJBuu6yTPpxOdnp4IUJmUHtEi7MiJXcLS7NLWdb0ZinwDNLubaK_bE-lZSGa-JlzCvNRt5ggVnNpVoSdzgg_4';
+        // Fill in after deploying the Vercel project, e.g. 'https://jetlagpal-push.vercel.app/api/notify'.
+        // Left blank, every notify call below just no-ops (checked in notifyRoom).
+        const NOTIFY_RELAY_URL = '';
 
         // Guarded localStorage write. Overpass responses can exceed the storage
         // quota; when that happens we degrade gracefully (caching off) and tell the
@@ -971,31 +1019,47 @@
             const originalText = btn.innerText;
             btn.innerText = "Generating..."; btn.disabled = true;
 
-            while (!isUnique && attempts < 10) {
-                // Strictly 10000–99999 so every code is exactly 5 digits and joinable.
+            // The uniqueness check needs a live round-trip (getDoc can't
+            // confirm a code is free from local cache alone), so skip it
+            // offline rather than let it hang or fail the whole flow — a
+            // 5-digit collision between two rooms started offline in the
+            // same minute is rare, and worth accepting so the room still
+            // gets created and the code can be shared immediately.
+            if (navigator.onLine) {
+                while (!isUnique && attempts < 10) {
+                    // Strictly 10000–99999 so every code is exactly 5 digits and joinable.
+                    newRoomCode = Math.floor(10000 + Math.random() * 90000).toString();
+                    const checkRef = doc(db, "games", newRoomCode);
+                    try {
+                        const snap = await getDoc(checkRef);
+                        if (!snap.exists()) isUnique = true;
+                        else attempts++;
+                    } catch (e) { break; } // connectivity dropped mid-check — fall through and use it anyway
+                }
+                if (!newRoomCode) newRoomCode = Math.floor(10000 + Math.random() * 90000).toString();
+            } else {
                 newRoomCode = Math.floor(10000 + Math.random() * 90000).toString();
-                const checkRef = doc(db, "games", newRoomCode);
-                try {
-                    const snap = await getDoc(checkRef);
-                    if (!snap.exists()) isUnique = true;
-                    else attempts++;
-                } catch (e) { break; }
             }
 
-            if (isUnique) {
-                const gameRef = doc(db, "games", newRoomCode);
-                await setDoc(gameRef, {
-                    region: region,
-                    customOverpassBbox: customOverpass || null,
-                    customTurfBbox: customTurf ? JSON.stringify(customTurf) : null,
-                    customTurfPoly: customPoly ? JSON.stringify(customPoly) : null, // Save the nuanced shape
-                    createdAt: new Date().toISOString(),
-                    constraints: [], logEntries: [], questionState: {}
-                });
-                window.startGameSession(newRoomCode, region);
-            } else {
-                window.showToast("Could not generate a unique room code. Please try again.", "error");
+            const gameRef = doc(db, "games", newRoomCode);
+            // Don't await the write: setDoc's promise only resolves once the
+            // backend acknowledges it, which can hang indefinitely offline.
+            // The local cache reflects this document immediately regardless
+            // (that's what offline persistence is for), so startGameSession's
+            // onSnapshot listener picks it up right away without waiting.
+            setDoc(gameRef, {
+                region: region,
+                customOverpassBbox: customOverpass || null,
+                customTurfBbox: customTurf ? JSON.stringify(customTurf) : null,
+                customTurfPoly: customPoly ? JSON.stringify(customPoly) : null, // Save the nuanced shape
+                createdAt: new Date().toISOString(),
+                constraints: [], logEntries: [], questionState: {}
+            }).catch((e) => console.warn("Room create write failed to reach the server (will retry when online):", e));
+
+            if (!navigator.onLine) {
+                window.showToast("You're offline — room created on this device and will sync once you're back online.", "info", { duration: 5000 });
             }
+            window.startGameSession(newRoomCode, region);
             btn.innerText = originalText; btn.disabled = false;
         };
         window.joinExistingGame = function() {
@@ -1121,6 +1185,13 @@
                     if (data.logEntries) logEntries = normalizeLog(data.logEntries);
                     renderQuestions(); renderLog();
 
+                    window.myPushSubscriptions = data.pushSubscriptions || [];
+                    if (data.linkedRoomId !== window.linkedRoomId) {
+                        window.linkedRoomId = data.linkedRoomId || null;
+                        attachLinkedRoomListener(window.linkedRoomId);
+                    }
+                    renderLinkedRoomStatus();
+
                     // Only flag this on a genuine reconnect, and only for
                     // items neither in our prior local state nor tombstoned
                     // by a local delete we already made — those are ours.
@@ -1140,12 +1211,218 @@
                     // Room doesn't exist — detach the listener so it doesn't stay live
                     // and interfere with a later create/join.
                     if (window.unsubscribeSnapshot) { window.unsubscribeSnapshot(); window.unsubscribeSnapshot = null; }
+                    attachLinkedRoomListener(null);
                     window.showToast("Room not found. Did you type the code correctly?", "error");
                     document.getElementById('setupScreen').style.opacity = '1';
                     document.getElementById('setupScreen').style.display = 'flex';
                     window.currentGameId = null;
                 }
             });
+        };
+
+        // === LINKED ROOM: cross-room listener, notify relay, answer flow ===
+        window.linkedRoomId = null;
+        window.linkedRoomData = null;      // full doc of the linked room (need its pushSubscriptions too, not just logEntries)
+        window.myPushSubscriptions = [];
+        var unsubscribeLinkedSnapshot = null;
+
+        function attachLinkedRoomListener(roomId) {
+            if (unsubscribeLinkedSnapshot) { unsubscribeLinkedSnapshot(); unsubscribeLinkedSnapshot = null; }
+            window.linkedRoomData = null;
+            if (!roomId) { renderAnswerQueue(); return; }
+            const ref = doc(db, "games", roomId);
+            unsubscribeLinkedSnapshot = onSnapshot(ref, (snap) => {
+                window.linkedRoomData = snap.exists() ? snap.data() : null;
+                renderAnswerQueue();
+            });
+        }
+
+        window.linkRoom = async function() {
+            const input = document.getElementById('linkRoomInput');
+            const otherCode = input.value.trim();
+            if (!/^\d{5}$/.test(otherCode)) { window.showToast("Enter the other room's 5-digit code.", "warn"); return; }
+            if (otherCode === window.currentGameId) { window.showToast("That's this room — enter the other team's code.", "warn"); return; }
+            const otherRef = doc(db, "games", otherCode);
+            const otherSnap = await getDoc(otherRef).catch(() => null);
+            if (!otherSnap || !otherSnap.exists()) { window.showToast("No room found with that code.", "error"); return; }
+
+            const thisRef = doc(db, "games", window.currentGameId);
+            await setDoc(thisRef, { linkedRoomId: otherCode }, { merge: true });
+            await setDoc(otherRef, { linkedRoomId: window.currentGameId }, { merge: true });
+            input.value = '';
+            window.showToast(`Linked to room ${otherCode}.`, "success", { duration: 3000 });
+        };
+
+        window.unlinkRoom = async function() {
+            const thisRef = doc(db, "games", window.currentGameId);
+            const otherId = window.linkedRoomId;
+            await setDoc(thisRef, { linkedRoomId: null }, { merge: true });
+            if (otherId) {
+                const otherRef = doc(db, "games", otherId);
+                setDoc(otherRef, { linkedRoomId: null }, { merge: true }).catch(() => {});
+            }
+            window.showToast("Rooms unlinked.", "info", { duration: 2500 });
+        };
+
+        function renderLinkedRoomStatus() {
+            const statusEl = document.getElementById('linkedRoomStatus');
+            const unlinkBtn = document.getElementById('btnUnlinkRoom');
+            const answersBtn = document.getElementById('btn-tab-answers');
+            if (!statusEl || !unlinkBtn || !answersBtn) return;
+            if (window.linkedRoomId) {
+                statusEl.style.display = 'block';
+                statusEl.innerHTML = `Linked to room <strong>${window.linkedRoomId}</strong>.`;
+                unlinkBtn.style.display = '';
+                answersBtn.style.display = '';
+            } else {
+                statusEl.style.display = 'none';
+                unlinkBtn.style.display = 'none';
+                answersBtn.style.display = 'none';
+            }
+        }
+
+        // Sends via the Vercel relay (api/notify.js) — best-effort and
+        // entirely online-only, same as any other message to a teammate.
+        // Silently no-ops if NOTIFY_RELAY_URL hasn't been filled in yet, or
+        // if the target room has no devices subscribed.
+        async function notifyRoom(subscriptions, title, body, data) {
+            if (!NOTIFY_RELAY_URL || !subscriptions || !subscriptions.length) return;
+            try {
+                const res = await fetch(NOTIFY_RELAY_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ subscriptions, title, body, data: data || {} })
+                });
+                const json = await res.json().catch(() => null);
+                // Prune subscriptions the push service says are gone for good
+                // (uninstalled app, revoked permission) instead of retrying
+                // them forever.
+                const dead = json && json.results ? json.results.filter(r => r.expired).map(r => r.endpoint) : [];
+                if (dead.length) pruneDeadSubscriptions(dead);
+            } catch (e) { /* offline or relay unreachable — not worth interrupting */ }
+        }
+
+        function pruneDeadSubscriptions(deadEndpoints) {
+            // Best-effort cleanup of whichever room these belonged to; try
+            // both since the caller doesn't track which side owned them.
+            [window.currentGameId, window.linkedRoomId].filter(Boolean).forEach((roomId) => {
+                const list = roomId === window.currentGameId ? window.myPushSubscriptions : (window.linkedRoomData && window.linkedRoomData.pushSubscriptions) || [];
+                const dead = list.filter(s => deadEndpoints.includes(s.endpoint));
+                if (dead.length) setDoc(doc(db, "games", roomId), { pushSubscriptions: arrayRemove(...dead) }, { merge: true }).catch(() => {});
+            });
+        }
+
+        // --- Push subscription lifecycle (per device, stored on the room) ---
+        function urlBase64ToUint8Array(base64) {
+            const padding = '='.repeat((4 - base64.length % 4) % 4);
+            const base64Safe = (base64 + padding).replace(/-/g, '+').replace(/_/g, '/');
+            const raw = atob(base64Safe);
+            return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+        }
+
+        window.setNotificationsEnabled = async function(enabled) {
+            if (!enabled) { await window.disablePushForDevice(); return; }
+            if (!window.currentGameId) { window.showToast("Join a room first.", "warn"); document.getElementById('toggleNotifications').checked = false; return; }
+            if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+                window.showToast("Push notifications aren't supported in this browser.", "error");
+                document.getElementById('toggleNotifications').checked = false;
+                return;
+            }
+            try {
+                const permission = await Notification.requestPermission();
+                if (permission !== 'granted') {
+                    window.showToast("Notification permission denied.", "warn");
+                    document.getElementById('toggleNotifications').checked = false;
+                    return;
+                }
+                const reg = await navigator.serviceWorker.ready;
+                const sub = await reg.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+                });
+                const plain = JSON.parse(JSON.stringify(sub));
+                await setDoc(doc(db, "games", window.currentGameId), { pushSubscriptions: arrayUnion(plain) }, { merge: true });
+                localStorage.setItem('gm_notify_enabled', '1');
+                window.showToast("Notifications on for this device.", "success", { duration: 2500 });
+            } catch (e) {
+                console.warn("Push subscribe failed:", e);
+                window.showToast("Couldn't enable notifications on this device.", "error");
+                document.getElementById('toggleNotifications').checked = false;
+            }
+        };
+
+        window.disablePushForDevice = async function() {
+            localStorage.removeItem('gm_notify_enabled');
+            try {
+                const reg = await navigator.serviceWorker.ready;
+                const sub = await reg.pushManager.getSubscription();
+                if (sub) {
+                    const plain = JSON.parse(JSON.stringify(sub));
+                    if (window.currentGameId) {
+                        setDoc(doc(db, "games", window.currentGameId), { pushSubscriptions: arrayRemove(plain) }, { merge: true }).catch(() => {});
+                    }
+                    await sub.unsubscribe();
+                }
+            } catch (e) { /* nothing to clean up */ }
+        };
+
+        // --- Answering the linked room's pending questions ---
+        function renderAnswerQueue() {
+            const list = document.getElementById('answersList');
+            const countEl = document.getElementById('answersCount');
+            if (!list) return;
+            const entries = window.linkedRoomData ? normalizeLog(window.linkedRoomData.logEntries || []) : [];
+            const pending = entries.filter(e => e.awaitingAnswer && !e.answerState);
+            if (countEl) countEl.textContent = pending.length ? String(pending.length) : '';
+            if (!pending.length) {
+                list.innerHTML = "<div class='empty-state'><span class='empty-ico'>🙈</span>Nothing waiting on you right now.</div>";
+                return;
+            }
+            list.innerHTML = pending.map(e => {
+                const dp = e.questionKey ? drawPickForQuestionKey(e.questionKey) : null;
+                const dpText = dp ? `<span class="log-meta">Draw ${dp.draw}${dp.pick ? `, pick ${dp.pick}` : ''}</span>` : '';
+                return `<div class="log-list-item">
+                    <div>${e.text} ${dpText}</div>
+                    <div class="pending-ask-btns" style="margin-top:8px;">
+                        <button class="pending-ask-btn hit" onclick="window.answerLinkedQuestion('${e.id}','hit')">HIT</button>
+                        <button class="pending-ask-btn miss" onclick="window.answerLinkedQuestion('${e.id}','miss')">MISS</button>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        window.answerLinkedQuestion = async function(entryId, state) {
+            if (!window.linkedRoomId) return;
+            const entries = window.linkedRoomData ? normalizeLog(window.linkedRoomData.logEntries || []) : [];
+            const entry = entries.find(e => e.id === entryId);
+            if (!entry) { window.showToast("That question isn't there anymore.", "warn"); return; }
+            const dp = entry.questionKey ? drawPickForQuestionKey(entry.questionKey) : null;
+
+            try {
+                await runTransaction(db, async (tx) => {
+                    const ref = doc(db, "games", window.linkedRoomId);
+                    const snap = await tx.get(ref);
+                    if (!snap.exists()) throw new Error("Linked room is gone");
+                    const serverEntries = normalizeLog(snap.data().logEntries || []);
+                    const idx = serverEntries.findIndex(e => e.id === entryId);
+                    if (idx === -1) throw new Error("Question not found");
+                    serverEntries[idx] = Object.assign({}, serverEntries[idx], {
+                        answerState: state, cardInfo: dp, answeredAt: Date.now()
+                    });
+                    tx.set(ref, { logEntries: serverEntries }, { merge: true });
+                });
+                const cardText = dp ? ` — draw ${dp.draw}${dp.pick ? `, pick ${dp.pick}` : ''}` : '';
+                window.showToast(`Answered ${state.toUpperCase()}.`, "success", { duration: 2500 });
+                notifyRoom(
+                    (window.linkedRoomData && window.linkedRoomData.pushSubscriptions) || [],
+                    `${state === 'hit' ? '✅ HIT' : '❌ MISS'}: ${entry.text.replace(/<[^>]+>/g, '')}`,
+                    `Answered by the hider${cardText}.`,
+                    { tag: 'answer-' + entryId, roomId: window.linkedRoomId }
+                );
+            } catch (e) {
+                console.warn("Answer failed:", e);
+                window.showToast("Couldn't send that answer — check your connection and try again.", "error");
+            }
         };
 
         // --- SHARE / INVITE ---
@@ -1602,6 +1879,10 @@
                 } else {
                     stageThermometer(p1, p2);
                 }
+                // Tapped on the map, so neither end was already on the
+                // clipboard the way a typed/pasted point would be — copy both
+                // so they're ready to read out or paste to the hiders.
+                copyCoordPair(p1, p2, mode === 'line' ? 'Line points' : 'Thermometer points');
             });
         };
 
@@ -1625,6 +1906,42 @@
             if (!isFinite(lat) || !isFinite(lng)) return null;
             if (Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
             return { lat: lat, lng: lng };
+        };
+
+        // Shared by the "from coordinates" variants of the boundary/POI tools
+        // below — reads and validates one coordinate field, toasting and
+        // focusing it on a bad/empty value instead of silently doing nothing.
+        function pointFromCoordsInput(inputId) {
+            var el = document.getElementById(inputId);
+            var pt = el && window.parseLatLng(el.value);
+            if (!pt) {
+                window.showToast("Paste or type a coordinate to ask from — no GPS needed.", "warn", { duration: 4000 });
+                if (el) el.focus();
+                return null;
+            }
+            return pt;
+        }
+
+        // "From position" tools (boundary/POI match, measure, tentacles) all
+        // need a seeker location, which normally means GPS or a manually-set
+        // "Your position". These let a coordinate typed or pasted straight
+        // into the tool stand in instead — useful for a landmark you already
+        // have coordinates for, or a teammate reading a position out loud.
+        window.boundaryMatchFromCoords = function() {
+            var pt = pointFromCoordsInput('boundaryCoords');
+            if (pt) window.boundaryMatchFromPosition(pt);
+        };
+        window.poiMatchFromCoords = function() {
+            var pt = pointFromCoordsInput('poiCoords');
+            if (pt) window.poiMatchFromPosition(pt);
+        };
+        window.poiMeasureFromCoords = function() {
+            var pt = pointFromCoordsInput('poiCoords');
+            if (pt) window.poiMeasureFromPosition(pt);
+        };
+        window.findTentacleCandidatesFromCoords = function() {
+            var pt = pointFromCoordsInput('poiCoords');
+            if (pt) window.findTentacleCandidates(pt);
         };
 
         // Draw the divider from two typed coordinates, honouring the current mode.
@@ -1683,6 +2000,18 @@
             try {
                 await navigator.clipboard.writeText(text);
                 window.showToast(`${label || 'Point'} copied: ${text}`, "success", { duration: 2000 });
+            } catch (e) { /* clipboard permission denied or unavailable — not worth interrupting */ }
+        }
+
+        // Same idea as copyCoords, for tools that pin two points at once
+        // (thermometer / match-a-line drawn by tapping the map) — both ends
+        // land on the clipboard together, one per line, ready to read out or
+        // paste to the hiders.
+        async function copyCoordPair(a, b, label) {
+            var text = `${fmtCoord(a.lat)}, ${fmtCoord(a.lng)}\n${fmtCoord(b.lat)}, ${fmtCoord(b.lng)}`;
+            try {
+                await navigator.clipboard.writeText(text);
+                window.showToast(`${label || 'Points'} copied to clipboard.`, "success", { duration: 2500 });
             } catch (e) { /* clipboard permission denied or unavailable — not worth interrupting */ }
         }
 
@@ -2649,8 +2978,8 @@ window.dynamicZones = {};
 
         // MATCHING — "is your nearest museum the same as mine?" The answer region is
         // the catchment (Voronoi cell) of whichever one is nearest to your position.
-        window.poiMatchFromPosition = async function() {
-            const me = await pinSeekerForAsk();
+        window.poiMatchFromPosition = async function(overridePt) {
+            const me = overridePt || await pinSeekerForAsk();
             if (!me) return;
             const { category, label } = poiSelection();
             const one = singular(label).toLowerCase();
@@ -2684,8 +3013,8 @@ window.dynamicZones = {};
         // MEASURING — "are you closer to a museum than I am?" Your distance to the
         // nearest one becomes the radius: everywhere inside the union of circles of
         // that radius is exactly the region whose nearest one is closer than yours.
-        window.poiMeasureFromPosition = async function() {
-            const me = await pinSeekerForAsk();
+        window.poiMeasureFromPosition = async function(overridePt) {
+            const me = overridePt || await pinSeekerForAsk();
             if (!me) return;
             const { category, label } = poiSelection();
             const one = singular(label).toLowerCase();
@@ -2797,8 +3126,8 @@ window.dynamicZones = {};
         // the tentacle circle. "Out of range" instead rules out the whole circle.
         window.tentacleCandidates = [];
 
-        window.findTentacleCandidates = async function() {
-            const me = await pinSeekerForAsk();
+        window.findTentacleCandidates = async function(overridePt) {
+            const me = overridePt || await pinSeekerForAsk();
             if (!me) return;
             const { category, label } = poiSelection();
             const radiusKm = parseFloat(document.getElementById('tentacleRadius').value);
@@ -3049,7 +3378,13 @@ window.dynamicZones = {};
                 var div = document.createElement('div'); div.className = 'log-list-item';
                 var time = entry.ts ? new Date(entry.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
                 var layer = entry.layerName ? `<span class="log-meta">→ ${entry.layerName}</span>` : '';
-                div.innerHTML = `<div style="display:flex; align-items:center; flex-wrap:wrap;"><span class="log-index">${index + 1}.</span><span>${entry.text} ${layer}</span></div>${time ? `<span class="log-meta">${time}</span>` : ''}`;
+                var answer = '';
+                if (entry.awaitingAnswer) {
+                    answer = entry.answerState
+                        ? `<div class="log-meta">${entry.answerState === 'hit' ? '✅ HIT' : '❌ MISS'}${entry.cardInfo ? ` — draw ${entry.cardInfo.draw}${entry.cardInfo.pick ? `, pick ${entry.cardInfo.pick}` : ''}` : ''}</div>`
+                        : `<div class="log-meta">⏳ Waiting on the hider…</div>`;
+                }
+                div.innerHTML = `<div style="display:flex; align-items:center; flex-wrap:wrap;"><span class="log-index">${index + 1}.</span><span>${entry.text} ${layer}</span></div>${time ? `<span class="log-meta">${time}</span>` : ''}${answer}`;
                 list.appendChild(div);
             });
         }
@@ -3100,6 +3435,18 @@ window.dynamicZones = {};
             if (questionState[key]) {
                 btnElement.classList.add('asked');
                 var entry = { id: newLogId(), questionKey: key, text: logText, ts: Date.now() };
+                // Only questions asked while a room is linked expect a remote
+                // answer — a plain manual ask (no linked room, or notifications
+                // never enabled anywhere) just logs as before.
+                if (window.linkedRoomId) {
+                    entry.awaitingAnswer = true;
+                    notifyRoom(
+                        (window.linkedRoomData && window.linkedRoomData.pushSubscriptions) || [],
+                        "❓ New question",
+                        itemName + " (" + catName + ")",
+                        { tag: 'ask-' + entry.id, roomId: window.currentGameId }
+                    );
+                }
                 logEntries.push(entry);
                 offerDrawShortcut(catName, itemName, entry.id);
             } else {
@@ -3521,8 +3868,8 @@ function processData(d, profile) {
         // Universal function to handle Boroughs, Counties, and Countries
         // MATCHING — "are you in the same borough as me?" Works out which area at
         // this level contains your position, so nobody has to know its name.
-        window.boundaryMatchFromPosition = async function() {
-            const me = await pinSeekerForAsk();
+        window.boundaryMatchFromPosition = async function(overridePt) {
+            const me = overridePt || await pinSeekerForAsk();
             if (!me) return;
             const level = window.boundaryLevel;
             const cfg = window.BOUNDARY_LEVELS[level];
@@ -3640,6 +3987,9 @@ function processData(d, profile) {
             const share = document.getElementById('areaShareGroup');
             if (share) share.style.display = (window.currentRegion === 'custom' && window.customBboxPoly) ? 'block' : 'none';
             document.getElementById('settingsModal').style.display = 'block';
+            renderLinkedRoomStatus();
+            const notifyCb = document.getElementById('toggleNotifications');
+            if (notifyCb) notifyCb.checked = localStorage.getItem('gm_notify_enabled') === '1';
         };
 
         window.closeSettings = function() {

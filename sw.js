@@ -8,7 +8,7 @@
 //
 // Bump CACHE_VERSION whenever shipping a change to any precached file so
 // clients pick up the new copy instead of serving a stale one forever.
-const CACHE_VERSION = 'v1';
+const CACHE_VERSION = 'v4';
 const SHELL_CACHE = `jetlagpal-shell-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `jetlagpal-runtime-${CACHE_VERSION}`;
 const TILE_CACHE = `jetlagpal-tiles-${CACHE_VERSION}`;
@@ -75,7 +75,38 @@ function staleWhileRevalidate(request, cacheName) {
             if (response && response.ok) cache.put(request, response.clone());
             return response;
         }).catch(() => cached);
-        return cached || networkFetch;
+        const result = await (cached || networkFetch);
+        // Nothing cached and the network failed: hand back an empty tile
+        // instead of letting respondWith() throw on an undefined response —
+        // a blank square beats a broken map.
+        return result || new Response(null, { status: 504, statusText: 'Offline' });
+    });
+}
+
+// Leaflet round-robins CARTO's a/b/c/d subdomains for parallel loading —
+// they're mirrors of the same tiles, but the Cache API keys on the full URL,
+// so the same tile pans in and out of "cached" depending purely on which
+// subdomain happened to serve it that time. That's what made offline
+// coverage look zoom-dependent: a zoom level "worked" only if enough of its
+// tiles happened to land on subdomains already seen. Caching (and looking
+// up) under a subdomain-stripped key fixes that without touching the real
+// request Leaflet makes, so parallel loading online is unaffected.
+function tileCacheKey(request) {
+    const url = new URL(request.url);
+    url.hostname = 'tile' + TILE_HOST_SUFFIX;
+    return url.toString();
+}
+
+function staleWhileRevalidateTile(request, cacheName) {
+    const cacheKey = tileCacheKey(request);
+    return caches.open(cacheName).then(async (cache) => {
+        const cached = await cache.match(cacheKey);
+        const networkFetch = fetch(request).then((response) => {
+            if (response && response.ok) cache.put(cacheKey, response.clone());
+            return response;
+        }).catch(() => cached);
+        const result = await (cached || networkFetch);
+        return result || new Response(null, { status: 504, statusText: 'Offline' });
     });
 }
 
@@ -100,11 +131,48 @@ self.addEventListener('fetch', (event) => {
     }
 
     if (url.hostname.endsWith(TILE_HOST_SUFFIX)) {
-        event.respondWith(staleWhileRevalidate(request, TILE_CACHE));
+        event.respondWith(staleWhileRevalidateTile(request, TILE_CACHE));
         return;
     }
 
     if (url.origin === self.location.origin || CDN_HOSTS.has(url.hostname)) {
         event.respondWith(cacheFirst(request, url.origin === self.location.origin ? SHELL_CACHE : RUNTIME_CACHE));
     }
+});
+
+// Linked-room notifications (question asked / answered). The payload is
+// whatever api/notify.js was given: { title, body, data: { roomId, url? } }.
+// This is what lets a push actually wake the app even when it's fully
+// closed — everything else in this file only helps once it's already open.
+self.addEventListener('push', (event) => {
+    let payload = {};
+    try { payload = event.data ? event.data.json() : {}; } catch (e) { /* non-JSON push — ignore body, still show something */ }
+
+    const title = payload.title || 'JetLagPal';
+    const options = {
+        body: payload.body || '',
+        icon: './icons/icon-192.png',
+        badge: './icons/icon-192.png',
+        data: payload.data || {},
+        tag: (payload.data && payload.data.tag) || undefined, // collapse repeats of the same question into one notification
+    };
+    event.waitUntil(self.registration.showNotification(title, options));
+});
+
+// Tapping the notification should bring an already-open tab to the front
+// rather than piling up duplicate windows — falls back to opening a new one
+// only if nothing's open.
+self.addEventListener('notificationclick', (event) => {
+    event.notification.close();
+    const targetUrl = new URL('./index.html', self.location.href).href;
+    event.waitUntil(
+        self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+            for (const client of clients) {
+                if (client.url.startsWith(new URL('./', self.location.href).href) && 'focus' in client) {
+                    return client.focus();
+                }
+            }
+            return self.clients.openWindow(targetUrl);
+        })
+    );
 });

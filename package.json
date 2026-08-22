@@ -1,0 +1,8 @@
+{
+    "name": "jetlagpal-push-relay",
+    "private": true,
+    "description": "Tiny Vercel serverless function that relays Web Push notifications between linked JetLagPal rooms. The app itself is plain static files (index.html etc.) and stays hosted on GitHub Pages — this package only exists for the /api function's dependency.",
+    "dependencies": {
+        "web-push": "^3.6.7"
+    }
+}
