@@ -136,9 +136,17 @@
             <!-- ---- Linked room: notify + answer flow ---- -->
             <div class="settings-group">
                 <h4>🔗 Linked room</h4>
-                <p class="settings-note">Link the seeker room and the hider room so asking a question in one notifies the other, and answers come back with the card count.</p>
+                <p class="settings-note">Link the seeker room and the hider room so asking a question in one notifies the other, and answers come back with the card count. This uses a separate link code, not your room's join code — linking doesn't hand either side the other's actual room code.</p>
                 <div id="linkedRoomStatus" class="settings-note" style="display:none;"></div>
-                <input type="text" id="linkRoomInput" inputmode="numeric" placeholder="Other room's 5-digit code">
+
+                <span class="field-label">My link code — share this to get linked</span>
+                <div class="pos-readout-row">
+                    <div class="pos-readout" id="myLinkTokenReadout">Loading…</div>
+                    <button class="btn-ghost pos-copy-btn" id="btnCopyLinkToken" onclick="window.copyMyLinkCode()" title="Copy link code">⧉ Copy</button>
+                </div>
+
+                <span class="field-label">Their link code</span>
+                <input type="text" id="linkRoomInput" placeholder="Paste the other room's link code">
                 <div class="btn-row" style="margin-top:8px;">
                     <button class="btn-accent" onclick="window.linkRoom()">🔗 Link rooms</button>
                     <button class="btn-ghost" id="btnUnlinkRoom" onclick="window.unlinkRoom()" style="display:none;">Unlink</button>
@@ -403,7 +411,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-        import { getFirestore, doc, setDoc, getDoc, onSnapshot, runTransaction, enableIndexedDbPersistence, arrayUnion, arrayRemove } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, getDoc, onSnapshot, runTransaction, enableIndexedDbPersistence, arrayUnion, arrayRemove, collection, query, where, limit, getDocs } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
         import { firebaseConfig } from './firebase-config.js';
         import { setupTutorial } from './tutorial.js';
         import { questionData, distancePresets, kmLabel, drawPickForQuestionKey } from './questions.js';
@@ -1053,7 +1061,8 @@
                 customTurfBbox: customTurf ? JSON.stringify(customTurf) : null,
                 customTurfPoly: customPoly ? JSON.stringify(customPoly) : null, // Save the nuanced shape
                 createdAt: new Date().toISOString(),
-                constraints: [], logEntries: [], questionState: {}
+                constraints: [], logEntries: [], questionState: {},
+                linkToken: generateLinkToken()
             }).catch((e) => console.warn("Room create write failed to reach the server (will retry when online):", e));
 
             if (!navigator.onLine) {
@@ -1190,6 +1199,14 @@
                         window.linkedRoomId = data.linkedRoomId || null;
                         attachLinkedRoomListener(window.linkedRoomId);
                     }
+                    if (data.linkToken) {
+                        window.myLinkToken = data.linkToken;
+                    } else if (!window.myLinkToken) {
+                        // Rooms created before this feature existed won't have
+                        // one yet — mint it lazily so linking still works.
+                        window.myLinkToken = generateLinkToken();
+                        setDoc(gameRef, { linkToken: window.myLinkToken }, { merge: true }).catch(() => {});
+                    }
                     renderLinkedRoomStatus();
 
                     // Only flag this on a genuine reconnect, and only for
@@ -1237,20 +1254,43 @@
             });
         }
 
+        // A short, random-per-room link code — deliberately NOT the room's own
+        // join code. Linking two rooms shouldn't hand either team a code that
+        // lets them just open the other room outright; this one is only ever
+        // resolved through a lookup, one-way, so it can't be reversed back
+        // into the actual room code either.
+        function generateLinkToken() {
+            const bytes = new Uint8Array(15);
+            crypto.getRandomValues(bytes);
+            let bin = '';
+            bytes.forEach(b => bin += String.fromCharCode(b));
+            return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+        }
+
+        window.copyMyLinkCode = async function() {
+            if (!window.myLinkToken) return;
+            const ok = await copyText(window.myLinkToken);
+            if (ok) { flashCopied('btnCopyLinkToken'); window.showToast("Link code copied.", "success", { duration: 2000 }); }
+            else window.showToast(`Link code: ${window.myLinkToken}`, "info");
+        };
+
         window.linkRoom = async function() {
             const input = document.getElementById('linkRoomInput');
-            const otherCode = input.value.trim();
-            if (!/^\d{5}$/.test(otherCode)) { window.showToast("Enter the other room's 5-digit code.", "warn"); return; }
-            if (otherCode === window.currentGameId) { window.showToast("That's this room — enter the other team's code.", "warn"); return; }
-            const otherRef = doc(db, "games", otherCode);
-            const otherSnap = await getDoc(otherRef).catch(() => null);
-            if (!otherSnap || !otherSnap.exists()) { window.showToast("No room found with that code.", "error"); return; }
+            const otherToken = input.value.trim();
+            if (!otherToken) { window.showToast("Paste the other room's link code.", "warn"); return; }
+            if (otherToken === window.myLinkToken) { window.showToast("That's this room's own code — paste the other team's.", "warn"); return; }
+
+            const matches = await getDocs(query(collection(db, "games"), where("linkToken", "==", otherToken), limit(1))).catch(() => null);
+            if (!matches || matches.empty) { window.showToast("No room found with that link code.", "error"); return; }
+            const otherId = matches.docs[0].id;
+            if (otherId === window.currentGameId) { window.showToast("That's this room — paste the other team's code.", "warn"); return; }
 
             const thisRef = doc(db, "games", window.currentGameId);
-            await setDoc(thisRef, { linkedRoomId: otherCode }, { merge: true });
+            const otherRef = doc(db, "games", otherId);
+            await setDoc(thisRef, { linkedRoomId: otherId }, { merge: true });
             await setDoc(otherRef, { linkedRoomId: window.currentGameId }, { merge: true });
             input.value = '';
-            window.showToast(`Linked to room ${otherCode}.`, "success", { duration: 3000 });
+            window.showToast("Rooms linked.", "success", { duration: 3000 });
         };
 
         window.unlinkRoom = async function() {
@@ -1268,10 +1308,14 @@
             const statusEl = document.getElementById('linkedRoomStatus');
             const unlinkBtn = document.getElementById('btnUnlinkRoom');
             const answersBtn = document.getElementById('btn-tab-answers');
+            const tokenEl = document.getElementById('myLinkTokenReadout');
+            if (tokenEl) tokenEl.textContent = window.myLinkToken || 'Loading…';
             if (!statusEl || !unlinkBtn || !answersBtn) return;
             if (window.linkedRoomId) {
+                // Deliberately doesn't show the other room's actual code here
+                // — same reasoning as the link token itself.
                 statusEl.style.display = 'block';
-                statusEl.innerHTML = `Linked to room <strong>${window.linkedRoomId}</strong>.`;
+                statusEl.innerHTML = `🔗 Linked to another room.`;
                 unlinkBtn.style.display = '';
                 answersBtn.style.display = '';
             } else {

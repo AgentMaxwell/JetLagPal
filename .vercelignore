@@ -1,0 +1,17 @@
+# This Vercel project exists for exactly one thing: the /api/notify push
+# relay. The app itself stays on GitHub Pages. Everything below is real app
+# code Vercel doesn't need — keeping it out avoids a confusing second live
+# copy of the site on a vercel.app URL nobody's meant to open.
+README.md
+data/
+icons/
+index.html
+firebase-config.js
+mapData.js
+manifest.json
+questions.js
+styles.css
+sw.js
+tutorial.js
+ui.js
+.claude/
