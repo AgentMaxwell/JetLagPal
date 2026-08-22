@@ -426,9 +426,7 @@
         // private half lives only in the Vercel function's env vars, never
         // in this repo). Generated once with Node's crypto module.
         const VAPID_PUBLIC_KEY = 'BGMJBuu6yTPpxOdnp4IUJmUHtEi7MiJXcLS7NLWdb0ZinwDNLubaK_bE-lZSGa-JlzCvNRt5ggVnNpVoSdzgg_4';
-        // Fill in after deploying the Vercel project, e.g. 'https://jetlagpal-push.vercel.app/api/notify'.
-        // Left blank, every notify call below just no-ops (checked in notifyRoom).
-        const NOTIFY_RELAY_URL = '';
+        const NOTIFY_RELAY_URL = 'https://jet-lag-pal.vercel.app/api/notify';
 
         // Guarded localStorage write. Overpass responses can exceed the storage
         // quota; when that happens we degrade gracefully (caching off) and tell the
