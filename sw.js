@@ -8,7 +8,7 @@
 //
 // Bump CACHE_VERSION whenever shipping a change to any precached file so
 // clients pick up the new copy instead of serving a stale one forever.
-const CACHE_VERSION = 'v5';
+const CACHE_VERSION = 'v7';
 const SHELL_CACHE = `jetlagpal-shell-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `jetlagpal-runtime-${CACHE_VERSION}`;
 const TILE_CACHE = `jetlagpal-tiles-${CACHE_VERSION}`;
@@ -41,7 +41,12 @@ const TILE_HOST_SUFFIX = '.basemaps.cartocdn.com';
 self.addEventListener('install', (event) => {
     event.waitUntil(
         caches.open(SHELL_CACHE)
-            .then((cache) => cache.addAll(SHELL_ASSETS))
+            // `cache: 'reload'` forces each precache fetch past the browser's
+            // own HTTP cache. Without it a freshly-bumped CACHE_VERSION can
+            // still enshrine a stale copy of a file — the HTTP cache serves
+            // the old bytes, addAll stores them, and the new worker then hands
+            // that out cache-first for as long as this version lives.
+            .then((cache) => cache.addAll(SHELL_ASSETS.map((url) => new Request(url, { cache: 'reload' }))))
             .then(() => self.skipWaiting())
     );
 });

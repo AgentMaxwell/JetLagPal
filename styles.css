@@ -546,6 +546,18 @@ button:disabled { background: var(--surface-3); color: var(--ink-3); cursor: not
 .app-modal-cancel { background: var(--surface-3) !important; color: var(--ink-2) !important; }
 .app-modal-confirm.danger { background: var(--danger) !important; color: #fff !important; }
 
+/* stacked chooser (showChoice) — one full-width button per option */
+.app-modal-choices { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+.app-modal-choice {
+    display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+    width: 100%; margin-top: 0; min-height: var(--tap); text-align: left;
+    background: var(--brand-soft) !important; color: var(--ink) !important;
+    border: 1px solid var(--brand-line) !important;
+}
+.app-modal-choice:active { background: var(--brand-line) !important; }
+.app-modal-choice .choice-label { font-weight: 700; }
+.app-modal-choice .choice-hint { font-size: .82em; color: var(--ink-3); font-weight: 500; }
+
 /* tutorial */
 #tutorialModal {
     display: none; position: fixed; inset: 0; z-index: 9999;

@@ -108,6 +108,44 @@ export function installNotifications() {
         });
     };
 
+    // Stacked-button chooser. `choices` is [{ value, label, hint? }]; resolves
+    // with the chosen value, or null if cancelled. Used where a plain
+    // confirm/prompt can't express more than two outcomes — e.g. picking which
+    // way to supply a location when asking a question.
+    window.showChoice = function(message, choices = [], opts = {}) {
+        return new Promise(resolve => {
+            const overlay = document.getElementById('appModalOverlay');
+            const body = document.getElementById('appModalBody');
+            const actions = document.getElementById('appModalActions');
+            body.innerHTML = `<div>${message}</div>`;
+            actions.innerHTML = '';
+
+            const close = (val) => { overlay.classList.remove('open'); resolve(val); };
+
+            const list = document.createElement('div');
+            list.className = 'app-modal-choices';
+            choices.forEach(choice => {
+                const btn = document.createElement('button');
+                btn.className = 'app-modal-choice';
+                btn.innerHTML = choice.hint
+                    ? `<span class="choice-label">${choice.label}</span><span class="choice-hint">${choice.hint}</span>`
+                    : `<span class="choice-label">${choice.label}</span>`;
+                btn.onclick = () => close(choice.value);
+                list.appendChild(btn);
+            });
+            body.appendChild(list);
+
+            const cancelBtn = document.createElement('button');
+            cancelBtn.className = 'app-modal-cancel';
+            cancelBtn.textContent = opts.cancelLabel || 'Cancel';
+            cancelBtn.style.flex = '1';
+            cancelBtn.onclick = () => close(null);
+            actions.appendChild(cancelBtn);
+
+            overlay.classList.add('open');
+        });
+    };
+
     // Small inline prompt modal. Returns a Promise<string|null>.
     window.showPrompt = function(message, defaultValue = '', opts = {}) {
         return new Promise(resolve => {

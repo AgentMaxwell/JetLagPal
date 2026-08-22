@@ -1193,6 +1193,7 @@
                     renderQuestions(); renderLog();
 
                     window.myPushSubscriptions = data.pushSubscriptions || [];
+                    ensurePushSubscriptionRegistered();
                     if (data.linkedRoomId !== window.linkedRoomId) {
                         window.linkedRoomId = data.linkedRoomId || null;
                         attachLinkedRoomListener(window.linkedRoomId);
@@ -1327,8 +1328,19 @@
         // entirely online-only, same as any other message to a teammate.
         // Silently no-ops if NOTIFY_RELAY_URL hasn't been filled in yet, or
         // if the target room has no devices subscribed.
+        var warnedNoSubscribers = false;
         async function notifyRoom(subscriptions, title, body, data) {
-            if (!NOTIFY_RELAY_URL || !subscriptions || !subscriptions.length) return;
+            if (!NOTIFY_RELAY_URL) return;
+            if (!subscriptions || !subscriptions.length) {
+                // Say so rather than no-op silently: "nothing happened" is
+                // indistinguishable from a broken relay, and the usual cause
+                // is simply that the other team never flipped their toggle.
+                if (!warnedNoSubscribers && window.linkedRoomId) {
+                    warnedNoSubscribers = true;
+                    window.showToast("Nobody in the linked room has notifications on — they'll still see this in the app.", "warn", { duration: 6000 });
+                }
+                return;
+            }
             try {
                 const res = await fetch(NOTIFY_RELAY_URL, {
                     method: 'POST',
@@ -1352,6 +1364,28 @@
                 const dead = list.filter(s => deadEndpoints.includes(s.endpoint));
                 if (dead.length) setDoc(doc(db, "games", roomId), { pushSubscriptions: arrayRemove(...dead) }, { merge: true }).catch(() => {});
             });
+        }
+
+        // A push subscription is stored on whichever room was current when the
+        // toggle was flipped, so creating or joining a different room later
+        // would leave this device unreachable — and invisibly so, since
+        // notifyRoom has no way to tell "nobody subscribed" from "wrong room".
+        // Re-register into the current room whenever ours isn't listed.
+        var pushReregisterInFlight = false;
+        async function ensurePushSubscriptionRegistered() {
+            if (localStorage.getItem('gm_notify_enabled') !== '1') return;
+            if (!window.currentGameId || pushReregisterInFlight) return;
+            if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+            pushReregisterInFlight = true;
+            try {
+                const reg = await navigator.serviceWorker.ready;
+                const sub = await reg.pushManager.getSubscription();
+                if (!sub) return;
+                const plain = JSON.parse(JSON.stringify(sub));
+                if ((window.myPushSubscriptions || []).some(s => s.endpoint === plain.endpoint)) return;
+                await setDoc(doc(db, "games", window.currentGameId), { pushSubscriptions: arrayUnion(plain) }, { merge: true });
+            } catch (e) { /* best effort — the toggle in Settings is the manual fallback */ }
+            finally { pushReregisterInFlight = false; }
         }
 
         // --- Push subscription lifecycle (per device, stored on the room) ---
@@ -1423,8 +1457,19 @@
             list.innerHTML = pending.map(e => {
                 const dp = e.questionKey ? drawPickForQuestionKey(e.questionKey) : null;
                 const dpText = dp ? `<span class="log-meta">Draw ${dp.draw}${dp.pick ? `, pick ${dp.pick}` : ''}</span>` : '';
+                // The point they asked from is the whole basis of the answer,
+                // so it's shown with a copy button — the hider usually wants it
+                // pasted into their own tools to work out the honest reply.
+                const where = e.askedFrom ? fmtAskedFrom(e.askedFrom) : '';
+                const whereRow = where
+                    ? `<div class="pos-readout-row" style="margin-top:6px;">
+                           <div class="pos-readout">📍 Asked from ${where}</div>
+                           <button class="btn-ghost pos-copy-btn" onclick="window.copyAskedFrom('${where}')" title="Copy coordinates">⧉</button>
+                       </div>`
+                    : '';
                 return `<div class="log-list-item">
                     <div>${e.text} ${dpText}</div>
+                    ${whereRow}
                     <div class="pending-ask-btns" style="margin-top:8px;">
                         <button class="pending-ask-btn hit" onclick="window.answerLinkedQuestion('${e.id}','hit')">HIT</button>
                         <button class="pending-ask-btn miss" onclick="window.answerLinkedQuestion('${e.id}','miss')">MISS</button>
@@ -1432,6 +1477,11 @@
                 </div>`;
             }).join('');
         }
+
+        window.copyAskedFrom = async function(text) {
+            const ok = await copyText(text);
+            window.showToast(ok ? `Copied ${text}` : text, ok ? "success" : "info", { duration: ok ? 2000 : 8000 });
+        };
 
         window.answerLinkedQuestion = async function(entryId, state) {
             if (!window.linkedRoomId) return;
@@ -1838,6 +1888,65 @@
                 if (document.getElementById('controls').classList.contains('minimized')) window.toggleControls();
             });
         };
+
+        // One-shot map tap that resolves to a point, for flows that need a
+        // location mid-dialog rather than as a whole tool. Mirrors what
+        // startRadiusTool does around its own map.once('click'), including
+        // hiding the panel so the map is actually reachable on a phone.
+        function pickPointOnMap(promptText) {
+            return new Promise(function(resolve) {
+                resetTools();
+                document.getElementById('map').classList.add('crosshair-cursor');
+                var panelWasOpen = !document.getElementById('controls').classList.contains('minimized');
+                if (panelWasOpen) window.toggleControls();
+                window.showToast(promptText || "Tap the point on the map.", "info", { duration: 3000 });
+                map.once('click', function(ev) {
+                    resetTools();
+                    if (panelWasOpen) window.toggleControls();
+                    resolve({ lat: ev.latlng.lat, lng: ev.latlng.lng });
+                });
+            });
+        }
+
+        // Asked before a question is logged: every seeking question is really
+        // "…relative to WHERE?", and the hiders can't answer honestly without
+        // that point, so it gets captured up front and travels with the
+        // question instead of being read out separately over the phone.
+        // Resolves to {lat,lng}, null for "no location", or false to abort the
+        // whole toggle (the seeker tapped the wrong question).
+        async function promptAskLocation(itemName) {
+            var choice = await window.showChoice(
+                `Where are you asking <strong>${itemName}</strong> from?`,
+                [
+                    { value: 'gps',    label: '🧍 From my location', hint: 'Take a fresh GPS reading now' },
+                    { value: 'map',    label: '🗺️ From a point on the map', hint: 'Tap the spot yourself' },
+                    { value: 'coords', label: '⌨️ From coordinates', hint: 'Type or paste a lat, lng' },
+                    { value: 'none',   label: '➖ No location', hint: "For questions that don't need one, like photos" }
+                ]
+            );
+            if (choice === null) return false;      // cancelled — don't log the question at all
+            if (choice === 'none') return null;
+
+            if (choice === 'gps') {
+                var pt = navigator.geolocation ? await window.seekerFromGPS({ silent: true }) : null;
+                if (!pt) { window.showToast("Couldn't get a GPS fix — pick another way.", "warn"); return await promptAskLocation(itemName); }
+                return { lat: pt.lat, lng: pt.lng };
+            }
+            if (choice === 'map') {
+                return await pickPointOnMap("Tap where you're asking from.");
+            }
+            var typed = await window.showPrompt("Coordinates to ask from:", "", { confirmLabel: 'Use these' });
+            if (typed === null) return await promptAskLocation(itemName);
+            var parsed = window.parseLatLng(typed);
+            if (!parsed) { window.showToast("Couldn't read those coordinates.", "warn"); return await promptAskLocation(itemName); }
+            return parsed;
+        }
+
+        // "53.48079, -2.24264" — the form the paste boxes accept back in, so a
+        // hider can drop it straight into their own tools.
+        function fmtAskedFrom(p) {
+            return p && isFinite(p.lat) && isFinite(p.lng) ? `${fmtCoord(p.lat)}, ${fmtCoord(p.lng)}` : '';
+        }
 
         var angleGhost = null; var angleMoveHandler = null; var angleMapMoveHandler = null; var centerMarker = null;
 
@@ -3426,7 +3535,8 @@ window.dynamicZones = {};
                         ? `<div class="log-meta">${entry.answerState === 'hit' ? '✅ HIT' : '❌ MISS'}${entry.cardInfo ? ` — draw ${entry.cardInfo.draw}${entry.cardInfo.pick ? `, pick ${entry.cardInfo.pick}` : ''}` : ''}</div>`
                         : `<div class="log-meta">⏳ Waiting on the hider…</div>`;
                 }
-                div.innerHTML = `<div style="display:flex; align-items:center; flex-wrap:wrap;"><span class="log-index">${index + 1}.</span><span>${entry.text} ${layer}</span></div>${time ? `<span class="log-meta">${time}</span>` : ''}${answer}`;
+                var where = entry.askedFrom ? `<div class="log-meta">📍 from ${fmtAskedFrom(entry.askedFrom)}</div>` : '';
+                div.innerHTML = `<div style="display:flex; align-items:center; flex-wrap:wrap;"><span class="log-index">${index + 1}.</span><span>${entry.text} ${layer}</span></div>${time ? `<span class="log-meta">${time}</span>` : ''}${where}${answer}`;
                 list.appendChild(div);
             });
         }
@@ -3471,27 +3581,36 @@ window.dynamicZones = {};
             });
         }
 
-        window.toggleQuestion = function(key, itemName, subName, catName, btnElement) {
-            questionState[key] = !questionState[key];
+        window.toggleQuestion = async function(key, itemName, subName, catName, btnElement) {
             var logText = `${itemName} <span class="log-meta">(${catName})</span>`;
-            if (questionState[key]) {
+            if (!questionState[key]) {
+                // Ask for the vantage point BEFORE committing anything, so
+                // backing out of the dialog leaves the question untouched
+                // rather than logged-then-retracted for the whole room.
+                var askedFrom = await promptAskLocation(itemName);
+                if (askedFrom === false) return;
+
+                questionState[key] = true;
                 btnElement.classList.add('asked');
                 var entry = { id: newLogId(), questionKey: key, text: logText, ts: Date.now() };
+                if (askedFrom) entry.askedFrom = askedFrom;
                 // Only questions asked while a room is linked expect a remote
                 // answer — a plain manual ask (no linked room, or notifications
                 // never enabled anywhere) just logs as before.
                 if (window.linkedRoomId) {
                     entry.awaitingAnswer = true;
+                    var whereText = askedFrom ? `\nAsked from ${fmtAskedFrom(askedFrom)}` : '';
                     notifyRoom(
                         (window.linkedRoomData && window.linkedRoomData.pushSubscriptions) || [],
                         "❓ New question",
-                        itemName + " (" + catName + ")",
+                        itemName + " (" + catName + ")" + whereText,
                         { tag: 'ask-' + entry.id, roomId: window.currentGameId }
                     );
                 }
                 logEntries.push(entry);
                 offerDrawShortcut(catName, itemName, entry.id);
             } else {
+                questionState[key] = false;
                 btnElement.classList.remove('asked');
                 // Remove by stable questionKey (unique per question) — robust even when
                 // the same item text was asked in two categories.
