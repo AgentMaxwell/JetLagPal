@@ -8,7 +8,7 @@
 //
 // Bump CACHE_VERSION whenever shipping a change to any precached file so
 // clients pick up the new copy instead of serving a stale one forever.
-const CACHE_VERSION = 'v8';
+const CACHE_VERSION = 'v9';
 const SHELL_CACHE = `jetlagpal-shell-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `jetlagpal-runtime-${CACHE_VERSION}`;
 const TILE_CACHE = `jetlagpal-tiles-${CACHE_VERSION}`;
