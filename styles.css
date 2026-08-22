@@ -639,16 +639,29 @@ body.hider-mode #hiderBadge {
     background: #6d28d9; color: #fff; text-align: center;
     border-radius: var(--r-md); font-size: .84em; font-weight: 650; flex-shrink: 0;
 }
-/* Hide every control that edits shared state; keep the map + layer list readable. */
+/* Hide every control that edits shared state; keep the map + layer list readable.
+   The Ask tab goes too: with linked rooms a hider asks nothing, and their own
+   room's question grid would always be empty. Their view is the Answers tab. */
 body.hider-mode #tab-tools,
 body.hider-mode .layer-controls,
 body.hider-mode .layer-item .icon-group,
 body.hider-mode #btn-tab-tools,
+body.hider-mode #btn-tab-questions,
 body.hider-mode #btnUndoHeader,
 body.hider-mode #tab-layers .btn-danger,
 body.hider-mode #tab-questions .btn-ghost,
 body.hider-mode #tab-log .btn-danger { display: none !important; }
 body.hider-mode .q-btn { pointer-events: none; opacity: .85; }
+/* Answers is the hider's home, so give it room to breathe. */
+body.hider-mode #btn-tab-answers { flex: 1.4; }
+
+/* Setup screen: role picker + link-invite banner */
+#roleSeg { margin-bottom: 4px; }
+.setup-link-banner {
+    background: var(--brand-soft); border: 1px solid var(--brand-line);
+    color: var(--ink); border-radius: var(--r-md); padding: 10px 12px;
+    font-size: .86em; line-height: 1.45; margin-bottom: 14px; text-align: left;
+}
 
 /* ============================================================
    Narrow viewports — same card, same top-left spot, same ☰/✕ toggle

@@ -139,16 +139,21 @@
                 <p class="settings-note">Link the seeker room and the hider room so asking a question in one notifies the other, and answers come back with the card count. This uses a separate link code, not your room's join code — linking doesn't hand either side the other's actual room code.</p>
                 <div id="linkedRoomStatus" class="settings-note" style="display:none;"></div>
 
-                <span class="field-label">My link code — share this to get linked</span>
-                <div class="pos-readout-row">
-                    <div class="pos-readout" id="myLinkTokenReadout">Loading…</div>
-                    <button class="btn-ghost pos-copy-btn" id="btnCopyLinkToken" onclick="window.copyMyLinkCode()" title="Copy link code">⧉ Copy</button>
-                </div>
+                <button class="btn-accent" id="btnCopyLinkInvite" onclick="window.copyLinkInvite()">🔗 Copy link invite</button>
+                <p class="settings-note">Send this to the other team — opening it links their room to yours automatically. No codes to type.</p>
 
-                <span class="field-label">Their link code</span>
-                <input type="text" id="linkRoomInput" placeholder="Paste the other room's link code">
-                <div class="btn-row" style="margin-top:8px;">
+                <details class="tool-more">
+                    <summary>Or link by code</summary>
+                    <span class="field-label">My link code</span>
+                    <div class="pos-readout-row">
+                        <div class="pos-readout" id="myLinkTokenReadout">Loading…</div>
+                        <button class="btn-ghost pos-copy-btn" id="btnCopyLinkToken" onclick="window.copyMyLinkCode()" title="Copy link code">⧉ Copy</button>
+                    </div>
+                    <span class="field-label">Their link code</span>
+                    <input type="text" id="linkRoomInput" placeholder="Paste the other room's link code">
                     <button class="btn-accent" onclick="window.linkRoom()">🔗 Link rooms</button>
+                </details>
+                <div class="btn-row" style="margin-top:8px;">
                     <button class="btn-ghost" id="btnUnlinkRoom" onclick="window.unlinkRoom()" style="display:none;">Unlink</button>
                 </div>
                 <label class="switch-row" style="margin-top:12px;">
@@ -174,8 +179,25 @@
         <h1>JetLagPal</h1>
         <p class="setup-tagline">Real-time map tracker for Hide &amp; Seek</p>
 
+        <!-- Role comes first: it decides what the whole app is for you. Seekers
+             get the deduction tools; hiders get the incoming-question queue and
+             the card counts. Each side runs its own room, linked together, so
+             the hiders never see the seekers' working. -->
+        <div class="setup-box" id="roleBox">
+            <h3>Which side are you on?</h3>
+            <div class="seg" id="roleSeg">
+                <button type="button" class="seg-btn active" data-role="seeker" onclick="window.chooseRole('seeker')">🔍 Seeking</button>
+                <button type="button" class="seg-btn" data-role="hider" onclick="window.chooseRole('hider')">🙈 Hiding</button>
+            </div>
+            <p class="settings-note" id="roleNote"></p>
+        </div>
+
+        <div id="linkInviteBanner" class="setup-link-banner" style="display:none;">
+            🔗 You've been invited to link rooms. Create or join your own team's room below — they'll connect automatically.
+        </div>
+
         <div class="setup-box">
-            <h3>Create a new game</h3>
+            <h3 id="createHeading">Create a new game</h3>
             <select id="regionSelect" onchange="window.onRegionChange(this.value)">
                 <option value="manchester">Greater Manchester</option>
                 <option value="london">London</option>
@@ -396,8 +418,16 @@
         </div>
 
         <div id="tab-answers" class="tab-content">
-            <p class="tool-hint">Questions the linked room has asked, waiting on a hit/miss from you.</p>
-            <div id="answersList"></div>
+            <div id="answersUnlinked" class="empty-state" style="display:none;">
+                <span class="empty-ico">🔗</span>Not linked to a seeker room yet.<br>
+                Ask them for a link invite, or swap link codes in <strong>⚙️ Settings</strong>.
+            </div>
+            <div id="answersLinked">
+                <p class="tool-hint">Questions the seekers have asked. Answer honestly — the card count is what they draw.</p>
+                <div id="answersList"></div>
+                <div class="q-cat-title" style="margin-top:18px;">Already answered</div>
+                <div id="answersHistory"></div>
+            </div>
         </div>
 
     </div><!-- /#sheetScroll -->
@@ -1088,6 +1118,9 @@
             document.getElementById('displayRoomCode').innerText = roomCode;
             document.getElementById('displayRoomCode').style.color = "#28a745";
             window.setConnState('connecting');
+            // A hider picked their role before there was a room to land in, so
+            // send them to the answer queue now that there is one.
+            if (document.body.classList.contains('hider-mode')) window.switchTab('answers');
             // Reflect the room in the URL so a refresh rejoins and the link is shareable.
             try {
                 const url = new URL(window.location.href);
@@ -1200,6 +1233,7 @@
                     }
                     if (data.linkToken) {
                         window.myLinkToken = data.linkToken;
+                        consumePendingLinkToken();
                     } else if (!window.myLinkToken) {
                         // Rooms created before this feature existed won't have
                         // one yet — mint it lazily so linking still works.
@@ -1273,23 +1307,34 @@
             else window.showToast(`Link code: ${window.myLinkToken}`, "info");
         };
 
-        window.linkRoom = async function() {
-            const input = document.getElementById('linkRoomInput');
-            const otherToken = input.value.trim();
-            if (!otherToken) { window.showToast("Paste the other room's link code.", "warn"); return; }
-            if (otherToken === window.myLinkToken) { window.showToast("That's this room's own code — paste the other team's.", "warn"); return; }
+        window.linkRoomByToken = async function(otherToken, opts) {
+            opts = opts || {};
+            if (!otherToken) { window.showToast("Paste the other room's link code.", "warn"); return false; }
+            if (!window.currentGameId) { window.showToast("Join or create your own room first.", "warn"); return false; }
+            if (otherToken === window.myLinkToken) {
+                window.showToast(opts.viaInvite
+                    ? "That invite is for this room — send it to the other team instead."
+                    : "That's this room's own code — paste the other team's.", "warn");
+                return false;
+            }
 
             const matches = await getDocs(query(collection(db, "games"), where("linkToken", "==", otherToken), limit(1))).catch(() => null);
-            if (!matches || matches.empty) { window.showToast("No room found with that link code.", "error"); return; }
+            if (!matches || matches.empty) { window.showToast("No room found with that link code.", "error"); return false; }
             const otherId = matches.docs[0].id;
-            if (otherId === window.currentGameId) { window.showToast("That's this room — paste the other team's code.", "warn"); return; }
+            if (otherId === window.currentGameId) { window.showToast("That's this room — use the other team's code.", "warn"); return false; }
 
             const thisRef = doc(db, "games", window.currentGameId);
             const otherRef = doc(db, "games", otherId);
             await setDoc(thisRef, { linkedRoomId: otherId }, { merge: true });
             await setDoc(otherRef, { linkedRoomId: window.currentGameId }, { merge: true });
-            input.value = '';
             window.showToast("Rooms linked.", "success", { duration: 3000 });
+            return true;
+        };
+
+        window.linkRoom = async function() {
+            const input = document.getElementById('linkRoomInput');
+            const ok = await window.linkRoomByToken(input.value.trim());
+            if (ok) input.value = '';
         };
 
         window.unlinkRoom = async function() {
@@ -1310,18 +1355,22 @@
             const tokenEl = document.getElementById('myLinkTokenReadout');
             if (tokenEl) tokenEl.textContent = window.myLinkToken || 'Loading…';
             if (!statusEl || !unlinkBtn || !answersBtn) return;
+            // Hiders keep the Answers tab even before linking — it's their home
+            // screen, and its empty state is what tells them linking is the
+            // next step. Seekers only get it once there's actually a hider room.
+            const isHider = document.body.classList.contains('hider-mode');
+            answersBtn.style.display = (window.linkedRoomId || (isHider && window.currentGameId)) ? '' : 'none';
             if (window.linkedRoomId) {
                 // Deliberately doesn't show the other room's actual code here
                 // — same reasoning as the link token itself.
                 statusEl.style.display = 'block';
                 statusEl.innerHTML = `🔗 Linked to another room.`;
                 unlinkBtn.style.display = '';
-                answersBtn.style.display = '';
             } else {
                 statusEl.style.display = 'none';
                 unlinkBtn.style.display = 'none';
-                answersBtn.style.display = 'none';
             }
+            renderAnswerQueue();
         }
 
         // Sends via the Vercel relay (api/notify.js) — best-effort and
@@ -1443,39 +1492,75 @@
         };
 
         // --- Answering the linked room's pending questions ---
+        function cardText(dp) {
+            if (!dp) return '';
+            return `Draw ${dp.draw}${dp.pick ? `, pick ${dp.pick}` : ''}`;
+        }
+
+        // The points a question was asked from are the whole basis of an honest
+        // answer, so each gets its own copy button — the hider is usually
+        // pasting them straight into a maps app. Two points (thermometer) also
+        // get a "copy both" so they arrive as one paste.
+        function askedPointsHtml(entry) {
+            const pts = askedPointsOf(entry);
+            if (!pts.length) return '';
+            const rows = pts.map(p => {
+                const c = fmtAskedFrom(p);
+                return `<div class="pos-readout-row" style="margin-top:6px;">
+                    <div class="pos-readout"><strong>${p.label}</strong><br>${c}</div>
+                    <button class="btn-ghost pos-copy-btn" onclick="window.copyAskedFrom('${c}')" title="Copy ${p.label}">⧉</button>
+                </div>`;
+            }).join('');
+            const both = pts.length > 1
+                ? `<button class="btn-ghost" style="margin-top:6px;" onclick="window.copyAskedFrom('${pts.map(fmtAskedFrom).join('\\n')}')">⧉ Copy both points</button>`
+                : '';
+            return rows + both;
+        }
+
         function renderAnswerQueue() {
             const list = document.getElementById('answersList');
+            const historyEl = document.getElementById('answersHistory');
             const countEl = document.getElementById('answersCount');
+            const linkedWrap = document.getElementById('answersLinked');
+            const unlinkedWrap = document.getElementById('answersUnlinked');
             if (!list) return;
+
+            if (linkedWrap && unlinkedWrap) {
+                const isLinked = !!window.linkedRoomId;
+                linkedWrap.style.display = isLinked ? '' : 'none';
+                unlinkedWrap.style.display = isLinked ? 'none' : 'block';
+            }
+
             const entries = window.linkedRoomData ? normalizeLog(window.linkedRoomData.logEntries || []) : [];
             const pending = entries.filter(e => e.awaitingAnswer && !e.answerState);
+            const answered = entries.filter(e => e.answerState).reverse(); // newest first
             if (countEl) countEl.textContent = pending.length ? String(pending.length) : '';
-            if (!pending.length) {
-                list.innerHTML = "<div class='empty-state'><span class='empty-ico'>🙈</span>Nothing waiting on you right now.</div>";
-                return;
-            }
-            list.innerHTML = pending.map(e => {
+
+            list.innerHTML = pending.length ? pending.map(e => {
                 const dp = e.questionKey ? drawPickForQuestionKey(e.questionKey) : null;
-                const dpText = dp ? `<span class="log-meta">Draw ${dp.draw}${dp.pick ? `, pick ${dp.pick}` : ''}</span>` : '';
-                // The point they asked from is the whole basis of the answer,
-                // so it's shown with a copy button — the hider usually wants it
-                // pasted into their own tools to work out the honest reply.
-                const where = e.askedFrom ? fmtAskedFrom(e.askedFrom) : '';
-                const whereRow = where
-                    ? `<div class="pos-readout-row" style="margin-top:6px;">
-                           <div class="pos-readout">📍 Asked from ${where}</div>
-                           <button class="btn-ghost pos-copy-btn" onclick="window.copyAskedFrom('${where}')" title="Copy coordinates">⧉</button>
-                       </div>`
-                    : '';
+                const dpText = dp ? `<span class="log-meta">${cardText(dp)}</span>` : '';
                 return `<div class="log-list-item">
                     <div>${e.text} ${dpText}</div>
-                    ${whereRow}
+                    ${askedPointsHtml(e)}
                     <div class="pending-ask-btns" style="margin-top:8px;">
                         <button class="pending-ask-btn hit" onclick="window.answerLinkedQuestion('${e.id}','hit')">HIT</button>
                         <button class="pending-ask-btn miss" onclick="window.answerLinkedQuestion('${e.id}','miss')">MISS</button>
                     </div>
                 </div>`;
-            }).join('');
+            }).join('') : "<div class='empty-state'><span class='empty-ico'>🙈</span>Nothing waiting on you right now.</div>";
+
+            if (historyEl) {
+                historyEl.innerHTML = answered.length ? answered.map(e => {
+                    const t = e.answeredAt ? new Date(e.answeredAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+                    const dp = e.cardInfo || (e.questionKey ? drawPickForQuestionKey(e.questionKey) : null);
+                    const pts = askedPointsOf(e).map(p => `${p.label}: ${fmtAskedFrom(p)}`).join(' · ');
+                    return `<div class="log-list-item">
+                        <div>${e.text}</div>
+                        <div class="log-meta">${e.answerState === 'hit' ? '✅ HIT' : '❌ MISS'}${dp ? ` — they drew ${dp.draw}${dp.pick ? `, kept ${dp.pick}` : ''}` : ''}${t ? ` · ${t}` : ''}</div>
+                        ${pts ? `<div class="log-meta">📍 ${pts}</div>` : ''}
+                    </div>`;
+                }).join('') : "<div class='empty-state'>Nothing answered yet.</div>";
+            }
         }
 
         window.copyAskedFrom = async function(text) {
@@ -1908,44 +1993,85 @@
             });
         }
 
-        // Asked before a question is logged: every seeking question is really
-        // "…relative to WHERE?", and the hiders can't answer honestly without
-        // that point, so it gets captured up front and travels with the
-        // question instead of being read out separately over the phone.
-        // Resolves to {lat,lng}, null for "no location", or false to abort the
-        // whole toggle (the seeker tapped the wrong question).
-        async function promptAskLocation(itemName) {
-            var choice = await window.showChoice(
-                `Where are you asking <strong>${itemName}</strong> from?`,
-                [
-                    { value: 'gps',    label: '🧍 From my location', hint: 'Take a fresh GPS reading now' },
-                    { value: 'map',    label: '🗺️ From a point on the map', hint: 'Tap the spot yourself' },
-                    { value: 'coords', label: '⌨️ From coordinates', hint: 'Type or paste a lat, lng' },
-                    { value: 'none',   label: '➖ No location', hint: "For questions that don't need one, like photos" }
-                ]
-            );
-            if (choice === null) return false;      // cancelled — don't log the question at all
-            if (choice === 'none') return null;
+        // How many points a question needs to be answerable. Thermometer is
+        // the odd one out: it's a comparison between two places, so a single
+        // coordinate tells the hider nothing. Everything else is asked from
+        // one spot, and photo questions from nowhere in particular.
+        function askPointSpecFor(catName) {
+            if (/thermometer/i.test(catName)) {
+                return [
+                    { key: 'start', label: 'Start point',  prompt: 'Where did you <strong>start</strong>?' },
+                    { key: 'end',   label: 'Warmer end',   prompt: 'Where did it get <strong>warmer</strong>?' }
+                ];
+            }
+            if (/photo/i.test(catName)) return [];
+            return [{ key: 'from', label: 'Asked from', prompt: 'Where are you asking from?' }];
+        }
+
+        // One point, whichever way the seeker wants to give it. Resolves to
+        // {lat,lng}, or null if they backed all the way out.
+        async function captureOnePoint(promptHtml, allowNone) {
+            var choices = [
+                { value: 'gps',    label: '🧍 My location',           hint: 'Take a fresh GPS reading now' },
+                { value: 'map',    label: '🗺️ A point on the map',   hint: 'Tap the spot yourself' },
+                { value: 'coords', label: '⌨️ Coordinates',           hint: 'Type or paste a lat, lng' }
+            ];
+            if (allowNone) choices.push({ value: 'none', label: '➖ No location', hint: "This question doesn't need one" });
+
+            var choice = await window.showChoice(promptHtml, choices);
+            if (choice === null) return null;
+            if (choice === 'none') return 'none';
 
             if (choice === 'gps') {
                 var pt = navigator.geolocation ? await window.seekerFromGPS({ silent: true }) : null;
-                if (!pt) { window.showToast("Couldn't get a GPS fix — pick another way.", "warn"); return await promptAskLocation(itemName); }
+                if (!pt) { window.showToast("Couldn't get a GPS fix — pick another way.", "warn"); return await captureOnePoint(promptHtml, allowNone); }
                 return { lat: pt.lat, lng: pt.lng };
             }
             if (choice === 'map') {
-                return await pickPointOnMap("Tap where you're asking from.");
+                var tapped = await pickPointOnMap("Tap the point on the map.");
+                return tapped || await captureOnePoint(promptHtml, allowNone);
             }
-            var typed = await window.showPrompt("Coordinates to ask from:", "", { confirmLabel: 'Use these' });
-            if (typed === null) return await promptAskLocation(itemName);
+            var typed = await window.showPrompt("Coordinates:", "", { confirmLabel: 'Use these' });
+            if (typed === null) return await captureOnePoint(promptHtml, allowNone);
             var parsed = window.parseLatLng(typed);
-            if (!parsed) { window.showToast("Couldn't read those coordinates.", "warn"); return await promptAskLocation(itemName); }
+            if (!parsed) { window.showToast("Couldn't read those coordinates.", "warn"); return await captureOnePoint(promptHtml, allowNone); }
             return parsed;
+        }
+
+        // Captures every point this question type needs, before anything is
+        // logged. Resolves to an array of {lat,lng,label} (possibly empty), or
+        // false to abort the whole toggle — the seeker tapped the wrong one.
+        async function promptAskLocation(itemName, catName) {
+            var spec = askPointSpecFor(catName);
+            if (!spec.length) return [];
+
+            var points = [];
+            for (var i = 0; i < spec.length; i++) {
+                var step = spec[i];
+                var stepOf = spec.length > 1 ? ` <span class="log-meta">(${i + 1} of ${spec.length})</span>` : '';
+                var res = await captureOnePoint(`${step.prompt}<br><span class="log-meta">${itemName}</span>${stepOf}`, spec.length === 1);
+                if (res === null) return false;          // backed out — nothing is logged
+                if (res === 'none') return [];           // explicit "no location" (single-point questions only)
+                points.push({ lat: res.lat, lng: res.lng, label: step.label });
+            }
+            return points;
         }
 
         // "53.48079, -2.24264" — the form the paste boxes accept back in, so a
         // hider can drop it straight into their own tools.
         function fmtAskedFrom(p) {
             return p && isFinite(p.lat) && isFinite(p.lng) ? `${fmtCoord(p.lat)}, ${fmtCoord(p.lng)}` : '';
+        }
+
+        // Tolerates the single-{lat,lng} shape written by the first version of
+        // this feature, so questions asked before the thermometer split still
+        // show their coordinate.
+        function askedPointsOf(entry) {
+            if (Array.isArray(entry.askedPoints)) return entry.askedPoints;
+            if (entry.askedFrom && isFinite(entry.askedFrom.lat)) {
+                return [{ lat: entry.askedFrom.lat, lng: entry.askedFrom.lng, label: 'Asked from' }];
+            }
+            return [];
         }
 
         var angleGhost = null; var angleMoveHandler = null; var angleMapMoveHandler = null; var centerMarker = null;
@@ -3535,7 +3661,8 @@ window.dynamicZones = {};
                         ? `<div class="log-meta">${entry.answerState === 'hit' ? '✅ HIT' : '❌ MISS'}${entry.cardInfo ? ` — draw ${entry.cardInfo.draw}${entry.cardInfo.pick ? `, pick ${entry.cardInfo.pick}` : ''}` : ''}</div>`
                         : `<div class="log-meta">⏳ Waiting on the hider…</div>`;
                 }
-                var where = entry.askedFrom ? `<div class="log-meta">📍 from ${fmtAskedFrom(entry.askedFrom)}</div>` : '';
+                var pts = askedPointsOf(entry);
+                var where = pts.length ? `<div class="log-meta">📍 ${pts.map(p => `${p.label}: ${fmtAskedFrom(p)}`).join(' · ')}</div>` : '';
                 div.innerHTML = `<div style="display:flex; align-items:center; flex-wrap:wrap;"><span class="log-index">${index + 1}.</span><span>${entry.text} ${layer}</span></div>${time ? `<span class="log-meta">${time}</span>` : ''}${where}${answer}`;
                 list.appendChild(div);
             });
@@ -3587,19 +3714,19 @@ window.dynamicZones = {};
                 // Ask for the vantage point BEFORE committing anything, so
                 // backing out of the dialog leaves the question untouched
                 // rather than logged-then-retracted for the whole room.
-                var askedFrom = await promptAskLocation(itemName);
-                if (askedFrom === false) return;
+                var askedPoints = await promptAskLocation(itemName, catName);
+                if (askedPoints === false) return;
 
                 questionState[key] = true;
                 btnElement.classList.add('asked');
                 var entry = { id: newLogId(), questionKey: key, text: logText, ts: Date.now() };
-                if (askedFrom) entry.askedFrom = askedFrom;
+                if (askedPoints.length) entry.askedPoints = askedPoints;
                 // Only questions asked while a room is linked expect a remote
                 // answer — a plain manual ask (no linked room, or notifications
                 // never enabled anywhere) just logs as before.
                 if (window.linkedRoomId) {
                     entry.awaitingAnswer = true;
-                    var whereText = askedFrom ? `\nAsked from ${fmtAskedFrom(askedFrom)}` : '';
+                    var whereText = askedPoints.map(p => `\n${p.label}: ${fmtAskedFrom(p)}`).join('');
                     notifyRoom(
                         (window.linkedRoomData && window.linkedRoomData.pushSubscriptions) || [],
                         "❓ New question",
@@ -4157,18 +4284,67 @@ function processData(d, profile) {
             document.getElementById('settingsModal').style.display = 'none';
         };
 
-        // Per-device read-only "Hider" view (not synced to the room).
-        window.setHiderMode = function(isHider) {
+        // Per-device role (not synced to the room). Hiders get the incoming
+        // question queue instead of the deduction tools; seekers get the
+        // tools and their own log.
+        window.setHiderMode = function(isHider, opts) {
+            opts = opts || {};
             document.body.classList.toggle('hider-mode', !!isHider);
             localStorage.setItem('gm_role', isHider ? 'hider' : 'seeker');
             var cb = document.getElementById('toggleHider');
             if (cb) cb.checked = !!isHider;
             if (isHider) {
                 resetTools(); // cancel any in-progress drawing
-                window.switchTab('layers');
-                window.showToast("Hider view on — read only. Turn off in ⚙️ Settings.", "info", { duration: 3500 });
+                // The answer queue is a hider's whole reason to have the app
+                // open, so land there rather than on a layer list they can't edit.
+                window.switchTab(window.currentGameId ? 'answers' : 'layers');
+                if (!opts.silent) window.showToast("Hider view on — you'll get the seekers' questions here.", "info", { duration: 3500 });
+            } else if (!opts.silent) {
+                window.switchTab('tools');
             }
         };
+
+        // Setup-screen role picker. Chosen before creating or joining anything,
+        // because it changes what the room is for.
+        window.chooseRole = function(role) {
+            var isHider = role === 'hider';
+            window.setHiderMode(isHider, { silent: true });
+            document.querySelectorAll('#roleSeg .seg-btn').forEach(function(b) {
+                b.classList.toggle('active', b.dataset.role === role);
+            });
+            var note = document.getElementById('roleNote');
+            if (note) {
+                note.innerHTML = isHider
+                    ? "You'll get the seekers' questions as they're asked, with how many cards to draw. Make your own room, then link it to theirs."
+                    : "You get the full map toolkit. Make your room, then link it to the hiders' so questions and answers flow both ways.";
+            }
+            var heading = document.getElementById('createHeading');
+            if (heading) heading.innerText = isHider ? "Create your hider room" : "Create a new game";
+        };
+
+        // ?link=TOKEN invites: held until this device is actually in a room,
+        // since linking is room-to-room and you can't link from nowhere.
+        window.pendingLinkToken = null;
+
+        window.copyLinkInvite = async function() {
+            if (!window.myLinkToken) { window.showToast("Still setting this room up — try again in a second.", "warn"); return; }
+            var url = new URL(window.cleanAppUrl());
+            url.searchParams.set('link', window.myLinkToken);
+            var link = url.toString();
+            var ok = await copyText(link);
+            if (ok) { flashCopied('btnCopyLinkInvite'); window.showToast("Link invite copied — send it to the other team.", "success", { duration: 3000 }); }
+            else window.showToast(link, "info", { duration: 9000 });
+        };
+
+        // Consume a ?link= invite once we're in a room and know our own token
+        // (needed to reject an invite pointing back at ourselves).
+        async function consumePendingLinkToken() {
+            if (!window.pendingLinkToken || !window.currentGameId || !window.myLinkToken) return;
+            if (window.linkedRoomId) { window.pendingLinkToken = null; return; }
+            var token = window.pendingLinkToken;
+            window.pendingLinkToken = null;
+            await window.linkRoomByToken(token, { viaInvite: true });
+        }
 
         window.toggleMapLayer = function(layerType, isChecked) {
             if (layerType === 'local') {
@@ -4333,8 +4509,8 @@ function processData(d, profile) {
         renderQuestions();
         window.checkTutorial();
 
-        // Restore per-device role (Seeker / Hider) — not synced to the room.
-        if (localStorage.getItem('gm_role') === 'hider') window.setHiderMode(true);
+        // (Role is restored further down, once chooseRole() is defined, so the
+        // setup-screen picker and the body class can't drift apart.)
 
         // Load temporary local constraints if no game joined yet
         var saved = localStorage.getItem('gm_constraints_v53');
@@ -4357,17 +4533,31 @@ function processData(d, profile) {
             } catch(e) { console.error("Failed to load saved constraints", e); }
         }
 
-        // --- AUTO-JOIN VIA INVITE LINK (?room=12345) ---
-        // If the page is opened with a valid room param, skip the setup screen and
-        // join that room directly. Invalid codes just fall through to setup.
+        // --- INVITE LINKS ---
+        // ?room=12345 joins that room outright (teammates on the same side).
+        // ?link=TOKEN is the other kind: it links whatever room you end up in
+        // to the room that owns the token, so it's held until you actually
+        // have a room — consumePendingLinkToken() picks it up from there.
         (function autoJoinFromUrl() {
             try {
-                const roomParam = new URLSearchParams(window.location.search).get('room');
+                const params = new URLSearchParams(window.location.search);
+
+                const linkParam = params.get('link');
+                if (linkParam && linkParam.trim()) {
+                    window.pendingLinkToken = linkParam.trim();
+                    const banner = document.getElementById('linkInviteBanner');
+                    if (banner) banner.style.display = 'block';
+                }
+
+                const roomParam = params.get('room');
                 if (roomParam && /^\d{5}$/.test(roomParam.trim())) {
                     window.startGameSession(roomParam.trim(), null);
                 }
             } catch (e) { console.warn("Auto-join failed:", e); }
         })();
+
+        // Reflect the saved role in the setup screen's picker on load.
+        window.chooseRole(localStorage.getItem('gm_role') === 'hider' ? 'hider' : 'seeker');
 
     </script>
 </body>
