@@ -17,6 +17,13 @@
         worker-src 'self' blob:;
     ">
     <title>JetLagPal - Multiplayer</title>
+    <link rel="manifest" href="manifest.json" />
+    <meta name="theme-color" content="#0e7490" />
+    <link rel="icon" href="icons/icon-192.png" />
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="JetLagPal" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="styles.css" />
 </head>
@@ -664,11 +671,23 @@
             if (!dot || !label) return;
             dot.classList.remove('online', 'offline');
             if (state === 'online') { dot.classList.add('online'); label.textContent = 'synced'; }
-            else if (state === 'offline') { dot.classList.add('offline'); label.textContent = 'offline — changes will sync when back'; }
+            else if (state === 'offline') { dot.classList.add('offline'); label.textContent = 'offline — changes will sync when back'; wasOffline = true; }
             else { label.textContent = 'connecting…'; }
         };
         window.addEventListener('online',  () => { if (window.currentGameId) window.setConnState('online'); });
         window.addEventListener('offline', () => { window.setConnState('offline'); });
+
+        // Register the app-shell service worker so the app can be installed
+        // and reopened with no signal (tunnel, train, dead zone). Live game
+        // state offline is handled separately by Firestore's own IndexedDB
+        // persistence (enableIndexedDbPersistence above), not by this worker.
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js').catch((err) => {
+                    console.warn('Service worker registration failed:', err);
+                });
+            });
+        }
 
         // === LEAFLET SETUP ===
         // Zoom control moves to the top-right — the top-left corner belongs to the
@@ -716,6 +735,13 @@
         // Ids removed locally but possibly still present on the server; used by the
         // merge-on-write sync so a delete isn't resurrected by a concurrent writer.
         var recentlyDeleted = new Set();
+        // Same idea, for question-log entries removed locally (unticking a
+        // question) that a concurrent merge shouldn't resurrect.
+        var recentlyDeletedLogIds = new Set();
+        // True while this device has been offline since its last confirmed
+        // sync — used to flag "stuff synced in while you were gone" once we
+        // reconnect, instead of toasting on every routine teammate update.
+        var wasOffline = false;
         var worldBbox = [-15.0, 48.0, 5.0, 62.0];
         var worldPoly = turf.bboxPolygon(worldBbox);
 
@@ -1069,6 +1095,14 @@
 
                     }
 
+                    // Snapshot what this device already knew about before we
+                    // overwrite local state, so we can tell "teammate added
+                    // this while I was offline" apart from "I added this
+                    // myself and the server just confirmed it".
+                    const priorConstraintIds = new Set(myConstraints.map(c => String(c.id)));
+                    const priorLogIds = new Set(logEntries.map(e => e.id));
+                    const reconnecting = wasOffline;
+
                     myConstraints = (data.constraints || []).map(c => ({
                         id: c.id, type: c.type, state: c.state, name: c.name,
                         geometry: JSON.parse(c.geometry),
@@ -1086,6 +1120,22 @@
                     if (data.questionState) questionState = data.questionState;
                     if (data.logEntries) logEntries = normalizeLog(data.logEntries);
                     renderQuestions(); renderLog();
+
+                    // Only flag this on a genuine reconnect, and only for
+                    // items neither in our prior local state nor tombstoned
+                    // by a local delete we already made — those are ours.
+                    if (reconnecting && !docSnap.metadata.fromCache) {
+                        const newConstraintCount = myConstraints.filter(c => !priorConstraintIds.has(String(c.id))).length;
+                        const newLogCount = logEntries.filter(e => !priorLogIds.has(e.id) && !recentlyDeletedLogIds.has(e.id)).length;
+                        const total = newConstraintCount + newLogCount;
+                        if (total > 0) {
+                            window.showToast(
+                                `Synced ${total} item${total === 1 ? '' : 's'} added by teammates while you were offline — worth a quick review.`,
+                                "info", { duration: 6000 }
+                            );
+                        }
+                        wasOffline = false;
+                    }
                 } else {
                     // Room doesn't exist — detach the listener so it doesn't stay live
                     // and interfere with a later create/join.
@@ -1190,7 +1240,18 @@
             }
         };
 
-        window.saveQuestionsToCloud = function() {
+        // Same merge-on-write approach as saveConstraints (see its comment
+        // above): logEntries is an array, and Firestore's merge:true replaces
+        // arrays wholesale rather than merging them, so a plain overwrite
+        // would silently drop a teammate's questions logged while this
+        // device was offline. Re-read the server list and union by stable
+        // entry id instead. questionState is a plain {key: bool} map that
+        // only grows (unticking flips a value, it never deletes a key), so
+        // Firestore's normal recursive field merge already unions concurrent
+        // toggles of different questions correctly on its own — no
+        // transaction needed for it, we just ride along in the same one.
+        // Pass { overwrite: true } for an intentional full replace (Clear/Reset).
+        window.saveQuestionsToCloud = async function(opts = {}) {
             if (!window.currentGameId) {
                 localStorage.setItem('gm_question_state', JSON.stringify(questionState));
                 localStorage.setItem('gm_question_log', JSON.stringify(logEntries));
@@ -1198,7 +1259,32 @@
             }
 
             const gameRef = doc(db, "games", window.currentGameId);
-            setDoc(gameRef, { questionState: questionState, logEntries: logEntries }, { merge: true });
+
+            if (opts.overwrite) {
+                recentlyDeletedLogIds.clear();
+                setDoc(gameRef, { questionState: questionState, logEntries: logEntries }, { merge: true });
+                return;
+            }
+
+            try {
+                await runTransaction(db, async (tx) => {
+                    const snap = await tx.get(gameRef);
+                    const serverData = snap.exists() ? snap.data() : {};
+                    const serverLog = Array.isArray(serverData.logEntries) ? normalizeLog(serverData.logEntries) : [];
+                    const byId = new Map();
+                    serverLog.forEach(e => byId.set(e.id, e));      // start from server truth
+                    logEntries.forEach(e => byId.set(e.id, e));     // overlay our changes
+                    recentlyDeletedLogIds.forEach(id => byId.delete(id)); // honour local deletes
+
+                    const mergedQuestionState = Object.assign({}, serverData.questionState || {}, questionState);
+
+                    tx.set(gameRef, { questionState: mergedQuestionState, logEntries: Array.from(byId.values()) }, { merge: true });
+                });
+                recentlyDeletedLogIds.clear();
+            } catch (e) {
+                console.warn("Question log merge transaction failed; writing directly.", e);
+                setDoc(gameRef, { questionState: questionState, logEntries: logEntries }, { merge: true });
+            }
         };
 
         // === UI & GLOBAL FUNCTIONS ===
@@ -2971,7 +3057,7 @@ window.dynamicZones = {};
         window.clearLog = async function() {
             if (await window.showConfirm("Clear the completion history for everyone?", { danger: true, confirmLabel: 'Clear log' })) {
                 logEntries = [];
-                window.saveQuestionsToCloud();
+                window.saveQuestionsToCloud({ overwrite: true });
                 renderLog();
             }
         };
@@ -2979,7 +3065,7 @@ window.dynamicZones = {};
         window.resetQuestions = async function() {
             if (await window.showConfirm("Reset all questions for everyone in the room?", { danger: true, confirmLabel: 'Reset' })) {
                 questionState = {};
-                window.saveQuestionsToCloud();
+                window.saveQuestionsToCloud({ overwrite: true });
                 renderQuestions();
             }
         };
@@ -3021,7 +3107,7 @@ window.dynamicZones = {};
                 // Remove by stable questionKey (unique per question) — robust even when
                 // the same item text was asked in two categories.
                 var idx = logEntries.findIndex(e => e.questionKey === key);
-                if (idx > -1) logEntries.splice(idx, 1);
+                if (idx > -1) { recentlyDeletedLogIds.add(logEntries[idx].id); logEntries.splice(idx, 1); }
             }
             window.saveQuestionsToCloud();
             renderLog();
