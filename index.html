@@ -47,19 +47,21 @@
         </div>
         <div class="modal-body">
 
+            <!-- Read-only: the room decides who's hiding, not the device — see
+                 roomRole handling in startGameSession. The only way to change it
+                 is a new round (Next round button, added once you're linked). -->
             <div class="settings-group">
                 <h4>Your role</h4>
-                <label class="switch-row">
-                    <input type="checkbox" id="toggleHider" onchange="window.setHiderMode(this.checked)">
-                    <span>🙈 Hider view (read-only)</span>
-                </label>
-                <p class="settings-note">Hides every editing control so you can watch the seekers' deductions without changing anything. Per-device — not shared with the room.</p>
+                <p class="settings-note" id="roleReadout">You're <strong>seeking</strong> this round.</p>
+                <button class="btn-ghost" onclick="window.nextRound()">🔁 Next round (swap &amp; clear)</button>
             </div>
 
-            <!-- ---- Your position: the anchor every question is asked from ---- -->
+            <!-- ---- Your position: the anchor every question is asked from
+                 (seekers) or your hiding spot, checked against answers you send
+                 (hiders) — same field, relabelled by renderRoleReadout(). ---- -->
             <div class="settings-group pos-card" id="posSettingsGroup">
-                <h4>🧍 Your position</h4>
-                <p class="settings-note">Matching and measuring questions are answered <em>from where you are</em>.</p>
+                <h4 id="posCardTitle">🧍 Your position</h4>
+                <p class="settings-note" id="posCardNote">Matching and measuring questions are answered <em>from where you are</em>.</p>
                 <input type="text" id="posCoords" inputmode="decimal" placeholder="Paste or type: 53.4808, -2.2426" onchange="window.seekerFromInputs()">
                 <div class="btn-row" style="margin-top:8px;">
                     <button id="btnPosGps" onclick="window.seekerFromGPS()">🛰️ Update now</button>
@@ -241,7 +243,7 @@
         </div>
     </div>
 
-    <div id="hiderBadge">🙈 Hider view — read only</div>
+    <div id="hiderBadge">🙈 You're hiding this round</div>
 
     <div id="connectionStatus">
         <div class="conn-row">
@@ -252,6 +254,28 @@
             <button class="conn-copy" id="btnCopyLink" onclick="window.copyInviteLink()" title="Copy invite link">🔗</button>
         </div>
         <div class="conn-region"><span id="displayRegion">No region</span> · <span id="connState">connecting…</span></div>
+    </div>
+
+    <!-- Round clock: mirrored to both linked rooms, phase derived from
+         round.startedAt/hideSeconds/endedAt rather than written, so the two
+         rooms can't disagree. Deliberately NOT in the minimize-hides list
+         (styles.css) — the whole point of a clock is staying glanceable. -->
+    <div id="clockBar" class="clock-bar" style="display:none;">
+        <div class="clock-row">
+            <span class="clock-icon" id="clockPhaseIcon">⏱️</span>
+            <span class="clock-phase" id="clockPhaseText">Not started</span>
+            <span class="conn-spacer"></span>
+            <span class="clock-time" id="clockTime"></span>
+        </div>
+        <div class="clock-actions" id="clockActions"></div>
+    </div>
+
+    <!-- Seekers get no nudge to link the hiders' room today unless they go
+         looking in Settings — this is the equivalent of the Answers tab's
+         empty state, but for the side that doesn't have that tab by default. -->
+    <div id="seekerLinkBanner" class="setup-link-banner in-panel" style="display:none;">
+        🔗 Not linked to a hider room yet.
+        <button class="btn-ghost" style="margin-top:6px;" onclick="window.copyLinkInvite()">🔗 Copy link invite</button>
     </div>
 
     <!-- A seeker can walk on while the hider is still thinking, so the shape a
@@ -744,6 +768,12 @@
         });
 
         window.currentGameId = null;
+        // The room owns the role once you're in one — see the snapshot handler
+        // in startGameSession. null until the first snapshot arrives.
+        window.myRoomRole = null;
+        // { n, hideSeconds, startedAt, endedAt } mirrored from the room doc;
+        // see roundPhase() for how a phase is derived from it.
+        window.myRound = null;
 
         // === CONNECTION STATUS INDICATOR ===
         // 'connecting' (amber) → 'online' (green) once a snapshot arrives from the
@@ -1083,6 +1113,10 @@
             // The local cache reflects this document immediately regardless
             // (that's what offline persistence is for), so startGameSession's
             // onSnapshot listener picks it up right away without waiting.
+            // The role picked on the setup screen (chooseRole already applied it to
+            // body.hider-mode synchronously) is what this room IS from here on —
+            // see the roomRole handling in startGameSession's snapshot handler.
+            const roomRole = document.body.classList.contains('hider-mode') ? 'hiders' : 'seekers';
             setDoc(gameRef, {
                 region: region,
                 customOverpassBbox: customOverpass || null,
@@ -1090,7 +1124,9 @@
                 customTurfPoly: customPoly ? JSON.stringify(customPoly) : null, // Save the nuanced shape
                 createdAt: new Date().toISOString(),
                 constraints: [], logEntries: [], questionState: {},
-                linkToken: generateLinkToken()
+                linkToken: generateLinkToken(),
+                roomRole: roomRole,
+                round: { n: 1, hideSeconds: null, startedAt: null, endedAt: null }
             }).catch((e) => console.warn("Room create write failed to reach the server (will retry when online):", e));
 
             if (!navigator.onLine) {
@@ -1225,6 +1261,33 @@
                     if (data.logEntries) logEntries = normalizeLog(data.logEntries);
                     renderQuestions(); renderLog();
 
+                    // The room owns the role: apply it whenever it changes, rather
+                    // than trusting whatever this device's own localStorage last
+                    // said — that's what let a teammate join a hider room and land
+                    // in full seeker mode with edit access to shared state.
+                    if (data.roomRole) {
+                        if (data.roomRole !== window.myRoomRole) {
+                            const isFirstApply = window.myRoomRole === null;
+                            window.myRoomRole = data.roomRole;
+                            window.setHiderMode(data.roomRole === 'hiders', { silent: true });
+                            // Only a genuine swap mid-game deserves a toast — the
+                            // first application on joining is just the room
+                            // telling you what you already picked.
+                            if (!isFirstApply) {
+                                window.showToast(
+                                    `Roles swapped — you're ${data.roomRole === 'hiders' ? 'hiding' : 'seeking'} this round.`,
+                                    "info", { duration: 5000 }
+                                );
+                            }
+                        }
+                    } else if (!window.myRoomRole) {
+                        // Rooms created before this feature existed won't have one —
+                        // adopt whatever this device's local pick already is and
+                        // write it back, the same lazy-heal linkToken uses below.
+                        window.myRoomRole = document.body.classList.contains('hider-mode') ? 'hiders' : 'seekers';
+                        setDoc(gameRef, { roomRole: window.myRoomRole }, { merge: true }).catch(() => {});
+                    }
+
                     window.myPushSubscriptions = data.pushSubscriptions || [];
                     ensurePushSubscriptionRegistered();
                     if (data.linkedRoomId !== window.linkedRoomId) {
@@ -1241,6 +1304,14 @@
                         setDoc(gameRef, { linkToken: window.myLinkToken }, { merge: true }).catch(() => {});
                     }
                     renderLinkedRoomStatus();
+
+                    // Read from OUR OWN room, not the linked one — starting a
+                    // round mirrors the same object to both docs, so either is
+                    // identical and the linked listener has no reason to know
+                    // about it too.
+                    window.myRound = data.round || null;
+                    renderClock();
+                    renderSeekerLinkBanner();
 
                     // Only flag this on a genuine reconnect, and only for
                     // items neither in our prior local state nor tombstoned
@@ -1372,6 +1443,222 @@
             }
             renderAnswerQueue();
         }
+
+        // Hiders get a nudge to link via the Answers tab's empty state; seekers
+        // had nothing pointing them at the same step, buried 6 groups down in
+        // Settings. This mirrors it above the tab bar, where it's seen without
+        // switching tabs.
+        function renderSeekerLinkBanner() {
+            const banner = document.getElementById('seekerLinkBanner');
+            if (!banner) return;
+            const isHider = document.body.classList.contains('hider-mode');
+            banner.style.display = (!isHider && window.currentGameId && !window.linkedRoomId) ? 'block' : 'none';
+        }
+
+        // === ROUND CLOCK ===
+        // Phase is derived from round.startedAt/hideSeconds/endedAt, never
+        // written directly — that's what lets two rooms mirroring the same
+        // object never disagree about what phase they're in.
+        function roundPhase(round) {
+            if (!round || !round.startedAt) return 'idle';
+            if (round.endedAt) return 'ended';
+            return Date.now() < round.startedAt + round.hideSeconds * 1000 ? 'hiding' : 'seeking';
+        }
+
+        function fmtClock(totalSeconds) {
+            totalSeconds = Math.max(0, Math.round(totalSeconds));
+            var h = Math.floor(totalSeconds / 3600);
+            var m = Math.floor((totalSeconds % 3600) / 60);
+            var s = totalSeconds % 60;
+            var mm = String(m).padStart(2, '0');
+            var ss = String(s).padStart(2, '0');
+            return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
+        }
+
+        var clockTickTimer = null;
+        function startClockTick() {
+            if (clockTickTimer) return;
+            clockTickTimer = setInterval(() => {
+                if (!window.currentGameId) { stopClockTick(); return; }
+                renderClock();
+            }, 1000);
+        }
+        function stopClockTick() {
+            if (clockTickTimer) { clearInterval(clockTickTimer); clockTickTimer = null; }
+        }
+
+        // Set only on a real hiding→seeking edge, so the "seekers can move now"
+        // notification fires once per transition rather than every tick.
+        var lastKnownRoundPhase = null;
+
+        function renderClock() {
+            const bar = document.getElementById('clockBar');
+            if (!bar) return;
+            if (!window.currentGameId) { bar.style.display = 'none'; stopClockTick(); return; }
+
+            const round = window.myRound;
+            const phase = roundPhase(round);
+            const phaseIcon = document.getElementById('clockPhaseIcon');
+            const phaseText = document.getElementById('clockPhaseText');
+            const timeEl = document.getElementById('clockTime');
+            const actionsEl = document.getElementById('clockActions');
+
+            bar.style.display = 'block';
+            bar.classList.remove('hiding', 'seeking');
+
+            if (phase === 'idle') {
+                phaseIcon.textContent = '⏱️';
+                phaseText.textContent = 'Round not started';
+                timeEl.textContent = '';
+                actionsEl.innerHTML = `<button class="btn-accent" onclick="window.promptStartRound()">▶ Start round</button>`;
+                stopClockTick();
+            } else if (phase === 'hiding') {
+                bar.classList.add('hiding');
+                phaseIcon.textContent = '🙈';
+                phaseText.textContent = 'Hiding';
+                timeEl.textContent = fmtClock((round.startedAt + round.hideSeconds * 1000 - Date.now()) / 1000);
+                actionsEl.innerHTML = `<button class="btn-ghost" onclick="window.endRound()">⏹ End round</button>`;
+                startClockTick();
+            } else if (phase === 'seeking') {
+                bar.classList.add('seeking');
+                phaseIcon.textContent = '🔍';
+                phaseText.textContent = 'Seeking';
+                timeEl.textContent = fmtClock((Date.now() - (round.startedAt + round.hideSeconds * 1000)) / 1000);
+                actionsEl.innerHTML = `<button class="btn-ghost" onclick="window.endRound()">⏹ End round</button>`;
+                startClockTick();
+            } else { // ended
+                phaseIcon.textContent = '🏁';
+                phaseText.textContent = 'Round ended';
+                timeEl.textContent = '';
+                actionsEl.innerHTML = `<button class="btn-accent" onclick="window.nextRound()">🔁 Next round</button>`;
+                stopClockTick();
+            }
+
+            // The moment hiding time is up matters — that's when seekers are
+            // actually allowed to move — so it gets its own notification,
+            // distinct from the "round started" one.
+            if (lastKnownRoundPhase === 'hiding' && phase === 'seeking') {
+                notifyRoom(
+                    (window.linkedRoomData && window.linkedRoomData.pushSubscriptions) || [],
+                    "🔍 Seeking has started",
+                    "Hiding time is up.",
+                    { tag: 'round-seeking-' + (round.n || 1), roomId: window.currentGameId }
+                );
+            }
+            lastKnownRoundPhase = phase;
+        }
+
+        window.promptStartRound = async function() {
+            if (!window.currentGameId) return;
+            const choice = await window.showChoice("Hiding duration?", [
+                { value: '30', label: '30 minutes' },
+                { value: '45', label: '45 minutes' },
+                { value: '60', label: '1 hour' },
+                { value: '90', label: '1.5 hours' },
+                { value: 'custom', label: 'Custom…', hint: 'Type any number of minutes' }
+            ]);
+            if (choice === null) return;
+            var minutes = choice;
+            if (choice === 'custom') {
+                const typed = await window.showPrompt("Hiding duration, in minutes:", "30", { confirmLabel: 'Start' });
+                if (typed === null) return;
+                minutes = typed;
+            }
+            minutes = parseFloat(minutes);
+            if (!isFinite(minutes) || minutes <= 0) { window.showToast("Enter a number of minutes greater than 0.", "warn"); return; }
+            window.startRound(minutes);
+        };
+
+        // Either side can start a round, and starting mirrors it to both linked
+        // rooms so neither has to also press start — one tap begins it for both.
+        window.startRound = async function(minutes) {
+            if (!window.currentGameId) return;
+            const hideSeconds = Math.round(minutes * 60);
+            const n = (window.myRound && window.myRound.n) || 1;
+            const roundObj = { n: n, hideSeconds: hideSeconds, startedAt: Date.now(), endedAt: null };
+            const writes = [setDoc(doc(db, "games", window.currentGameId), { round: roundObj }, { merge: true })];
+            if (window.linkedRoomId) writes.push(setDoc(doc(db, "games", window.linkedRoomId), { round: roundObj }, { merge: true }));
+            try {
+                await Promise.all(writes);
+                window.showToast(`Round started — ${minutes} min hiding.`, "success", { duration: 3000 });
+                notifyRoom(
+                    (window.linkedRoomData && window.linkedRoomData.pushSubscriptions) || [],
+                    "▶ Round started",
+                    `Hiding for ${minutes} minutes.`,
+                    { tag: 'round-start-' + n, roomId: window.currentGameId }
+                );
+            } catch (e) {
+                console.warn("Failed to start round:", e);
+                window.showToast("Couldn't start the round — check your connection.", "error");
+            }
+        };
+
+        window.endRound = async function() {
+            if (!window.currentGameId || !window.myRound) return;
+            const ok = await window.showConfirm("End this round?", { confirmLabel: 'End round' });
+            if (!ok) return;
+            const roundObj = Object.assign({}, window.myRound, { endedAt: Date.now() });
+            const writes = [setDoc(doc(db, "games", window.currentGameId), { round: roundObj }, { merge: true })];
+            if (window.linkedRoomId) writes.push(setDoc(doc(db, "games", window.linkedRoomId), { round: roundObj }, { merge: true }));
+            try { await Promise.all(writes); }
+            catch (e) { console.warn("Failed to end round:", e); window.showToast("Couldn't end the round — check your connection.", "error"); }
+        };
+
+        // Wipes both rooms' constraints/log/questions, swaps who's hiding, and
+        // resets to a fresh unstarted round. One merge write per room rather
+        // than reusing clearAll/clearLog/resetQuestions (three separate writes
+        // each) — a role swap has to land atomically with the wipe.
+        window.nextRound = async function() {
+            if (!window.currentGameId) return;
+            const ok = await window.showConfirm(
+                "Start a new round? This clears the map, log and questions in both rooms, and swaps who's hiding.",
+                { danger: true, confirmLabel: 'Start next round' }
+            );
+            if (!ok) return;
+
+            // Must use overwrite semantics: the merge transactions in
+            // saveConstraints/saveQuestionsToCloud re-seed from server truth
+            // using these tombstones, and a teammate's in-flight non-overwrite
+            // write could otherwise resurrect last round's layers.
+            recentlyDeleted.clear();
+            recentlyDeletedLogIds.clear();
+
+            const n = ((window.myRound && window.myRound.n) || 1) + 1;
+            const hideSeconds = (window.myRound && window.myRound.hideSeconds) || 1800;
+            const freshRound = { n: n, hideSeconds: hideSeconds, startedAt: null, endedAt: null };
+            const wipe = { constraints: [], logEntries: [], questionState: {}, round: freshRound };
+
+            const myOldRole = window.myRoomRole || (document.body.classList.contains('hider-mode') ? 'hiders' : 'seekers');
+            const myNewRole = myOldRole === 'hiders' ? 'seekers' : 'hiders';
+
+            const writes = [
+                setDoc(doc(db, "games", window.currentGameId), Object.assign({}, wipe, { roomRole: myNewRole }), { merge: true })
+            ];
+            if (window.linkedRoomId) {
+                // The linked room always ends up holding whichever role this
+                // one just gave up — there are only two rooms and two roles.
+                writes.push(setDoc(doc(db, "games", window.linkedRoomId), Object.assign({}, wipe, { roomRole: myOldRole }), { merge: true }));
+            }
+
+            try {
+                await Promise.all(writes);
+            } catch (e) {
+                console.warn("Failed to start next round:", e);
+                window.showToast("Couldn't start the next round — check your connection.", "error");
+                return;
+            }
+
+            myConstraints = [];
+            guideLayer.clearLayers();
+            updateLayerList(); updateLogicMap();
+
+            notifyRoom(
+                (window.linkedRoomData && window.linkedRoomData.pushSubscriptions) || [],
+                "🔁 New round",
+                "Roles have swapped and the board is clear.",
+                { tag: 'next-round-' + n, roomId: window.currentGameId }
+            );
+        };
 
         // Sends via the Vercel relay (api/notify.js) — best-effort and
         // entirely online-only, same as any other message to a teammate.
@@ -1554,10 +1841,16 @@
                     const t = e.answeredAt ? new Date(e.answeredAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
                     const dp = e.cardInfo || (e.questionKey ? drawPickForQuestionKey(e.questionKey) : null);
                     const pts = askedPointsOf(e).map(p => `${p.label}: ${fmtAskedFrom(p)}`).join(' · ');
+                    const otherState = e.answerState === 'hit' ? 'miss' : 'hit';
+                    const editedNote = e.answerEditedAt
+                        ? `<div class="log-meta answer-changed-tag">⚠️ Changed from ${(e.previousAnswerState || '?').toUpperCase()}</div>`
+                        : '';
                     return `<div class="log-list-item">
                         <div>${e.text}</div>
                         <div class="log-meta">${e.answerState === 'hit' ? '✅ HIT' : '❌ MISS'}${dp ? ` — they drew ${dp.draw}${dp.pick ? `, kept ${dp.pick}` : ''}` : ''}${t ? ` · ${t}` : ''}</div>
                         ${pts ? `<div class="log-meta">📍 ${pts}</div>` : ''}
+                        ${editedNote}
+                        <button class="btn-ghost" style="margin-top:6px;" onclick="window.answerLinkedQuestion('${e.id}','${otherState}',true)">Change to ${otherState.toUpperCase()}</button>
                     </div>`;
                 }).join('') : "<div class='empty-state'>Nothing answered yet.</div>";
             }
@@ -1568,12 +1861,59 @@
             window.showToast(ok ? `Copied ${text}` : text, ok ? "success" : "info", { duration: ok ? 2000 : 8000 });
         };
 
-        window.answerLinkedQuestion = async function(entryId, state) {
+        // Radar and thermometer are cheaply checkable against the hider's own
+        // position (set in Settings, device-local — see setSeekerPoint). Returns
+        // 'hit' / 'miss', or null when there's nothing to check against (no
+        // askMeta on the question, or no position set on this device).
+        function expectedAnswerFor(entry) {
+            if (!entry.askMeta || !window.seekerPoint) return null;
+            var pts = askedPointsOf(entry);
+            var me = turf.point([window.seekerPoint.lng, window.seekerPoint.lat]);
+
+            if (entry.askMeta.kind === 'radius' && pts.length) {
+                var d = turf.distance(me, turf.point([pts[0].lng, pts[0].lat]), { units: 'kilometers' });
+                return d <= entry.askMeta.km ? 'hit' : 'miss';
+            }
+            if (entry.askMeta.kind === 'thermo' && pts.length >= 2) {
+                var start = pts.find(p => p.label === 'Start point') || pts[0];
+                var end = pts.find(p => p.label === 'Warmer end') || pts[1];
+                var dStart = turf.distance(me, turf.point([start.lng, start.lat]), { units: 'kilometers' });
+                var dEnd = turf.distance(me, turf.point([end.lng, end.lat]), { units: 'kilometers' });
+                // Warmer = closer to the end point than to the start.
+                return dEnd < dStart ? 'hit' : 'miss';
+            }
+            return null;
+        }
+
+        var warnedNoHidingSpot = false;
+
+        // isEdit: reuses the same write path for correcting an answer already
+        // sent, so the seekers get a proper "changed" notification instead of
+        // a second silent overwrite of the same field.
+        window.answerLinkedQuestion = async function(entryId, state, isEdit) {
             if (!window.linkedRoomId) return;
             const entries = window.linkedRoomData ? normalizeLog(window.linkedRoomData.logEntries || []) : [];
             const entry = entries.find(e => e.id === entryId);
             if (!entry) { window.showToast("That question isn't there anymore.", "warn"); return; }
             const dp = entry.questionKey ? drawPickForQuestionKey(entry.questionKey) : null;
+            const previousState = entry.answerState || null;
+
+            if (!window.seekerPoint && !warnedNoHidingSpot) {
+                warnedNoHidingSpot = true;
+                window.showToast(
+                    "Set your hiding spot in ⚙️ Settings and answers can be double-checked against it automatically.",
+                    "info", { duration: 6000 }
+                );
+            } else {
+                const expected = expectedAnswerFor(entry);
+                if (expected && expected !== state) {
+                    const ok = await window.showConfirm(
+                        `Your hiding spot says this should be <strong>${expected.toUpperCase()}</strong>. Send ${state.toUpperCase()} anyway?`,
+                        { danger: true, confirmLabel: `Send ${state.toUpperCase()}` }
+                    );
+                    if (!ok) return;
+                }
+            }
 
             try {
                 await runTransaction(db, async (tx) => {
@@ -1583,19 +1923,29 @@
                     const serverEntries = normalizeLog(snap.data().logEntries || []);
                     const idx = serverEntries.findIndex(e => e.id === entryId);
                     if (idx === -1) throw new Error("Question not found");
-                    serverEntries[idx] = Object.assign({}, serverEntries[idx], {
-                        answerState: state, cardInfo: dp, answeredAt: Date.now()
-                    });
+                    const patch = { answerState: state, cardInfo: dp, answeredAt: Date.now() };
+                    if (isEdit) { patch.previousAnswerState = previousState; patch.answerEditedAt = Date.now(); }
+                    serverEntries[idx] = Object.assign({}, serverEntries[idx], patch);
                     tx.set(ref, { logEntries: serverEntries }, { merge: true });
                 });
-                const cardText = dp ? ` — draw ${dp.draw}${dp.pick ? `, pick ${dp.pick}` : ''}` : '';
+                const cardTxt = dp ? ` — draw ${dp.draw}${dp.pick ? `, pick ${dp.pick}` : ''}` : '';
                 window.showToast(`Answered ${state.toUpperCase()}.`, "success", { duration: 2500 });
-                notifyRoom(
-                    (window.linkedRoomData && window.linkedRoomData.pushSubscriptions) || [],
-                    `${state === 'hit' ? '✅ HIT' : '❌ MISS'}: ${entry.text.replace(/<[^>]+>/g, '')}`,
-                    `Answered by the hider${cardText}.`,
-                    { tag: 'answer-' + entryId, roomId: window.linkedRoomId }
-                );
+                const cleanText = entry.text.replace(/<[^>]+>/g, '');
+                if (isEdit) {
+                    notifyRoom(
+                        (window.linkedRoomData && window.linkedRoomData.pushSubscriptions) || [],
+                        `⚠️ Answer changed: ${cleanText}`,
+                        `${(previousState || '?').toUpperCase()} → ${state.toUpperCase()}${cardTxt}. Check anything you already drew from this.`,
+                        { tag: 'answer-' + entryId, roomId: window.linkedRoomId }
+                    );
+                } else {
+                    notifyRoom(
+                        (window.linkedRoomData && window.linkedRoomData.pushSubscriptions) || [],
+                        `${state === 'hit' ? '✅ HIT' : '❌ MISS'}: ${cleanText}`,
+                        `Answered by the hider${cardTxt}.`,
+                        { tag: 'answer-' + entryId, roomId: window.linkedRoomId }
+                    );
+                }
             } catch (e) {
                 console.warn("Answer failed:", e);
                 window.showToast("Couldn't send that answer — check your connection and try again.", "error");
@@ -1745,6 +2095,16 @@
         window.openPopup = function(url) { window.open(url, "TransitInfo", "width=400,height=600,resizable=yes,scrollbars=yes,status=yes"); };
 
         function addConstraint(type, geoJsonShape, label, visualGeoJSON, initialState) {
+            // A constraint is drawn around wherever the asker was, and this room's
+            // logEntries/constraints stream live to the linked room via
+            // attachLinkedRoomListener — so a hider drawing one would publish their
+            // own position straight to the seekers. The UI already hides every path
+            // here (CSS on .q-btn/#tab-tools), but that's not a real boundary since
+            // these are still plain globals; this is the actual one.
+            if (document.body.classList.contains('hider-mode')) {
+                console.warn("addConstraint blocked: hiders don't draw constraints (would leak their position).");
+                return;
+            }
             var id = Date.now(); var layer = null;
             if (visualGeoJSON) layer = L.geoJSON(visualGeoJSON, { style: { color: 'black', weight: 2, dashArray: '5, 5', fill: false } }).addTo(guideLayer);
             myConstraints.push({ id: id, type: type, geometry: fixGeometry(geoJsonShape), state: initialState || 'hit', name: label, leafletLayer: layer, visualGeometry: visualGeoJSON });
@@ -2022,6 +2382,10 @@
             if (choice === null) return null;
             if (choice === 'none') return 'none';
 
+            // All three paths update window.seekerPoint (the one shared "where I
+            // am"), not just GPS — otherwise asking from typed coordinates and
+            // then using a tool's "Ask from here" would silently use two
+            // different origins.
             if (choice === 'gps') {
                 var pt = navigator.geolocation ? await window.seekerFromGPS({ silent: true }) : null;
                 if (!pt) { window.showToast("Couldn't get a GPS fix — pick another way.", "warn"); return await captureOnePoint(promptHtml, allowNone); }
@@ -2029,12 +2393,15 @@
             }
             if (choice === 'map') {
                 var tapped = await pickPointOnMap("Tap the point on the map.");
-                return tapped || await captureOnePoint(promptHtml, allowNone);
+                if (!tapped) return await captureOnePoint(promptHtml, allowNone);
+                window.setSeekerPoint(tapped.lat, tapped.lng, { silent: true });
+                return tapped;
             }
             var typed = await window.showPrompt("Coordinates:", "", { confirmLabel: 'Use these' });
             if (typed === null) return await captureOnePoint(promptHtml, allowNone);
             var parsed = window.parseLatLng(typed);
             if (!parsed) { window.showToast("Couldn't read those coordinates.", "warn"); return await captureOnePoint(promptHtml, allowNone); }
+            window.setSeekerPoint(parsed.lat, parsed.lng, { silent: true });
             return parsed;
         }
 
@@ -2299,6 +2666,10 @@
                 return false;
             }
             window.seekerPoint = { lat: lat, lng: lng };
+            // Device-local only — never written to Firestore. For a hider this
+            // is their real hiding spot; see the guards in toggleQuestion and
+            // addConstraint for why it must stay off the wire.
+            try { localStorage.setItem('gm_seeker_point', JSON.stringify(window.seekerPoint)); } catch (e) {}
             var coordsEl = document.getElementById('posCoords');
             if (coordsEl) coordsEl.value = `${fmtCoord(lat)}, ${fmtCoord(lng)}`;
             var readout = document.getElementById('posReadout');
@@ -2323,6 +2694,19 @@
             if (!parsed) return false;
             return window.setSeekerPoint(parsed.lat, parsed.lng, { silent: true });
         };
+
+        // Restore the device-local position across a reload — without this a
+        // hider who refreshes mid-round loses their set hiding spot, and the
+        // answer sanity check (answerLinkedQuestion) has nothing to compare
+        // against until they set it again.
+        (function restoreSeekerPoint() {
+            try {
+                var saved = JSON.parse(localStorage.getItem('gm_seeker_point'));
+                if (saved && isFinite(saved.lat) && isFinite(saved.lng)) {
+                    window.setSeekerPoint(saved.lat, saved.lng, { silent: true });
+                }
+            } catch (e) {}
+        })();
 
         // opts.silent skips the toast — used by the auto-update timer so it doesn't
         // spam a toast every couple of minutes. Resolves with the new {lat,lng}, or
@@ -3657,9 +4041,17 @@ window.dynamicZones = {};
                 var layer = entry.layerName ? `<span class="log-meta">→ ${entry.layerName}</span>` : '';
                 var answer = '';
                 if (entry.awaitingAnswer) {
-                    answer = entry.answerState
-                        ? `<div class="log-meta">${entry.answerState === 'hit' ? '✅ HIT' : '❌ MISS'}${entry.cardInfo ? ` — draw ${entry.cardInfo.draw}${entry.cardInfo.pick ? `, pick ${entry.cardInfo.pick}` : ''}` : ''}</div>`
-                        : `<div class="log-meta">⏳ Waiting on the hider…</div>`;
+                    if (entry.answerState) {
+                        answer = `<div class="log-meta">${entry.answerState === 'hit' ? '✅ HIT' : '❌ MISS'}${entry.cardInfo ? ` — draw ${entry.cardInfo.draw}${entry.cardInfo.pick ? `, pick ${entry.cardInfo.pick}` : ''}` : ''}</div>`;
+                        // A layer may already be drawn from the old answer — call
+                        // this out loudly rather than a quiet meta line, since
+                        // drawing stays manual and nothing here fixes it for you.
+                        if (entry.answerEditedAt) {
+                            answer += `<div class="answer-changed-banner">⚠️ Answer changed from ${(entry.previousAnswerState || '?').toUpperCase()} to ${entry.answerState.toUpperCase()} — check anything you already drew from this.</div>`;
+                        }
+                    } else {
+                        answer = `<div class="log-meta">⏳ Waiting on the hider…</div>`;
+                    }
                 }
                 var pts = askedPointsOf(entry);
                 var where = pts.length ? `<div class="log-meta">📍 ${pts.map(p => `${p.label}: ${fmtAskedFrom(p)}`).join(' · ')}</div>` : '';
@@ -3709,6 +4101,14 @@ window.dynamicZones = {};
         }
 
         window.toggleQuestion = async function(key, itemName, subName, catName, btnElement) {
+            // Same reasoning as addConstraint's guard: asking captures and
+            // publishes a coordinate to the room, and a hider's coordinate must
+            // never reach the seekers. CSS hides the tab/buttons but doesn't stop
+            // this being called directly.
+            if (document.body.classList.contains('hider-mode')) {
+                console.warn("toggleQuestion blocked: hiders don't ask questions (would leak their position).");
+                return;
+            }
             var logText = `${itemName} <span class="log-meta">(${catName})</span>`;
             if (!questionState[key]) {
                 // Ask for the vantage point BEFORE committing anything, so
@@ -3721,6 +4121,15 @@ window.dynamicZones = {};
                 btnElement.classList.add('asked');
                 var entry = { id: newLogId(), questionKey: key, text: logText, ts: Date.now() };
                 if (askedPoints.length) entry.askedPoints = askedPoints;
+                // Enough to let the hider's own device sanity-check an answer
+                // against their real position (answerLinkedQuestion) — radius
+                // isn't on the entry anywhere else, only baked into the label.
+                if (/radar/i.test(catName)) {
+                    var radiusKm = parseRadiusKm(itemName);
+                    if (radiusKm) entry.askMeta = { kind: 'radius', km: radiusKm };
+                } else if (/thermometer/i.test(catName)) {
+                    entry.askMeta = { kind: 'thermo' };
+                }
                 // Only questions asked while a room is linked expect a remote
                 // answer — a plain manual ask (no linked room, or notifications
                 // never enabled anywhere) just logs as before.
@@ -4276,6 +4685,7 @@ function processData(d, profile) {
             if (share) share.style.display = (window.currentRegion === 'custom' && window.customBboxPoly) ? 'block' : 'none';
             document.getElementById('settingsModal').style.display = 'block';
             renderLinkedRoomStatus();
+            renderRoleReadout();
             const notifyCb = document.getElementById('toggleNotifications');
             if (notifyCb) notifyCb.checked = localStorage.getItem('gm_notify_enabled') === '1';
         };
@@ -4284,25 +4694,45 @@ function processData(d, profile) {
             document.getElementById('settingsModal').style.display = 'none';
         };
 
-        // Per-device role (not synced to the room). Hiders get the incoming
-        // question queue instead of the deduction tools; seekers get the
-        // tools and their own log.
+        // Applies a role locally — hiders get the incoming-question queue
+        // instead of the deduction tools. localStorage.gm_role is only the
+        // PREFERENCE picked on the setup screen for a room about to be
+        // created; once you're actually in a room, the room's roomRole field
+        // is authoritative (see startGameSession) and overrides it.
         window.setHiderMode = function(isHider, opts) {
             opts = opts || {};
             document.body.classList.toggle('hider-mode', !!isHider);
             localStorage.setItem('gm_role', isHider ? 'hider' : 'seeker');
-            var cb = document.getElementById('toggleHider');
-            if (cb) cb.checked = !!isHider;
+            renderRoleReadout();
             if (isHider) {
                 resetTools(); // cancel any in-progress drawing
                 // The answer queue is a hider's whole reason to have the app
                 // open, so land there rather than on a layer list they can't edit.
                 window.switchTab(window.currentGameId ? 'answers' : 'layers');
-                if (!opts.silent) window.showToast("Hider view on — you'll get the seekers' questions here.", "info", { duration: 3500 });
             } else if (!opts.silent) {
                 window.switchTab('tools');
             }
         };
+
+        function renderRoleReadout() {
+            const isHider = document.body.classList.contains('hider-mode');
+
+            const el = document.getElementById('roleReadout');
+            if (el) {
+                el.innerHTML = window.currentGameId
+                    ? `You're <strong>${isHider ? 'hiding' : 'seeking'}</strong> this round — everyone in this room is.`
+                    : `You'll be <strong>${isHider ? 'hiding' : 'seeking'}</strong> when you create or join a room.`;
+            }
+
+            const posTitle = document.getElementById('posCardTitle');
+            const posNote = document.getElementById('posCardNote');
+            if (posTitle) posTitle.textContent = isHider ? '🙈 Your hiding spot' : '🧍 Your position';
+            if (posNote) {
+                posNote.innerHTML = isHider
+                    ? 'Used only to double-check the answers you send — it stays on this device and is <strong>never sent to the seekers</strong>.'
+                    : 'Matching and measuring questions are answered <em>from where you are</em>.';
+            }
+        }
 
         // Setup-screen role picker. Chosen before creating or joining anything,
         // because it changes what the room is for.

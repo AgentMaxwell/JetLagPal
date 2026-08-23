@@ -97,7 +97,7 @@ strong { font-weight: 650; }
     overflow: hidden;
     display: flex; flex-direction: column;
 }
-.controls-header, #connectionStatus, .tab-bar { flex-shrink: 0; }
+.controls-header, #connectionStatus, .tab-bar, #clockBar, #seekerLinkBanner { flex-shrink: 0; }
 #sheetScroll { flex: 1 1 auto; overflow-y: auto; min-height: 0; padding: 0 14px 16px; overscroll-behavior: contain; }
 
 .controls-header {
@@ -156,6 +156,28 @@ strong { font-weight: 650; }
 .conn-copy:hover { background: var(--brand-line); }
 .conn-copy:disabled { background: var(--surface-3); color: var(--ink-3); border-color: var(--line); }
 .conn-region { font-size: .92em; color: var(--ink-3); margin-top: 5px; }
+
+/* ---------- Round clock ---------- */
+.clock-bar {
+    margin: 10px 14px 0; padding: 9px 10px;
+    background: var(--surface-2); border: 1px solid var(--line);
+    border-radius: var(--r-md); font-size: .86em; color: var(--ink-2);
+}
+.clock-row { display: flex; align-items: center; gap: 7px; }
+.clock-icon { font-size: 1.05em; line-height: 1; }
+.clock-phase { font-weight: 650; color: var(--ink); }
+.clock-time {
+    font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: .02em;
+    color: var(--brand); font-size: 1.05em;
+}
+.clock-bar.hiding .clock-time { color: var(--danger); }
+.clock-bar.seeking .clock-time { color: var(--hit); }
+.clock-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.clock-actions button { width: auto; margin: 0; padding: 8px 12px; font-size: .88em; min-height: 0; }
+
+/* Reusable dismissible notice inside the panel (below the header strips) —
+   same look as .setup-link-banner on the setup screen, different gutter. */
+.setup-link-banner.in-panel { margin: 10px 14px 0; }
 
 /* ---------- Pending question — pinned position, waiting on an answer ---------- */
 .pending-ask {
@@ -445,6 +467,15 @@ button:disabled { background: var(--surface-3); color: var(--ink-3); cursor: not
 }
 .log-index { font-weight: 700; color: var(--brand); margin-right: 8px; min-width: 18px; }
 .log-meta { font-size: .86em; color: var(--ink-3); margin-left: 5px; }
+
+/* A sent answer that got corrected — loud on purpose, since a layer may
+   already be drawn from the old one and nothing here fixes that for you. */
+.answer-changed-banner {
+    margin-top: 6px; padding: 7px 9px; font-size: .85em; font-weight: 650;
+    color: var(--danger); background: rgba(220,38,38,.1);
+    border: 1px solid var(--danger); border-radius: 8px;
+}
+.answer-changed-tag { color: var(--danger); font-weight: 650; }
 
 /* ============================================================
    Setup screen
