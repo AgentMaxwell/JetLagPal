@@ -1,0 +1,1770 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#e4e7e4;font-family:Archivo,system-ui,sans-serif}
+a{color:#0f8fa3;text-decoration:none}a:hover{color:#0a6a78}
+.dv-turn{padding:40px 44px 34px;border-bottom:1px solid rgba(0,0,0,.09);scroll-margin-top:16px}
+.dv-thd{display:flex;align-items:baseline;gap:10px;margin:0 0 22px}
+.dv-tid{font:600 10px "IBM Plex Mono",monospace;padding:3px 7px;background:#101d22;color:#fff;text-decoration:none}
+.dv-tname{font:700 13px/1.2 Archivo,sans-serif;color:#101d22;letter-spacing:-.01em}
+.dv-opts{display:flex;flex-wrap:wrap;gap:34px;align-items:flex-start}
+.dv-opt{flex:none;display:flex;flex-direction:column;gap:10px;scroll-margin-top:16px}
+.dv-oid{font:600 10.5px "IBM Plex Mono",monospace;padding:3px 7px;background:rgba(0,0,0,.09);color:#101d22;text-decoration:none}
+.dv-olabel{display:flex;align-items:baseline;gap:9px;font:400 11.5px/1.45 Archivo,sans-serif;color:rgba(0,0,0,.58);max-width:640px}
+.dv-card{max-width:100%;overflow:hidden}
+.dv-opt:target .dv-oid{background:#0f8fa3;color:#fff}
+.dv-next{margin:24px 0 0;font:12px/1.6 Archivo,sans-serif;color:rgba(0,0,0,.5)}
+@keyframes jlp-blip{0%,100%{opacity:.4}50%{opacity:1}}
+</style>
+</helmet>
+
+<svg width="0" height="0" style="position:absolute;overflow:hidden" aria-hidden="true">
+<symbol id="i-tools" viewBox="0 0 24 24"><path d="M4 20L20 4"></path><circle cx="9" cy="15" r="2.6"></circle><circle cx="16.5" cy="7.5" r="2.6"></circle></symbol>
+<symbol id="i-layers" viewBox="0 0 24 24"><path d="M12 3.5l8 4-8 4-8-4z"></path><path d="M4 12l8 4 8-4"></path><path d="M4 16.5l8 4 8-4"></path></symbol>
+<symbol id="i-ask" viewBox="0 0 24 24"><path d="M3.5 12h6l3-5 3 5h5"></path><circle cx="9.5" cy="12" r="2.4"></circle><path d="M12 3.5v3"></path></symbol>
+<symbol id="i-log" viewBox="0 0 24 24"><path d="M5 5v14"></path><path d="M9 6.5h11M9 12h8M9 17.5h5"></path><path d="M3.5 6.5h3M3.5 12h3M3.5 17.5h3"></path></symbol>
+<symbol id="i-answers" viewBox="0 0 24 24"><path d="M4 6h16v12H4z"></path><path d="M7.5 12.5l2.6 2.6 6-6"></path><path d="M4 9h16"></path></symbol>
+<symbol id="i-radar" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"></circle><circle cx="12" cy="12" r="4.4"></circle><path d="M12 12l6-6"></path><path d="M12 1.8v2.4M12 19.8v2.4M1.8 12h2.4M19.8 12h2.4"></path></symbol>
+<symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21l-5.5-8.2A6.6 6.6 0 1 1 17.5 12.8z"></path><circle cx="12" cy="9.8" r="2.2"></circle></symbol>
+<symbol id="i-crosshair" viewBox="0 0 24 24"><path d="M12 2v20M2 12h20"></path><circle cx="12" cy="12" r="5.4"></circle></symbol>
+<symbol id="i-seek" viewBox="0 0 24 24"><circle cx="10.4" cy="10.4" r="6.2"></circle><path d="M15 15l5.2 5.2"></path><path d="M10.4 6.6v7.6M6.6 10.4h7.6"></path></symbol>
+<symbol id="i-hide" viewBox="0 0 24 24"><path d="M3.5 11.5L12 4l8.5 7.5"></path><path d="M6 12v8h12v-8"></path><path d="M10 20v-4.5h4V20"></path></symbol>
+<symbol id="i-copy" viewBox="0 0 24 24"><path d="M9 9h11v11H9z"></path><path d="M15 5.5V4H4v11h1.5"></path></symbol>
+<symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14l-2 2a3.6 3.6 0 0 1-5-5l2-2"></path><path d="M14 10l2-2a3.6 3.6 0 0 1 5 5l-2 2"></path><path d="M9.2 14.8l5.6-5.6"></path></symbol>
+<symbol id="i-dial" viewBox="0 0 24 24"><path d="M4 7.5h16M4 16.5h16"></path><circle cx="9" cy="7.5" r="2.4"></circle><circle cx="15.5" cy="16.5" r="2.4"></circle></symbol>
+<symbol id="i-help" viewBox="0 0 24 24"><path d="M4 4h16v16H4z"></path><path d="M9.4 9.6a2.6 2.6 0 1 1 3.7 2.4c-.9.5-1.4 1-1.4 2"></path><path d="M11.7 17.2h.6"></path></symbol>
+<symbol id="i-close" viewBox="0 0 24 24"><path d="M5.5 5.5l13 13M18.5 5.5l-13 13"></path></symbol>
+<symbol id="i-back" viewBox="0 0 24 24"><path d="M9.5 6L4 11.5h12a3.8 3.8 0 0 1 0 7.6h-6"></path><path d="M9.5 17L4 11.5"></path></symbol>
+<symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.4"></circle><path d="M12 7v5.2l3.6 2.2"></path><path d="M12 2v2M12 20v2M2 12h2M20 12h2"></path></symbol>
+<symbol id="i-plane" viewBox="0 0 24 24"><path d="M3 13.6L20.5 7l-5.6 11.6-2.6-4.4z"></path><path d="M12.3 14.2L8.6 18"></path></symbol>
+<symbol id="i-train" viewBox="0 0 24 24"><path d="M6.5 4h11v11h-11z"></path><path d="M6.5 9.5h11"></path><path d="M9 19.6l1.6-4M15 19.6l-1.6-4"></path><path d="M4.5 19.6h15"></path></symbol>
+<symbol id="i-station" viewBox="0 0 24 24"><path d="M3.5 20h17"></path><path d="M7.5 20V9.5h9V20"></path><path d="M10.6 13.4h2.8"></path><path d="M12 4.5v5"></path></symbol>
+<symbol id="i-border" viewBox="0 0 24 24"><path d="M12 2.5v3.6M12 9.4v5.2M12 17.9v3.6"></path><path d="M5.5 7.5l3.5-2M15 18.5l3.5-2"></path></symbol>
+<symbol id="i-measure" viewBox="0 0 24 24"><path d="M3 9.5h18v5H3z"></path><path d="M7.5 9.5v2.6M12 9.5v3.4M16.5 9.5v2.6"></path></symbol>
+<symbol id="i-node" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5.2"></circle></symbol>
+<symbol id="i-stop" viewBox="0 0 24 24"><path d="M7 7h10v10H7z" fill="currentColor" stroke="none"></path></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><path d="M4.5 12.5l4.8 4.6L19.5 6.8"></path></symbol>
+<symbol id="i-chevron" viewBox="0 0 24 24"><path d="M8.5 5l7 7-7 7"></path></symbol>
+<symbol id="i-zone" viewBox="0 0 24 24"><path d="M4 8l6-4 5 2.6 5-2.6v12l-5 2.6-5-2.6-6 4z"></path><path d="M10 4v13M15 6.6v12"></path></symbol>
+<symbol id="i-route" viewBox="0 0 24 24"><path d="M3.5 20.5V13L13 3.5h7.5"></path><circle cx="13" cy="3.5" r="0.1"></circle></symbol>
+</svg>
+
+<section class="dv-turn" id="t3">
+<div class="dv-thd"><a class="dv-tid" href="#t3">3</a><span class="dv-tname">The rest of <a class="dv-oid" href="#2a">2a</a> — Ask, Log, Answers, tutorial</span></div>
+<div class="dv-opts">
+
+<div class="dv-opt" id="3a">
+<div class="dv-olabel"><a class="dv-oid" href="#3a">3a</a><span><b>Ask &amp; Answers.</b> Three tiers of card, so nothing reads flat: a <b>live</b> question gets the amber rule, a 6px bar, 30pt mono countdown and its own footer actions; a <b>drawn</b> option is a flat tile; a <b>settled</b> answer is a passive row with a stamped YES/NO block and a hairline bar. Log is the thinnest tier — mono timestamps on a ticked rail, no fill at all.</span></div>
+<div class="dv-card" style="background:#b9bdb4;padding:26px;display:flex;gap:22px">
+
+  <!-- ASK · DARK -->
+  <div style="width:390px;height:800px;background:#0a1214;border-radius:36px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 44px rgba(0,0,0,.4);position:relative">
+    <div style="position:absolute;inset:0;background:#0e181b;background-image:linear-gradient(rgba(46,196,214,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(46,196,214,.07) 1px,transparent 1px);background-size:34px 34px"></div>
+    <div style="position:relative;display:flex;align-items:center;justify-content:space-between;padding:16px 26px 8px;font:600 12px/1 'IBM Plex Mono',monospace;color:#eef4f2;font-variant-numeric:tabular-nums">
+      <span>9:41</span>
+      <span style="display:flex;align-items:center;gap:5px"><span style="width:4px;height:9px;background:#eef4f2"></span><span style="width:4px;height:12px;background:#eef4f2"></span><span style="width:4px;height:14px;background:#5b6d71"></span><span style="margin-left:4px;width:20px;height:10px;border:1px solid #8fa3a8"></span></span>
+    </div>
+
+    <span style="flex:1"></span>
+
+    <div style="position:relative;background:#0d1618;border-top:4px solid #ffb02e">
+      <div style="padding:9px 0 5px;display:grid;place-items:center"><span style="width:44px;height:4px;background:#2a3a3e"></span></div>
+
+      <!-- live question — top tier -->
+      <div style="margin:4px 16px 0;border-left:6px solid #ffb02e;background:#1a1206;padding:14px 15px 15px">
+        <div style="display:flex;align-items:center;gap:9px">
+          <span style="width:7px;height:7px;background:#ffb02e;animation:jlp-blip 1.8s ease-in-out infinite"></span>
+          <span style="font:700 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.3em;color:#ffb02e">AWAITING ANSWER</span>
+          <span style="flex:1"></span>
+          <span style="font:700 20px/1 'IBM Plex Mono',monospace;color:#ffb02e;font-variant-numeric:tabular-nums">04:12</span>
+        </div>
+        <div style="margin-top:11px;font:700 19px/1.25 Archivo,sans-serif;letter-spacing:-.02em;color:#fff5e4;text-wrap:pretty">Are you closer to a commercial airport than I am?</div>
+        <div style="margin-top:9px;font:400 11.5px/1 'IBM Plex Mono',monospace;color:#a8907a">MEASURING · SENT 21:44 · TO HIDERS</div>
+        <div style="margin-top:13px;display:flex;gap:2px">
+          <div style="flex:1;display:flex;align-items:center;justify-content:center;gap:7px;height:48px;background:#241a08;color:#ffd79a;font:600 13px/1 Archivo,sans-serif">
+            <svg style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-copy"></use></svg>Copy
+          </div>
+          <div style="flex:1;display:flex;align-items:center;justify-content:center;gap:7px;height:48px;background:#ffb02e;color:#241300;font:700 13px/1 Archivo,sans-serif">
+            <svg style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-check"></use></svg>Log answer
+          </div>
+        </div>
+      </div>
+
+      <div style="margin:14px 16px 0;height:2px;background:repeating-linear-gradient(90deg,#2c3c40 0 6px,transparent 6px 12px)"></div>
+
+      <!-- drawn categories — middle tier -->
+      <div style="padding:8px 16px 4px;display:flex;flex-direction:column;gap:9px">
+        <div style="display:flex;align-items:center;gap:10px;height:48px;padding:0 13px;background:#111d20;color:#8fa3a8">
+          <span style="font:700 13px/1 'IBM Plex Mono',monospace;color:#4f6165">01</span>
+          <span style="font:600 14px/1 Archivo,sans-serif;color:#cfe0e5">Matching</span>
+          <span style="font:400 10.5px/1 'IBM Plex Mono',monospace;color:#5b6d71">DRAW 3 · PICK 1</span>
+          <span style="flex:1"></span>
+          <svg style="width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:square"><use href="#i-chevron"></use></svg>
+        </div>
+
+        <div>
+          <div style="display:flex;align-items:center;gap:10px;height:48px;padding:0 13px;background:#111d20;border-top:3px solid #2ec4d6">
+            <span style="font:700 13px/1 'IBM Plex Mono',monospace;color:#2ec4d6">02</span>
+            <span style="font:700 14px/1 Archivo,sans-serif;color:#eef4f2">Measuring</span>
+            <span style="font:400 10.5px/1 'IBM Plex Mono',monospace;color:#7c9095">DRAW 3 · PICK 1</span>
+            <span style="flex:1"></span>
+            <svg style="width:12px;height:12px;stroke:#2ec4d6;fill:none;stroke-width:2;stroke-linecap:square;transform:rotate(90deg)"><use href="#i-chevron"></use></svg>
+          </div>
+
+          <div style="padding:13px 0 0;display:flex;flex-direction:column;gap:11px">
+            <div>
+              <div style="font:600 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.28em;color:#5b6d71">TRANSIT</div>
+              <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:3px">
+                <div style="flex:1 1 160px;display:flex;align-items:center;gap:9px;height:52px;padding:0 12px;background:#111d20;color:#cfe0e5;font:500 13px/1.2 Archivo,sans-serif">
+                  <svg style="width:18px;height:18px;stroke:#2ec4d6;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter;flex:none"><use href="#i-plane"></use></svg>Commercial Airport
+                </div>
+                <div style="flex:1 1 160px;display:flex;align-items:center;gap:9px;height:52px;padding:0 12px;background:#111d20;color:#cfe0e5;font:500 13px/1.2 Archivo,sans-serif">
+                  <svg style="width:18px;height:18px;stroke:#2ec4d6;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter;flex:none"><use href="#i-train"></use></svg>High-Speed Train
+                </div>
+                <div style="flex:1 1 160px;display:flex;align-items:center;gap:9px;height:52px;padding:0 12px;background:#111d20;color:#cfe0e5;font:500 13px/1.2 Archivo,sans-serif">
+                  <svg style="width:18px;height:18px;stroke:#2ec4d6;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter;flex:none"><use href="#i-station"></use></svg>Rail Station
+                </div>
+              </div>
+            </div>
+            <div>
+              <div style="font:600 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.28em;color:#5b6d71">BORDERS</div>
+              <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:3px">
+                <div style="flex:1 1 160px;display:flex;align-items:center;gap:9px;height:52px;padding:0 12px;background:#111d20;color:#cfe0e5;font:500 13px/1.2 Archivo,sans-serif">
+                  <svg style="width:18px;height:18px;stroke:#2ec4d6;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter;flex:none"><use href="#i-border"></use></svg>International
+                </div>
+                <div style="flex:1 1 160px;display:flex;align-items:center;gap:9px;height:52px;padding:0 12px;background:#111d20;color:#cfe0e5;font:500 13px/1.2 Archivo,sans-serif">
+                  <svg style="width:18px;height:18px;stroke:#2ec4d6;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter;flex:none"><use href="#i-border"></use></svg>1st Admin Division
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;border-top:2px solid #1a2629;background:#0a1214">
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;height:62px;color:#6d8085">
+          <svg style="width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-tools"></use></svg>
+          <span style="font:600 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.14em">TOOLS</span>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;height:62px;color:#6d8085;position:relative">
+          <svg style="width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-layers"></use></svg>
+          <span style="font:600 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.14em">LAYERS</span>
+          <span style="position:absolute;top:9px;right:16px;min-width:15px;height:15px;padding:0 3px;background:#ffb02e;color:#241300;font:700 9.5px/15px 'IBM Plex Mono',monospace;text-align:center">1</span>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;height:62px;border-top:3px solid #2ec4d6;background:#111d20;color:#2ec4d6;margin-top:-2px">
+          <svg style="width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-ask"></use></svg>
+          <span style="font:700 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.14em">ASK</span>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;height:62px;color:#6d8085">
+          <svg style="width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-log"></use></svg>
+          <span style="font:600 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.14em">LOG</span>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;height:62px;color:#6d8085">
+          <svg style="width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-answers"></use></svg>
+          <span style="font:600 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.14em">ANSWERS</span>
+        </div>
+      </div>
+      <div style="padding:9px 0 8px;display:grid;place-items:center;background:#0a1214"><span style="width:132px;height:5px;background:#2a3538;border-radius:3px"></span></div>
+    </div>
+  </div>
+
+  <!-- ASK · LIGHT -->
+  <div style="width:390px;height:800px;background:#edeae1;border-radius:36px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 44px rgba(0,0,0,.22);position:relative">
+    <div style="position:absolute;inset:0;background:#f1eee6;background-image:linear-gradient(rgba(11,123,140,.09) 1px,transparent 1px),linear-gradient(90deg,rgba(11,123,140,.09) 1px,transparent 1px);background-size:34px 34px"></div>
+    <div style="position:relative;display:flex;align-items:center;justify-content:space-between;padding:16px 26px 8px;font:600 12px/1 'IBM Plex Mono',monospace;color:#10201f;font-variant-numeric:tabular-nums">
+      <span>9:41</span>
+      <span style="display:flex;align-items:center;gap:5px"><span style="width:4px;height:9px;background:#10201f"></span><span style="width:4px;height:12px;background:#10201f"></span><span style="width:4px;height:14px;background:#a8aca2"></span><span style="margin-left:4px;width:20px;height:10px;border:1px solid #5e6a68"></span></span>
+    </div>
+
+    <span style="flex:1"></span>
+
+    <div style="position:relative;background:#f8f7f2;border-top:4px solid #c4741a">
+      <div style="padding:9px 0 5px;display:grid;place-items:center"><span style="width:44px;height:4px;background:#d5d3c8"></span></div>
+
+      <div style="margin:4px 16px 0;border-left:6px solid #c4741a;background:#f6ecdc;padding:14px 15px 15px">
+        <div style="display:flex;align-items:center;gap:9px">
+          <span style="width:7px;height:7px;background:#c4741a"></span>
+          <span style="font:700 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.3em;color:#a8600c">AWAITING ANSWER</span>
+          <span style="flex:1"></span>
+          <span style="font:700 20px/1 'IBM Plex Mono',monospace;color:#a8600c;font-variant-numeric:tabular-nums">04:12</span>
+        </div>
+        <div style="margin-top:11px;font:700 19px/1.25 Archivo,sans-serif;letter-spacing:-.02em;color:#231607;text-wrap:pretty">Are you closer to a commercial airport than I am?</div>
+        <div style="margin-top:9px;font:400 11.5px/1 'IBM Plex Mono',monospace;color:#96805f">MEASURING · SENT 21:44 · TO HIDERS</div>
+        <div style="margin-top:13px;display:flex;gap:2px">
+          <div style="flex:1;display:flex;align-items:center;justify-content:center;gap:7px;height:48px;background:#efe2cb;color:#5c4212;font:600 13px/1 Archivo,sans-serif">
+            <svg style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-copy"></use></svg>Copy
+          </div>
+          <div style="flex:1;display:flex;align-items:center;justify-content:center;gap:7px;height:48px;background:#c4741a;color:#fff;font:700 13px/1 Archivo,sans-serif">
+            <svg style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-check"></use></svg>Log answer
+          </div>
+        </div>
+      </div>
+
+      <div style="margin:14px 16px 0;height:2px;background:repeating-linear-gradient(90deg,#cfcdc0 0 6px,transparent 6px 12px)"></div>
+
+      <div style="padding:8px 16px 4px;display:flex;flex-direction:column;gap:9px">
+        <div style="display:flex;align-items:center;gap:10px;height:48px;padding:0 13px;background:#eef1ec;color:#6d766f">
+          <span style="font:700 13px/1 'IBM Plex Mono',monospace;color:#a4aba1">01</span>
+          <span style="font:600 14px/1 Archivo,sans-serif;color:#3b4744">Matching</span>
+          <span style="font:400 10.5px/1 'IBM Plex Mono',monospace;color:#8b938a">DRAW 3 · PICK 1</span>
+          <span style="flex:1"></span>
+          <svg style="width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:square"><use href="#i-chevron"></use></svg>
+        </div>
+
+        <div>
+          <div style="display:flex;align-items:center;gap:10px;height:48px;padding:0 13px;background:#eef1ec;border-top:3px solid #0b7b8c">
+            <span style="font:700 13px/1 'IBM Plex Mono',monospace;color:#0b7b8c">02</span>
+            <span style="font:700 14px/1 Archivo,sans-serif;color:#10201f">Measuring</span>
+            <span style="font:400 10.5px/1 'IBM Plex Mono',monospace;color:#5e6a68">DRAW 3 · PICK 1</span>
+            <span style="flex:1"></span>
+            <svg style="width:12px;height:12px;stroke:#0b7b8c;fill:none;stroke-width:2;stroke-linecap:square;transform:rotate(90deg)"><use href="#i-chevron"></use></svg>
+          </div>
+
+          <div style="padding:13px 0 0;display:flex;flex-direction:column;gap:11px">
+            <div>
+              <div style="font:600 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.28em;color:#8b938a">TRANSIT</div>
+              <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:3px">
+                <div style="flex:1 1 160px;display:flex;align-items:center;gap:9px;height:52px;padding:0 12px;background:#eef1ec;color:#3b4744;font:500 13px/1.2 Archivo,sans-serif">
+                  <svg style="width:18px;height:18px;stroke:#0b7b8c;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter;flex:none"><use href="#i-plane"></use></svg>Commercial Airport
+                </div>
+                <div style="flex:1 1 160px;display:flex;align-items:center;gap:9px;height:52px;padding:0 12px;background:#eef1ec;color:#3b4744;font:500 13px/1.2 Archivo,sans-serif">
+                  <svg style="width:18px;height:18px;stroke:#0b7b8c;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter;flex:none"><use href="#i-train"></use></svg>High-Speed Train
+                </div>
+                <div style="flex:1 1 160px;display:flex;align-items:center;gap:9px;height:52px;padding:0 12px;background:#eef1ec;color:#3b4744;font:500 13px/1.2 Archivo,sans-serif">
+                  <svg style="width:18px;height:18px;stroke:#0b7b8c;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter;flex:none"><use href="#i-station"></use></svg>Rail Station
+                </div>
+              </div>
+            </div>
+            <div>
+              <div style="font:600 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.28em;color:#8b938a">BORDERS</div>
+              <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:3px">
+                <div style="flex:1 1 160px;display:flex;align-items:center;gap:9px;height:52px;padding:0 12px;background:#eef1ec;color:#3b4744;font:500 13px/1.2 Archivo,sans-serif">
+                  <svg style="width:18px;height:18px;stroke:#0b7b8c;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter;flex:none"><use href="#i-border"></use></svg>International
+                </div>
+                <div style="flex:1 1 160px;display:flex;align-items:center;gap:9px;height:52px;padding:0 12px;background:#eef1ec;color:#3b4744;font:500 13px/1.2 Archivo,sans-serif">
+                  <svg style="width:18px;height:18px;stroke:#0b7b8c;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter;flex:none"><use href="#i-border"></use></svg>1st Admin Division
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;border-top:2px solid #e4e1d6;background:#f1eee6">
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;height:62px;color:#7b837b">
+          <svg style="width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-tools"></use></svg>
+          <span style="font:600 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.14em">TOOLS</span>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;height:62px;color:#7b837b;position:relative">
+          <svg style="width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-layers"></use></svg>
+          <span style="font:600 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.14em">LAYERS</span>
+          <span style="position:absolute;top:9px;right:16px;min-width:15px;height:15px;padding:0 3px;background:#c4741a;color:#fff;font:700 9.5px/15px 'IBM Plex Mono',monospace;text-align:center">1</span>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;height:62px;border-top:3px solid #0b7b8c;background:#eef1ec;color:#0b7b8c;margin-top:-2px">
+          <svg style="width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-ask"></use></svg>
+          <span style="font:700 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.14em">ASK</span>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;height:62px;color:#7b837b">
+          <svg style="width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-log"></use></svg>
+          <span style="font:600 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.14em">LOG</span>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;height:62px;color:#7b837b">
+          <svg style="width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-answers"></use></svg>
+          <span style="font:600 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.14em">ANSWERS</span>
+        </div>
+      </div>
+      <div style="padding:9px 0 8px;display:grid;place-items:center;background:#f1eee6"><span style="width:132px;height:5px;background:#c9c6ba;border-radius:3px"></span></div>
+    </div>
+  </div>
+
+  <!-- LOG · DARK -->
+  <div style="width:390px;height:800px;background:#0a1214;border-radius:36px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 44px rgba(0,0,0,.4);position:relative">
+    <div style="position:absolute;inset:0;background:#0e181b;background-image:linear-gradient(rgba(46,196,214,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(46,196,214,.07) 1px,transparent 1px);background-size:34px 34px"></div>
+    <div style="position:relative;display:flex;align-items:center;justify-content:space-between;padding:16px 26px 8px;font:600 12px/1 'IBM Plex Mono',monospace;color:#eef4f2;font-variant-numeric:tabular-nums">
+      <span>9:41</span>
+      <span style="display:flex;align-items:center;gap:5px"><span style="width:4px;height:9px;background:#eef4f2"></span><span style="width:4px;height:12px;background:#eef4f2"></span><span style="width:4px;height:14px;background:#5b6d71"></span><span style="margin-left:4px;width:20px;height:10px;border:1px solid #8fa3a8"></span></span>
+    </div>
+
+    <span style="flex:1"></span>
+
+    <div style="position:relative;background:#0d1618;border-top:4px solid #2ec4d6">
+      <div style="padding:9px 0 5px;display:grid;place-items:center"><span style="width:44px;height:4px;background:#2a3a3e"></span></div>
+
+      <div style="display:flex;align-items:center;gap:10px;padding:6px 16px 12px;border-bottom:2px solid #1a2629">
+        <svg style="width:19px;height:19px;stroke:#2ec4d6;fill:none;stroke-width:1.7;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-log"></use></svg>
+        <span style="font:800 20px/1 Archivo,sans-serif;letter-spacing:-.03em;color:#eef4f2">ROUND LOG</span>
+        <span style="flex:1"></span>
+        <span style="font:500 10px/1 'IBM Plex Mono',monospace;letter-spacing:.16em;color:#5b6d71">14 EVENTS</span>
+      </div>
+
+      <div style="padding:16px 16px 14px;position:relative">
+        <div style="position:absolute;left:60px;top:16px;bottom:14px;width:2px;background:#1e2c30"></div>
+        <div style="display:flex;flex-direction:column;gap:0">
+
+          <div style="display:flex;gap:18px;padding:11px 0">
+            <span style="width:38px;text-align:right;font:500 11px/1.5 'IBM Plex Mono',monospace;color:#5b6d71;font-variant-numeric:tabular-nums;flex:none">21:44</span>
+            <span style="position:relative;width:2px;flex:none"><span style="position:absolute;left:-4px;top:5px;width:10px;height:10px;background:#ffb02e"></span></span>
+            <div style="flex:1;padding-left:8px">
+              <div style="font:600 13px/1.35 Archivo,sans-serif;color:#eef4f2">Asked — closer to a commercial airport?</div>
+              <div style="margin-top:3px;font:400 10.5px/1 'IBM Plex Mono',monospace;color:#5b6d71">MEASURING · AWAITING</div>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:18px;padding:11px 0;border-top:1px solid #162124">
+            <span style="width:38px;text-align:right;font:500 11px/1.5 'IBM Plex Mono',monospace;color:#5b6d71;font-variant-numeric:tabular-nums;flex:none">21:31</span>
+            <span style="position:relative;width:2px;flex:none"><span style="position:absolute;left:-4px;top:5px;width:10px;height:10px;background:#2ec4d6"></span></span>
+            <div style="flex:1;padding-left:8px">
+              <div style="font:600 13px/1.35 Archivo,sans-serif;color:#cfe0e5">Radar drawn — 5km from Piccadilly</div>
+              <div style="margin-top:3px;font:400 10.5px/1 'IBM Plex Mono',monospace;color:#5b6d71">TOOL · 53.4808, -2.2426</div>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:18px;padding:11px 0;border-top:1px solid #162124">
+            <span style="width:38px;text-align:right;font:500 11px/1.5 'IBM Plex Mono',monospace;color:#5b6d71;font-variant-numeric:tabular-nums;flex:none">21:18</span>
+            <span style="position:relative;width:2px;flex:none"><span style="position:absolute;left:-3px;top:6px;width:8px;height:8px;background:#4bd68a"></span></span>
+            <div style="flex:1;padding-left:8px">
+              <div style="font:600 13px/1.35 Archivo,sans-serif;color:#cfe0e5">Answer received — <span style="color:#4bd68a">YES</span></div>
+              <div style="margin-top:3px;font:400 10.5px/1 'IBM Plex Mono',monospace;color:#5b6d71">MATCHING · SAME RAIL OPERATOR</div>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:18px;padding:11px 0;border-top:1px solid #162124">
+            <span style="width:38px;text-align:right;font:500 11px/1.5 'IBM Plex Mono',monospace;color:#5b6d71;font-variant-numeric:tabular-nums;flex:none">21:02</span>
+            <span style="position:relative;width:2px;flex:none"><span style="position:absolute;left:-3px;top:6px;width:8px;height:8px;background:#3d4f54"></span></span>
+            <div style="flex:1;padding-left:8px">
+              <div style="font:500 13px/1.35 Archivo,sans-serif;color:#8fa3a8">Zone locked — Birmingham &amp; West Midlands</div>
+              <div style="margin-top:3px;font:400 10.5px/1 'IBM Plex Mono',monospace;color:#4f6165">SETUP</div>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:18px;padding:11px 0;border-top:1px solid #162124">
+            <span style="width:38px;text-align:right;font:500 11px/1.5 'IBM Plex Mono',monospace;color:#5b6d71;font-variant-numeric:tabular-nums;flex:none">21:00</span>
+            <span style="position:relative;width:2px;flex:none"><span style="position:absolute;left:-4px;top:5px;width:10px;height:10px;border:2px solid #2ec4d6;background:#0d1618"></span></span>
+            <div style="flex:1;padding-left:8px">
+              <div style="font:700 13px/1.35 Archivo,sans-serif;color:#eef4f2">Round 3 started</div>
+              <div style="margin-top:3px;font:400 10.5px/1 'IBM Plex Mono',monospace;color:#5b6d71">SEEKING · ROOM 41550</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;border-top:2px solid #1a2629;background:#0a1214">
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;height:62px;color:#6d8085">
+          <svg style="width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-tools"></use></svg>
+          <span style="font:600 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.14em">TOOLS</span>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;height:62px;color:#6d8085;position:relative">
+          <svg style="width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-layers"></use></svg>
+          <span style="font:600 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.14em">LAYERS</span>
+          <span style="position:absolute;top:9px;right:16px;min-width:15px;height:15px;padding:0 3px;background:#ffb02e;color:#241300;font:700 9.5px/15px 'IBM Plex Mono',monospace;text-align:center">1</span>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;height:62px;color:#6d8085">
+          <svg style="width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-ask"></use></svg>
+          <span style="font:600 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.14em">ASK</span>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;height:62px;border-top:3px solid #2ec4d6;background:#111d20;color:#2ec4d6;margin-top:-2px">
+          <svg style="width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-log"></use></svg>
+          <span style="font:700 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.14em">LOG</span>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;height:62px;color:#6d8085">
+          <svg style="width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-answers"></use></svg>
+          <span style="font:600 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.14em">ANSWERS</span>
+        </div>
+      </div>
+      <div style="padding:9px 0 8px;display:grid;place-items:center;background:#0a1214"><span style="width:132px;height:5px;background:#2a3538;border-radius:3px"></span></div>
+    </div>
+  </div>
+
+  <!-- ANSWERS · DARK -->
+  <div style="width:390px;height:800px;background:#0a1214;border-radius:36px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 44px rgba(0,0,0,.4);position:relative">
+    <div style="position:absolute;inset:0;background:#0e181b;background-image:linear-gradient(rgba(46,196,214,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(46,196,214,.07) 1px,transparent 1px);background-size:34px 34px"></div>
+    <div style="position:relative;display:flex;align-items:center;justify-content:space-between;padding:16px 26px 8px;font:600 12px/1 'IBM Plex Mono',monospace;color:#eef4f2;font-variant-numeric:tabular-nums">
+      <span>9:41</span>
+      <span style="display:flex;align-items:center;gap:5px"><span style="width:4px;height:9px;background:#eef4f2"></span><span style="width:4px;height:12px;background:#eef4f2"></span><span style="width:4px;height:14px;background:#5b6d71"></span><span style="margin-left:4px;width:20px;height:10px;border:1px solid #8fa3a8"></span></span>
+    </div>
+
+    <span style="flex:1"></span>
+
+    <div style="position:relative;background:#0d1618;border-top:4px solid #2ec4d6">
+      <div style="padding:9px 0 5px;display:grid;place-items:center"><span style="width:44px;height:4px;background:#2a3a3e"></span></div>
+
+      <div style="display:flex;align-items:center;gap:10px;padding:6px 16px 12px;border-bottom:2px solid #1a2629">
+        <svg style="width:19px;height:19px;stroke:#2ec4d6;fill:none;stroke-width:1.7;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-answers"></use></svg>
+        <span style="font:800 20px/1 Archivo,sans-serif;letter-spacing:-.03em;color:#eef4f2">ANSWERS</span>
+        <span style="flex:1"></span>
+        <span style="font:500 10px/1 'IBM Plex Mono',monospace;letter-spacing:.16em;color:#5b6d71">5 SETTLED · 1 OPEN</span>
+      </div>
+
+      <div style="padding:14px 16px 14px;display:flex;flex-direction:column;gap:11px">
+
+        <div style="display:flex;background:#111d20;border-left:2px solid #4bd68a">
+          <div style="flex:1;padding:13px 14px">
+            <div style="font:400 10px/1 'IBM Plex Mono',monospace;letter-spacing:.22em;color:#5b6d71">MATCHING · 21:18</div>
+            <div style="margin-top:7px;font:600 13.5px/1.35 Archivo,sans-serif;color:#cfe0e5">Same rail operator as me?</div>
+          </div>
+          <div style="width:74px;flex:none;background:#12241b;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;border-left:1px solid #1d3a2b">
+            <svg style="width:18px;height:18px;stroke:#4bd68a;fill:none;stroke-width:2.2;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-check"></use></svg>
+            <span style="font:700 12px/1 'IBM Plex Mono',monospace;letter-spacing:.14em;color:#4bd68a">YES</span>
+          </div>
+        </div>
+
+        <div style="display:flex;background:#111d20;border-left:2px solid #ff6a4d">
+          <div style="flex:1;padding:13px 14px">
+            <div style="font:400 10px/1 'IBM Plex Mono',monospace;letter-spacing:.22em;color:#5b6d71">MEASURING · 20:55</div>
+            <div style="margin-top:7px;font:600 13.5px/1.35 Archivo,sans-serif;color:#cfe0e5">Closer to an international border?</div>
+          </div>
+          <div style="width:74px;flex:none;background:#26130f;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;border-left:1px solid #3d1d17">
+            <svg style="width:18px;height:18px;stroke:#ff6a4d;fill:none;stroke-width:2.2;stroke-linecap:square"><use href="#i-close"></use></svg>
+            <span style="font:700 12px/1 'IBM Plex Mono',monospace;letter-spacing:.14em;color:#ff6a4d">NO</span>
+          </div>
+        </div>
+
+        <div style="display:flex;background:#111d20;border-left:2px solid #4bd68a">
+          <div style="flex:1;padding:13px 14px">
+            <div style="font:400 10px/1 'IBM Plex Mono',monospace;letter-spacing:.22em;color:#5b6d71">RADAR · 20:31</div>
+            <div style="margin-top:7px;font:600 13.5px/1.35 Archivo,sans-serif;color:#cfe0e5">Within 10km of Wolverhampton?</div>
+          </div>
+          <div style="width:74px;flex:none;background:#12241b;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;border-left:1px solid #1d3a2b">
+            <svg style="width:18px;height:18px;stroke:#4bd68a;fill:none;stroke-width:2.2;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-check"></use></svg>
+            <span style="font:700 12px/1 'IBM Plex Mono',monospace;letter-spacing:.14em;color:#4bd68a">YES</span>
+          </div>
+        </div>
+
+        <div style="display:flex;background:#0f191c;border-left:2px solid #2a3a3e;opacity:.72">
+          <div style="flex:1;padding:13px 14px">
+            <div style="font:400 10px/1 'IBM Plex Mono',monospace;letter-spacing:.22em;color:#4f6165">PHOTO · 20:04</div>
+            <div style="margin-top:7px;font:500 13.5px/1.35 Archivo,sans-serif;color:#8fa3a8">Photo of your closest tall building</div>
+          </div>
+          <div style="width:74px;flex:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;border-left:1px solid #1a2629">
+            <svg style="width:18px;height:18px;stroke:#6d8085;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-photo"></use></svg>
+            <span style="font:500 9px/1 'IBM Plex Mono',monospace;letter-spacing:.14em;color:#6d8085">SEEN</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;border-top:2px solid #1a2629;background:#0a1214">
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;height:62px;color:#6d8085">
+          <svg style="width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-tools"></use></svg>
+          <span style="font:600 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.14em">TOOLS</span>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;height:62px;color:#6d8085;position:relative">
+          <svg style="width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-layers"></use></svg>
+          <span style="font:600 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.14em">LAYERS</span>
+          <span style="position:absolute;top:9px;right:16px;min-width:15px;height:15px;padding:0 3px;background:#ffb02e;color:#241300;font:700 9.5px/15px 'IBM Plex Mono',monospace;text-align:center">1</span>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;height:62px;color:#6d8085">
+          <svg style="width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-ask"></use></svg>
+          <span style="font:600 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.14em">ASK</span>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;height:62px;color:#6d8085">
+          <svg style="width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-log"></use></svg>
+          <span style="font:600 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.14em">LOG</span>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;height:62px;border-top:3px solid #2ec4d6;background:#111d20;color:#2ec4d6;margin-top:-2px">
+          <svg style="width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-answers"></use></svg>
+          <span style="font:700 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.14em">ANSWERS</span>
+        </div>
+      </div>
+      <div style="padding:9px 0 8px;display:grid;place-items:center;background:#0a1214"><span style="width:132px;height:5px;background:#2a3538;border-radius:3px"></span></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="dv-opt" id="3b">
+<div class="dv-olabel"><a class="dv-oid" href="#3b">3b</a><span><b>Tutorial &amp; layers.</b> Tutorial is a route: numbered stops on a line, current stop filled, the rest hollow — no dot-pagination. Copy untouched. Layers rows drop the card formula entirely: a 44pt row, a colour-coded route chip and a switch, on a hairline rail.</span></div>
+<div class="dv-card" style="background:#b9bdb4;padding:26px;display:flex;gap:22px">
+
+  <!-- TUTORIAL · DARK -->
+  <div style="width:390px;height:800px;background:#0a1214;border-radius:36px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 44px rgba(0,0,0,.4);position:relative">
+    <div style="position:absolute;inset:0;background:#0e181b;background-image:linear-gradient(rgba(46,196,214,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(46,196,214,.07) 1px,transparent 1px);background-size:34px 34px"></div>
+    <svg viewBox="0 0 390 420" style="position:absolute;top:120px;left:0;width:390px;height:420px">
+      <circle cx="150" cy="180" r="96" fill="rgba(46,196,214,.08)" stroke="#2ec4d6" stroke-width="2" stroke-dasharray="8 7"></circle>
+      <path d="M60 300l90-120 80 34" fill="none" stroke="#ffb02e" stroke-width="3" stroke-linecap="square"></path>
+      <circle cx="60" cy="300" r="6" fill="#ffb02e"></circle>
+      <circle cx="230" cy="214" r="6" fill="#ffb02e"></circle>
+      <circle cx="150" cy="180" r="7" fill="#2ec4d6"></circle>
+    </svg>
+    <div style="position:absolute;inset:0;background:rgba(4,12,14,.6)"></div>
+
+    <div style="position:relative;display:flex;align-items:center;justify-content:space-between;padding:16px 26px 8px;font:600 12px/1 'IBM Plex Mono',monospace;color:#eef4f2;font-variant-numeric:tabular-nums">
+      <span>9:41</span>
+      <span style="display:flex;align-items:center;gap:5px"><span style="width:4px;height:9px;background:#eef4f2"></span><span style="width:4px;height:12px;background:#eef4f2"></span><span style="width:4px;height:14px;background:#5b6d71"></span><span style="margin-left:4px;width:20px;height:10px;border:1px solid #8fa3a8"></span></span>
+    </div>
+
+    <span style="flex:1"></span>
+
+    <div style="position:relative;background:#0d1618;border-top:4px solid #2ec4d6;padding:18px 20px 0">
+      <div style="display:flex;align-items:center;gap:0;padding-bottom:16px">
+        <span style="width:14px;height:14px;background:#2ec4d6;flex:none"></span>
+        <span style="flex:1;height:2px;background:#2ec4d6"></span>
+        <span style="width:14px;height:14px;background:#2ec4d6;flex:none"></span>
+        <span style="flex:1;height:2px;background:#2ec4d6"></span>
+        <span style="width:18px;height:18px;border:3px solid #2ec4d6;background:#0d1618;flex:none"></span>
+        <span style="flex:1;height:2px;background:repeating-linear-gradient(90deg,#2a3a3e 0 4px,transparent 4px 8px)"></span>
+        <span style="width:14px;height:14px;border:2px solid #2a3a3e;flex:none"></span>
+        <span style="flex:1;height:2px;background:repeating-linear-gradient(90deg,#2a3a3e 0 4px,transparent 4px 8px)"></span>
+        <span style="width:14px;height:14px;border:2px solid #2a3a3e;flex:none"></span>
+      </div>
+
+      <div style="display:flex;align-items:baseline;gap:10px">
+        <span style="font:700 30px/1 'IBM Plex Mono',monospace;color:#2ec4d6;font-variant-numeric:tabular-nums">03</span>
+        <span style="font:500 10px/1 'IBM Plex Mono',monospace;letter-spacing:.22em;color:#5b6d71">OF 05 · THERMOMETER</span>
+      </div>
+      <div style="margin-top:14px;font:800 26px/1.15 Archivo,sans-serif;letter-spacing:-.03em;color:#eef4f2;text-wrap:pretty">Tap where you started, then where it got warmer.</div>
+      <div style="margin-top:12px;font:400 13.5px/1.55 Archivo,sans-serif;color:#8fa3a8;text-wrap:pretty">JetLagPal draws the perpendicular bisector for you and shades the half of the zone the hider can't be in.</div>
+
+      <div style="margin-top:18px;display:flex;align-items:center;gap:11px;border-left:6px solid #ffb02e;background:#111d20;padding:12px 14px">
+        <svg style="width:18px;height:18px;stroke:#ffb02e;fill:none;stroke-width:1.7;stroke-linecap:square;stroke-linejoin:miter;flex:none"><use href="#i-pin"></use></svg>
+        <span style="font:500 12.5px/1.4 Archivo,sans-serif;color:#cfe0e5">Long-press the map to drop a point without moving it.</span>
+      </div>
+
+      <div style="margin-top:20px;display:flex;gap:2px;padding-bottom:14px">
+        <div style="flex:1;display:flex;align-items:center;justify-content:center;height:54px;background:#111d20;color:#8fa3a8;font:600 13px/1 Archivo,sans-serif">Skip</div>
+        <div style="flex:2;display:flex;align-items:center;justify-content:center;gap:9px;height:54px;background:#2ec4d6;color:#04191c;font:700 14px/1 Archivo,sans-serif;text-transform:uppercase">
+          Next
+          <svg style="width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:square"><use href="#i-chevron"></use></svg>
+        </div>
+      </div>
+      <div style="padding:0 0 10px;display:grid;place-items:center"><span style="width:132px;height:5px;background:#2a3538;border-radius:3px"></span></div>
+    </div>
+  </div>
+
+  <!-- LAYERS · LIGHT -->
+  <div style="width:390px;height:800px;background:#edeae1;border-radius:36px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 44px rgba(0,0,0,.22);position:relative">
+    <div style="position:absolute;inset:0;background:#f1eee6;background-image:linear-gradient(rgba(11,123,140,.09) 1px,transparent 1px),linear-gradient(90deg,rgba(11,123,140,.09) 1px,transparent 1px);background-size:34px 34px"></div>
+    <div style="position:relative;display:flex;align-items:center;justify-content:space-between;padding:16px 26px 8px;font:600 12px/1 'IBM Plex Mono',monospace;color:#10201f;font-variant-numeric:tabular-nums">
+      <span>9:41</span>
+      <span style="display:flex;align-items:center;gap:5px"><span style="width:4px;height:9px;background:#10201f"></span><span style="width:4px;height:12px;background:#10201f"></span><span style="width:4px;height:14px;background:#a8aca2"></span><span style="margin-left:4px;width:20px;height:10px;border:1px solid #5e6a68"></span></span>
+    </div>
+
+    <span style="flex:1"></span>
+
+    <div style="position:relative;background:#f8f7f2;border-top:4px solid #0b7b8c">
+      <div style="padding:9px 0 5px;display:grid;place-items:center"><span style="width:44px;height:4px;background:#d5d3c8"></span></div>
+
+      <div style="display:flex;align-items:center;gap:10px;padding:6px 16px 12px;border-bottom:2px solid #e4e1d6">
+        <svg style="width:19px;height:19px;stroke:#0b7b8c;fill:none;stroke-width:1.7;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-layers"></use></svg>
+        <span style="font:800 20px/1 Archivo,sans-serif;letter-spacing:-.03em;color:#10201f">LAYERS</span>
+        <span style="flex:1"></span>
+        <span style="font:500 10px/1 'IBM Plex Mono',monospace;letter-spacing:.16em;color:#8b938a">1 VISIBLE</span>
+      </div>
+
+      <div style="padding:8px 16px 14px">
+        <div style="display:flex;align-items:center;gap:13px;height:56px;border-bottom:1px solid #e4e1d6">
+          <span style="width:26px;height:6px;background:#0b7b8c;flex:none"></span>
+          <div style="flex:1">
+            <div style="font:600 14px/1 Archivo,sans-serif;color:#10201f">Radar — 5km</div>
+            <div style="margin-top:4px;font:400 10px/1 'IBM Plex Mono',monospace;color:#8b938a">PICCADILLY · 21:31</div>
+          </div>
+          <div style="width:46px;height:26px;background:#0b7b8c;display:flex;align-items:center;justify-content:flex-end;padding:3px;flex:none"><span style="width:20px;height:20px;background:#fff"></span></div>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:13px;height:56px;border-bottom:1px solid #e4e1d6">
+          <span style="width:26px;height:6px;background:#c4741a;flex:none"></span>
+          <div style="flex:1">
+            <div style="font:600 14px/1 Archivo,sans-serif;color:#3b4744">Thermometer — bisector</div>
+            <div style="margin-top:4px;font:400 10px/1 'IBM Plex Mono',monospace;color:#a4aba1">HIDDEN</div>
+          </div>
+          <div style="width:46px;height:26px;background:#e4e1d6;display:flex;align-items:center;padding:3px;flex:none"><span style="width:20px;height:20px;background:#b6b3a6"></span></div>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:13px;height:56px;border-bottom:1px solid #e4e1d6">
+          <span style="width:26px;height:6px;background:#4c5a58;flex:none"></span>
+          <div style="flex:1">
+            <div style="font:600 14px/1 Archivo,sans-serif;color:#3b4744">Rail network</div>
+            <div style="margin-top:4px;font:400 10px/1 'IBM Plex Mono',monospace;color:#a4aba1">HIDDEN</div>
+          </div>
+          <div style="width:46px;height:26px;background:#e4e1d6;display:flex;align-items:center;padding:3px;flex:none"><span style="width:20px;height:20px;background:#b6b3a6"></span></div>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:13px;height:56px">
+          <span style="width:26px;height:6px;background:#8b938a;flex:none"></span>
+          <div style="flex:1">
+            <div style="font:600 14px/1 Archivo,sans-serif;color:#3b4744">Zone boundary</div>
+            <div style="margin-top:4px;font:400 10px/1 'IBM Plex Mono',monospace;color:#a4aba1">LOCKED</div>
+          </div>
+          <div style="width:46px;height:26px;background:#e4e1d6;display:flex;align-items:center;padding:3px;flex:none"><span style="width:20px;height:20px;background:#b6b3a6"></span></div>
+        </div>
+      </div>
+
+      <div style="display:flex;border-top:2px solid #e4e1d6;background:#f1eee6">
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;height:62px;color:#7b837b">
+          <svg style="width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-tools"></use></svg>
+          <span style="font:600 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.14em">TOOLS</span>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;height:62px;border-top:3px solid #0b7b8c;background:#eef1ec;color:#0b7b8c;margin-top:-2px;position:relative">
+          <svg style="width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-layers"></use></svg>
+          <span style="font:700 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.14em">LAYERS</span>
+          <span style="position:absolute;top:9px;right:16px;min-width:15px;height:15px;padding:0 3px;background:#c4741a;color:#fff;font:700 9.5px/15px 'IBM Plex Mono',monospace;text-align:center">1</span>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;height:62px;color:#7b837b">
+          <svg style="width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-ask"></use></svg>
+          <span style="font:600 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.14em">ASK</span>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;height:62px;color:#7b837b">
+          <svg style="width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-log"></use></svg>
+          <span style="font:600 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.14em">LOG</span>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;height:62px;color:#7b837b">
+          <svg style="width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-answers"></use></svg>
+          <span style="font:600 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.14em">ANSWERS</span>
+        </div>
+      </div>
+      <div style="padding:9px 0 8px;display:grid;place-items:center;background:#f1eee6"><span style="width:132px;height:5px;background:#c9c6ba;border-radius:3px"></span></div>
+    </div>
+  </div>
+</div>
+</div>
+
+</div>
+<p class="dv-next">Try next: "spec the icon sheet + tokens for handoff" · "swap amber for a cooler second accent" · "tighten the sheet for small phones (375pt)"</p>
+</section>
+
+<section class="dv-turn" id="t2">
+<div class="dv-thd"><a class="dv-tid" href="#t2">2</a><span class="dv-tname">Departure board, mobile-first — <a class="dv-oid" href="#1b">1b</a>'s system with <a class="dv-oid" href="#1a">1a</a>'s route-line mark</span></div>
+<div class="dv-opts">
+
+<div class="dv-opt" id="2a">
+<div class="dv-olabel"><a class="dv-oid" href="#2a">2a</a><span><b>Bottom sheet.</b> <a class="dv-oid" href="#1b">1b</a>'s signage system rebuilt at 390pt: the panel is a bottom sheet so the map stays visible and every control sits in thumb reach. All targets ≥48pt, tab dock pinned to the bottom edge, state rule at the sheet's top edge instead of a border. Mark and wordmark from <a class="dv-oid" href="#1a">1a</a>.</span></div>
+<div class="dv-card" style="background:#b9bdb4;padding:26px;display:flex;gap:22px">
+
+  <!-- SETUP · DARK -->
+  <div style="width:390px;height:800px;background:#070d0f;border-radius:36px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 44px rgba(0,0,0,.4)">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 26px 8px;font:600 12px/1 'IBM Plex Mono',monospace;color:#eef4f2;font-variant-numeric:tabular-nums">
+      <span>9:41</span>
+      <span style="display:flex;align-items:center;gap:5px"><span style="width:4px;height:9px;background:#eef4f2"></span><span style="width:4px;height:12px;background:#eef4f2"></span><span style="width:4px;height:14px;background:#5b6d71"></span><span style="margin-left:4px;width:20px;height:10px;border:1px solid #8fa3a8"></span></span>
+    </div>
+    <div style="height:4px;background:#2ec4d6;margin-top:8px"></div>
+
+    <div style="flex:1;padding:24px 22px 0;display:flex;flex-direction:column;gap:22px;overflow:hidden">
+      <div style="display:flex;align-items:center;gap:14px">
+        <svg viewBox="0 0 48 48" style="width:44px;height:44px;flex:none">
+          <path d="M6 42V26L26 6h16" fill="none" stroke="#2ec4d6" stroke-width="5.5" stroke-linecap="square"></path>
+          <circle cx="26" cy="6" r="6.5" fill="#070d0f" stroke="#2ec4d6" stroke-width="4"></circle>
+          <circle cx="6" cy="42" r="4" fill="#ffb02e"></circle>
+        </svg>
+        <div>
+          <div style="font:800 30px/1 Archivo,sans-serif;letter-spacing:-.035em;color:#eef4f2">Jet<span style="color:#2ec4d6">Lag</span>Pal</div>
+          <div style="margin-top:7px;display:flex;align-items:center;gap:8px;font:600 9px/1 'IBM Plex Mono',monospace;letter-spacing:.24em;color:#8fa3a8;white-space:nowrap">
+            <span style="width:18px;height:2px;background:#2ec4d6"></span>MAP TRACKER · HIDE &amp; SEEK
+          </div>
+        </div>
+      </div>
+
+      <div style="border-left:6px solid #2ec4d6;background:#111d20;padding:15px 15px 16px">
+        <div style="font:600 9.5px/1 'IBM Plex Mono',monospace;letter-spacing:.26em;color:#7c9095">WHICH SIDE ARE YOU ON?</div>
+        <div style="margin-top:13px;display:flex;gap:2px">
+          <div style="flex:1;display:flex;align-items:center;justify-content:center;gap:9px;height:56px;background:#2ec4d6;color:#04191c;font:700 15px/1 Archivo,sans-serif">
+            <svg style="width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-seek"></use></svg>SEEKING
+          </div>
+          <div style="flex:1;display:flex;align-items:center;justify-content:center;gap:9px;height:56px;background:#182427;color:#7c9095;font:600 15px/1 Archivo,sans-serif">
+            <svg style="width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-hide"></use></svg>HIDING
+          </div>
+        </div>
+        <div style="margin-top:12px;font:400 13px/1.5 Archivo,sans-serif;color:#8fa3a8;text-wrap:pretty">You get the full map toolkit. Make your room, then link it to the hiders' so questions and answers flow both ways.</div>
+      </div>
+
+      <div style="height:2px;background:repeating-linear-gradient(90deg,#2c3c40 0 6px,transparent 6px 12px)"></div>
+
+      <div style="border-left:6px solid #ffb02e;background:#111d20;padding:15px 15px 16px">
+        <div style="font:600 9.5px/1 'IBM Plex Mono',monospace;letter-spacing:.26em;color:#ffb02e">CREATE A NEW GAME</div>
+        <div style="margin-top:13px;display:flex;align-items:center;gap:10px;height:52px;padding:0 14px;background:#0a1214;color:#eef4f2;font:600 15px/1 Archivo,sans-serif;border-bottom:2px solid #2c3c40">
+          <svg style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter;color:#2ec4d6"><use href="#i-zone"></use></svg>
+          Greater Manchester
+          <span style="flex:1"></span>
+          <svg style="width:13px;height:13px;stroke:#7c9095;fill:none;stroke-width:2;stroke-linecap:square;transform:rotate(90deg)"><use href="#i-chevron"></use></svg>
+        </div>
+        <div style="margin-top:10px;display:flex;align-items:center;justify-content:space-between;height:58px;padding:0 18px;background:#ffb02e;color:#241300;font:800 16px/1 Archivo,sans-serif;letter-spacing:.02em;text-transform:uppercase">
+          Create room
+          <svg style="width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:square"><use href="#i-chevron"></use></svg>
+        </div>
+        <div style="margin-top:11px;font:400 11px/1 'IBM Plex Mono',monospace;color:#5b6d71">↳ PASTE A ZONE CODE</div>
+      </div>
+
+      <div style="background:#0a1214;padding:15px 15px 16px">
+        <div style="font:600 9.5px/1 'IBM Plex Mono',monospace;letter-spacing:.26em;color:#5b6d71">OR JOIN A GAME</div>
+        <div style="margin-top:13px;display:flex;gap:4px">
+          <span style="flex:1;height:56px;background:#151f22;display:grid;place-items:center;font:700 22px/1 'IBM Plex Mono',monospace;color:#3f4f53">0</span>
+          <span style="flex:1;height:56px;background:#151f22;display:grid;place-items:center;font:700 22px/1 'IBM Plex Mono',monospace;color:#3f4f53">0</span>
+          <span style="flex:1;height:56px;background:#151f22;display:grid;place-items:center;font:700 22px/1 'IBM Plex Mono',monospace;color:#3f4f53">0</span>
+          <span style="flex:1;height:56px;background:#151f22;display:grid;place-items:center;font:700 22px/1 'IBM Plex Mono',monospace;color:#3f4f53">0</span>
+          <span style="flex:1;height:56px;background:#151f22;display:grid;place-items:center;font:700 22px/1 'IBM Plex Mono',monospace;color:#3f4f53">0</span>
+        </div>
+        <div style="margin-top:10px;display:flex;align-items:center;justify-content:center;height:52px;border:2px solid #2ec4d6;color:#2ec4d6;font:700 14px/1 Archivo,sans-serif;text-transform:uppercase">Join room</div>
+      </div>
+    </div>
+    <div style="padding:14px 0 10px;display:grid;place-items:center"><span style="width:132px;height:5px;background:#2a3538;border-radius:3px"></span></div>
+  </div>
+
+  <!-- SETUP · LIGHT -->
+  <div style="width:390px;height:800px;background:#edeae1;border-radius:36px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 44px rgba(0,0,0,.22)">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 26px 8px;font:600 12px/1 'IBM Plex Mono',monospace;color:#10201f;font-variant-numeric:tabular-nums">
+      <span>9:41</span>
+      <span style="display:flex;align-items:center;gap:5px"><span style="width:4px;height:9px;background:#10201f"></span><span style="width:4px;height:12px;background:#10201f"></span><span style="width:4px;height:14px;background:#a8aca2"></span><span style="margin-left:4px;width:20px;height:10px;border:1px solid #5e6a68"></span></span>
+    </div>
+    <div style="height:4px;background:#0b7b8c;margin-top:8px"></div>
+
+    <div style="flex:1;padding:24px 22px 0;display:flex;flex-direction:column;gap:22px;overflow:hidden">
+      <div style="display:flex;align-items:center;gap:14px">
+        <svg viewBox="0 0 48 48" style="width:44px;height:44px;flex:none">
+          <path d="M6 42V26L26 6h16" fill="none" stroke="#0b7b8c" stroke-width="5.5" stroke-linecap="square"></path>
+          <circle cx="26" cy="6" r="6.5" fill="#edeae1" stroke="#0b7b8c" stroke-width="4"></circle>
+          <circle cx="6" cy="42" r="4" fill="#c4741a"></circle>
+        </svg>
+        <div>
+          <div style="font:800 30px/1 Archivo,sans-serif;letter-spacing:-.035em;color:#10201f">Jet<span style="color:#0b7b8c">Lag</span>Pal</div>
+          <div style="margin-top:7px;display:flex;align-items:center;gap:8px;font:600 9px/1 'IBM Plex Mono',monospace;letter-spacing:.24em;color:#5e6a68;white-space:nowrap">
+            <span style="width:18px;height:2px;background:#0b7b8c"></span>MAP TRACKER · HIDE &amp; SEEK
+          </div>
+        </div>
+      </div>
+
+      <div style="border-left:6px solid #0b7b8c;background:#f8f7f2;padding:15px 15px 16px">
+        <div style="font:600 9.5px/1 'IBM Plex Mono',monospace;letter-spacing:.26em;color:#5e6a68">WHICH SIDE ARE YOU ON?</div>
+        <div style="margin-top:13px;display:flex;gap:2px">
+          <div style="flex:1;display:flex;align-items:center;justify-content:center;gap:9px;height:56px;background:#0b7b8c;color:#fff;font:700 15px/1 Archivo,sans-serif">
+            <svg style="width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-seek"></use></svg>SEEKING
+          </div>
+          <div style="flex:1;display:flex;align-items:center;justify-content:center;gap:9px;height:56px;background:#efece3;color:#6d766f;font:600 15px/1 Archivo,sans-serif">
+            <svg style="width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-hide"></use></svg>HIDING
+          </div>
+        </div>
+        <div style="margin-top:12px;font:400 13px/1.5 Archivo,sans-serif;color:#5e6a68;text-wrap:pretty">You get the full map toolkit. Make your room, then link it to the hiders' so questions and answers flow both ways.</div>
+      </div>
+
+      <div style="height:2px;background:repeating-linear-gradient(90deg,#cfcdc0 0 6px,transparent 6px 12px)"></div>
+
+      <div style="border-left:6px solid #c4741a;background:#f8f7f2;padding:15px 15px 16px">
+        <div style="font:600 9.5px/1 'IBM Plex Mono',monospace;letter-spacing:.26em;color:#b06a10">CREATE A NEW GAME</div>
+        <div style="margin-top:13px;display:flex;align-items:center;gap:10px;height:52px;padding:0 14px;background:#efece3;color:#10201f;font:600 15px/1 Archivo,sans-serif;border-bottom:2px solid #cfcdc0">
+          <svg style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter;color:#0b7b8c"><use href="#i-zone"></use></svg>
+          Greater Manchester
+          <span style="flex:1"></span>
+          <svg style="width:13px;height:13px;stroke:#6d766f;fill:none;stroke-width:2;stroke-linecap:square;transform:rotate(90deg)"><use href="#i-chevron"></use></svg>
+        </div>
+        <div style="margin-top:10px;display:flex;align-items:center;justify-content:space-between;height:58px;padding:0 18px;background:#c4741a;color:#fff;font:800 16px/1 Archivo,sans-serif;letter-spacing:.02em;text-transform:uppercase">
+          Create room
+          <svg style="width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:square"><use href="#i-chevron"></use></svg>
+        </div>
+        <div style="margin-top:11px;font:400 11px/1 'IBM Plex Mono',monospace;color:#8b938a">↳ PASTE A ZONE CODE</div>
+      </div>
+
+      <div style="background:#f8f7f2;padding:15px 15px 16px">
+        <div style="font:600 9.5px/1 'IBM Plex Mono',monospace;letter-spacing:.26em;color:#8b938a">OR JOIN A GAME</div>
+        <div style="margin-top:13px;display:flex;gap:4px">
+          <span style="flex:1;height:56px;background:#efece3;display:grid;place-items:center;font:700 22px/1 'IBM Plex Mono',monospace;color:#a4aba1">0</span>
+          <span style="flex:1;height:56px;background:#efece3;display:grid;place-items:center;font:700 22px/1 'IBM Plex Mono',monospace;color:#a4aba1">0</span>
+          <span style="flex:1;height:56px;background:#efece3;display:grid;place-items:center;font:700 22px/1 'IBM Plex Mono',monospace;color:#a4aba1">0</span>
+          <span style="flex:1;height:56px;background:#efece3;display:grid;place-items:center;font:700 22px/1 'IBM Plex Mono',monospace;color:#a4aba1">0</span>
+          <span style="flex:1;height:56px;background:#efece3;display:grid;place-items:center;font:700 22px/1 'IBM Plex Mono',monospace;color:#a4aba1">0</span>
+        </div>
+        <div style="margin-top:10px;display:flex;align-items:center;justify-content:center;height:52px;border:2px solid #0b7b8c;color:#0b7b8c;font:700 14px/1 Archivo,sans-serif;text-transform:uppercase">Join room</div>
+      </div>
+    </div>
+    <div style="padding:14px 0 10px;display:grid;place-items:center"><span style="width:132px;height:5px;background:#c9c6ba;border-radius:3px"></span></div>
+  </div>
+
+  <!-- TOOLS SHEET · DARK -->
+  <div style="width:390px;height:800px;background:#0a1214;border-radius:36px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 44px rgba(0,0,0,.4);position:relative">
+    <div style="position:absolute;inset:0;background:#0e181b;background-image:linear-gradient(rgba(46,196,214,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(46,196,214,.07) 1px,transparent 1px);background-size:34px 34px"></div>
+    <svg viewBox="0 0 390 420" style="position:absolute;top:70px;left:0;width:390px;height:420px">
+      <circle cx="196" cy="196" r="118" fill="rgba(46,196,214,.07)" stroke="#2ec4d6" stroke-width="2" stroke-dasharray="8 7"></circle>
+      <path d="M40 300L150 190l70 40 120-130" fill="none" stroke="#ffb02e" stroke-width="3" stroke-linecap="square"></path>
+      <circle cx="150" cy="190" r="5" fill="#ffb02e"></circle>
+      <circle cx="220" cy="230" r="5" fill="#ffb02e"></circle>
+      <circle cx="196" cy="196" r="7" fill="#2ec4d6"></circle>
+    </svg>
+
+    <div style="position:relative;display:flex;align-items:center;justify-content:space-between;padding:16px 26px 8px;font:600 12px/1 'IBM Plex Mono',monospace;color:#eef4f2;font-variant-numeric:tabular-nums">
+      <span>9:41</span>
+      <span style="display:flex;align-items:center;gap:5px"><span style="width:4px;height:9px;background:#eef4f2"></span><span style="width:4px;height:12px;background:#eef4f2"></span><span style="width:4px;height:14px;background:#5b6d71"></span><span style="margin-left:4px;width:20px;height:10px;border:1px solid #8fa3a8"></span></span>
+    </div>
+
+    <div style="position:relative;margin:10px 16px 0;display:flex;align-items:center;gap:10px;height:44px;padding:0 12px;background:rgba(10,18,20,.92);border-top:3px solid #4bd68a">
+      <svg viewBox="0 0 48 48" style="width:22px;height:22px;flex:none"><path d="M8 40V26L26 8h14" fill="none" stroke="#2ec4d6" stroke-width="7" stroke-linecap="square"></path><circle cx="26" cy="8" r="6" fill="#0a1214" stroke="#2ec4d6" stroke-width="4.5"></circle></svg>
+      <span style="font:600 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.22em;color:#4bd68a">LINKED</span>
+      <span style="font:700 15px/1 'IBM Plex Mono',monospace;color:#eef4f2;letter-spacing:.1em;font-variant-numeric:tabular-nums">41550</span>
+      <span style="flex:1"></span>
+      <div style="display:flex;gap:12px;color:#8fa3a8">
+        <svg style="width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-link"></use></svg>
+        <svg style="width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-dial"></use></svg>
+      </div>
+    </div>
+
+    <span style="flex:1"></span>
+
+    <!-- bottom sheet -->
+    <div style="position:relative;background:#0d1618;border-top:4px solid #ffb02e">
+      <div style="padding:9px 0 4px;display:grid;place-items:center"><span style="width:44px;height:4px;background:#2a3a3e"></span></div>
+
+      <div style="padding:8px 16px 0;display:flex;align-items:flex-end;justify-content:space-between;border-bottom:2px solid #1a2629;padding-bottom:12px">
+        <div>
+          <div style="font:600 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.3em;color:#ffb02e">ROUND 3 — SEEKING</div>
+          <div style="margin-top:8px;font:700 42px/.9 'IBM Plex Mono',monospace;color:#eef4f2;font-variant-numeric:tabular-nums;letter-spacing:-.03em">21<span style="color:#ffb02e">:</span>48</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;height:44px;padding:0 15px;background:#161f21;border-left:3px solid #ff6a4d;color:#eef4f2;font:600 13px/1 Archivo,sans-serif">
+          <svg style="width:11px;height:11px;color:#ff6a4d"><use href="#i-stop"></use></svg>End round
+        </div>
+      </div>
+
+      <div style="padding:14px 16px 16px;display:flex;flex-direction:column;gap:13px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font:700 14px/1 'IBM Plex Mono',monospace;color:#2ec4d6">01</span>
+          <svg style="width:19px;height:19px;stroke:#2ec4d6;fill:none;stroke-width:1.7;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-radar"></use></svg>
+          <span style="font:800 20px/1 Archivo,sans-serif;letter-spacing:-.03em;color:#eef4f2">RADAR</span>
+          <span style="flex:1;height:2px;background:repeating-linear-gradient(90deg,#2c3c40 0 3px,transparent 3px 7px)"></span>
+        </div>
+
+        <div style="border-left:6px solid #2ec4d6;background:#111d20;padding:14px 15px 15px">
+          <div style="display:flex;align-items:flex-end;justify-content:space-between;border-bottom:2px solid #2ec4d6;padding-bottom:9px">
+            <span style="font:600 9.5px/1 'IBM Plex Mono',monospace;letter-spacing:.26em;color:#7c9095">RADIUS</span>
+            <span style="font:700 32px/1 'IBM Plex Mono',monospace;color:#eef4f2;font-variant-numeric:tabular-nums">5<span style="font-size:13px;color:#5b6d71;margin-left:4px">KM</span></span>
+          </div>
+          <div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:4px">
+            <span style="min-width:60px;height:44px;display:grid;place-items:center;background:#0a1214;color:#8fa3a8;font:500 12px/1 'IBM Plex Mono',monospace">500m</span>
+            <span style="min-width:60px;height:44px;display:grid;place-items:center;background:#0a1214;color:#8fa3a8;font:500 12px/1 'IBM Plex Mono',monospace">1km</span>
+            <span style="min-width:60px;height:44px;display:grid;place-items:center;background:#0a1214;color:#8fa3a8;font:500 12px/1 'IBM Plex Mono',monospace">2km</span>
+            <span style="min-width:60px;height:44px;display:grid;place-items:center;background:#2ec4d6;color:#04191c;font:700 12px/1 'IBM Plex Mono',monospace">5km</span>
+            <span style="min-width:60px;height:44px;display:grid;place-items:center;background:#0a1214;color:#8fa3a8;font:500 12px/1 'IBM Plex Mono',monospace">10km</span>
+            <span style="min-width:60px;height:44px;display:grid;place-items:center;background:#0a1214;color:#8fa3a8;font:500 12px/1 'IBM Plex Mono',monospace">40km</span>
+          </div>
+          <div style="margin-top:13px;display:flex;gap:2px">
+            <div style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;height:52px;background:#0a1214;color:#cfe0e5;font:600 13px/1 Archivo,sans-serif">
+              <svg style="width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-crosshair"></use></svg>Pick centre
+            </div>
+            <div style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;height:52px;background:#ffb02e;color:#241300;font:700 13px/1 Archivo,sans-serif">
+              <svg style="width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-pin"></use></svg>Ask from here
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- tab dock -->
+      <div style="display:flex;border-top:2px solid #1a2629;background:#0a1214">
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;height:62px;border-top:3px solid #2ec4d6;background:#111d20;margin-top:-2px;color:#2ec4d6">
+          <svg style="width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-tools"></use></svg>
+          <span style="font:700 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.14em">TOOLS</span>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;height:62px;color:#6d8085;position:relative">
+          <svg style="width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-layers"></use></svg>
+          <span style="font:600 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.14em">LAYERS</span>
+          <span style="position:absolute;top:9px;right:16px;min-width:15px;height:15px;padding:0 3px;background:#ffb02e;color:#241300;font:700 9.5px/15px 'IBM Plex Mono',monospace;text-align:center">1</span>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;height:62px;color:#6d8085">
+          <svg style="width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-ask"></use></svg>
+          <span style="font:600 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.14em">ASK</span>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;height:62px;color:#6d8085">
+          <svg style="width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-log"></use></svg>
+          <span style="font:600 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.14em">LOG</span>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;height:62px;color:#6d8085">
+          <svg style="width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-answers"></use></svg>
+          <span style="font:600 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.14em">ANSWERS</span>
+        </div>
+      </div>
+      <div style="padding:9px 0 8px;display:grid;place-items:center;background:#0a1214"><span style="width:132px;height:5px;background:#2a3538;border-radius:3px"></span></div>
+    </div>
+  </div>
+
+  <!-- TOOLS SHEET · LIGHT -->
+  <div style="width:390px;height:800px;background:#edeae1;border-radius:36px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 44px rgba(0,0,0,.22);position:relative">
+    <div style="position:absolute;inset:0;background:#f1eee6;background-image:linear-gradient(rgba(11,123,140,.09) 1px,transparent 1px),linear-gradient(90deg,rgba(11,123,140,.09) 1px,transparent 1px);background-size:34px 34px"></div>
+    <svg viewBox="0 0 390 420" style="position:absolute;top:70px;left:0;width:390px;height:420px">
+      <circle cx="196" cy="196" r="118" fill="rgba(11,123,140,.07)" stroke="#0b7b8c" stroke-width="2" stroke-dasharray="8 7"></circle>
+      <path d="M40 300L150 190l70 40 120-130" fill="none" stroke="#c4741a" stroke-width="3" stroke-linecap="square"></path>
+      <circle cx="150" cy="190" r="5" fill="#c4741a"></circle>
+      <circle cx="220" cy="230" r="5" fill="#c4741a"></circle>
+      <circle cx="196" cy="196" r="7" fill="#0b7b8c"></circle>
+    </svg>
+
+    <div style="position:relative;display:flex;align-items:center;justify-content:space-between;padding:16px 26px 8px;font:600 12px/1 'IBM Plex Mono',monospace;color:#10201f;font-variant-numeric:tabular-nums">
+      <span>9:41</span>
+      <span style="display:flex;align-items:center;gap:5px"><span style="width:4px;height:9px;background:#10201f"></span><span style="width:4px;height:12px;background:#10201f"></span><span style="width:4px;height:14px;background:#a8aca2"></span><span style="margin-left:4px;width:20px;height:10px;border:1px solid #5e6a68"></span></span>
+    </div>
+
+    <div style="position:relative;margin:10px 16px 0;display:flex;align-items:center;gap:10px;height:44px;padding:0 12px;background:rgba(248,247,242,.94);border-top:3px solid #17a35f">
+      <svg viewBox="0 0 48 48" style="width:22px;height:22px;flex:none"><path d="M8 40V26L26 8h14" fill="none" stroke="#0b7b8c" stroke-width="7" stroke-linecap="square"></path><circle cx="26" cy="8" r="6" fill="#f8f7f2" stroke="#0b7b8c" stroke-width="4.5"></circle></svg>
+      <span style="font:600 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.22em;color:#17a35f">LINKED</span>
+      <span style="font:700 15px/1 'IBM Plex Mono',monospace;color:#10201f;letter-spacing:.1em;font-variant-numeric:tabular-nums">41550</span>
+      <span style="flex:1"></span>
+      <div style="display:flex;gap:12px;color:#5e6a68">
+        <svg style="width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-link"></use></svg>
+        <svg style="width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-dial"></use></svg>
+      </div>
+    </div>
+
+    <span style="flex:1"></span>
+
+    <div style="position:relative;background:#f8f7f2;border-top:4px solid #c4741a">
+      <div style="padding:9px 0 4px;display:grid;place-items:center"><span style="width:44px;height:4px;background:#d5d3c8"></span></div>
+
+      <div style="padding:8px 16px 12px;display:flex;align-items:flex-end;justify-content:space-between;border-bottom:2px solid #e4e1d6">
+        <div>
+          <div style="font:600 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.3em;color:#b06a10">ROUND 3 — SEEKING</div>
+          <div style="margin-top:8px;font:700 42px/.9 'IBM Plex Mono',monospace;color:#10201f;font-variant-numeric:tabular-nums;letter-spacing:-.03em">21<span style="color:#c4741a">:</span>48</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;height:44px;padding:0 15px;background:#efece3;border-left:3px solid #d1452a;color:#10201f;font:600 13px/1 Archivo,sans-serif">
+          <svg style="width:11px;height:11px;color:#d1452a"><use href="#i-stop"></use></svg>End round
+        </div>
+      </div>
+
+      <div style="padding:14px 16px 16px;display:flex;flex-direction:column;gap:13px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font:700 14px/1 'IBM Plex Mono',monospace;color:#0b7b8c">01</span>
+          <svg style="width:19px;height:19px;stroke:#0b7b8c;fill:none;stroke-width:1.7;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-radar"></use></svg>
+          <span style="font:800 20px/1 Archivo,sans-serif;letter-spacing:-.03em;color:#10201f">RADAR</span>
+          <span style="flex:1;height:2px;background:repeating-linear-gradient(90deg,#d5d3c8 0 3px,transparent 3px 7px)"></span>
+        </div>
+
+        <div style="border-left:6px solid #0b7b8c;background:#eef1ec;padding:14px 15px 15px">
+          <div style="display:flex;align-items:flex-end;justify-content:space-between;border-bottom:2px solid #0b7b8c;padding-bottom:9px">
+            <span style="font:600 9.5px/1 'IBM Plex Mono',monospace;letter-spacing:.26em;color:#5e6a68">RADIUS</span>
+            <span style="font:700 32px/1 'IBM Plex Mono',monospace;color:#10201f;font-variant-numeric:tabular-nums">5<span style="font-size:13px;color:#8b938a;margin-left:4px">KM</span></span>
+          </div>
+          <div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:4px">
+            <span style="min-width:60px;height:44px;display:grid;place-items:center;background:#f8f7f2;color:#5e6a68;font:500 12px/1 'IBM Plex Mono',monospace">500m</span>
+            <span style="min-width:60px;height:44px;display:grid;place-items:center;background:#f8f7f2;color:#5e6a68;font:500 12px/1 'IBM Plex Mono',monospace">1km</span>
+            <span style="min-width:60px;height:44px;display:grid;place-items:center;background:#f8f7f2;color:#5e6a68;font:500 12px/1 'IBM Plex Mono',monospace">2km</span>
+            <span style="min-width:60px;height:44px;display:grid;place-items:center;background:#0b7b8c;color:#fff;font:700 12px/1 'IBM Plex Mono',monospace">5km</span>
+            <span style="min-width:60px;height:44px;display:grid;place-items:center;background:#f8f7f2;color:#5e6a68;font:500 12px/1 'IBM Plex Mono',monospace">10km</span>
+            <span style="min-width:60px;height:44px;display:grid;place-items:center;background:#f8f7f2;color:#5e6a68;font:500 12px/1 'IBM Plex Mono',monospace">40km</span>
+          </div>
+          <div style="margin-top:13px;display:flex;gap:2px">
+            <div style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;height:52px;background:#f8f7f2;color:#3b4744;font:600 13px/1 Archivo,sans-serif">
+              <svg style="width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-crosshair"></use></svg>Pick centre
+            </div>
+            <div style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;height:52px;background:#c4741a;color:#fff;font:700 13px/1 Archivo,sans-serif">
+              <svg style="width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-pin"></use></svg>Ask from here
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;border-top:2px solid #e4e1d6;background:#f1eee6">
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;height:62px;border-top:3px solid #0b7b8c;background:#eef1ec;margin-top:-2px;color:#0b7b8c">
+          <svg style="width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-tools"></use></svg>
+          <span style="font:700 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.14em">TOOLS</span>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;height:62px;color:#7b837b;position:relative">
+          <svg style="width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-layers"></use></svg>
+          <span style="font:600 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.14em">LAYERS</span>
+          <span style="position:absolute;top:9px;right:16px;min-width:15px;height:15px;padding:0 3px;background:#c4741a;color:#fff;font:700 9.5px/15px 'IBM Plex Mono',monospace;text-align:center">1</span>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;height:62px;color:#7b837b">
+          <svg style="width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-ask"></use></svg>
+          <span style="font:600 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.14em">ASK</span>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;height:62px;color:#7b837b">
+          <svg style="width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-log"></use></svg>
+          <span style="font:600 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.14em">LOG</span>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;height:62px;color:#7b837b">
+          <svg style="width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-answers"></use></svg>
+          <span style="font:600 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.14em">ANSWERS</span>
+        </div>
+      </div>
+      <div style="padding:9px 0 8px;display:grid;place-items:center;background:#f1eee6"><span style="width:132px;height:5px;background:#c9c6ba;border-radius:3px"></span></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="dv-opt" id="2b">
+<div class="dv-olabel"><a class="dv-oid" href="#2b">2b</a><span><b>Collapsed dock + toast.</b> The same sheet peeled back to its resting state — clock strip and tab dock only, so the map owns the screen. Toast is a bottom-anchored signage strip with a state bar, not a floating top pill; modal is a bottom sheet with the amber rule, not a centred white card.</span></div>
+<div class="dv-card" style="background:#b9bdb4;padding:26px;display:flex;gap:22px">
+
+  <!-- COLLAPSED · DARK -->
+  <div style="width:390px;height:800px;background:#0a1214;border-radius:36px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 44px rgba(0,0,0,.4);position:relative">
+    <div style="position:absolute;inset:0;background:#0e181b;background-image:linear-gradient(rgba(46,196,214,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(46,196,214,.07) 1px,transparent 1px);background-size:34px 34px"></div>
+    <svg viewBox="0 0 390 560" style="position:absolute;top:60px;left:0;width:390px;height:560px">
+      <circle cx="196" cy="240" r="150" fill="rgba(46,196,214,.06)" stroke="#2ec4d6" stroke-width="2" stroke-dasharray="8 7"></circle>
+      <path d="M20 400L140 250l80 45 150-150" fill="none" stroke="#ffb02e" stroke-width="3" stroke-linecap="square"></path>
+      <circle cx="140" cy="250" r="5" fill="#ffb02e"></circle>
+      <circle cx="220" cy="295" r="5" fill="#ffb02e"></circle>
+      <circle cx="196" cy="240" r="7" fill="#2ec4d6"></circle>
+    </svg>
+
+    <div style="position:relative;display:flex;align-items:center;justify-content:space-between;padding:16px 26px 8px;font:600 12px/1 'IBM Plex Mono',monospace;color:#eef4f2;font-variant-numeric:tabular-nums">
+      <span>9:41</span>
+      <span style="display:flex;align-items:center;gap:5px"><span style="width:4px;height:9px;background:#eef4f2"></span><span style="width:4px;height:12px;background:#eef4f2"></span><span style="width:4px;height:14px;background:#5b6d71"></span><span style="margin-left:4px;width:20px;height:10px;border:1px solid #8fa3a8"></span></span>
+    </div>
+
+    <div style="position:relative;margin:10px 16px 0;display:flex;align-items:center;gap:10px;height:44px;padding:0 12px;background:rgba(10,18,20,.92);border-top:3px solid #4bd68a">
+      <svg viewBox="0 0 48 48" style="width:22px;height:22px;flex:none"><path d="M8 40V26L26 8h14" fill="none" stroke="#2ec4d6" stroke-width="7" stroke-linecap="square"></path><circle cx="26" cy="8" r="6" fill="#0a1214" stroke="#2ec4d6" stroke-width="4.5"></circle></svg>
+      <span style="font:600 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.22em;color:#4bd68a">LINKED</span>
+      <span style="font:700 15px/1 'IBM Plex Mono',monospace;color:#eef4f2;letter-spacing:.1em;font-variant-numeric:tabular-nums">41550</span>
+      <span style="flex:1"></span>
+      <div style="display:flex;gap:12px;color:#8fa3a8">
+        <svg style="width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-link"></use></svg>
+        <svg style="width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-dial"></use></svg>
+      </div>
+    </div>
+
+    <span style="flex:1"></span>
+
+    <!-- toast -->
+    <div style="position:relative;margin:0 16px 12px;background:#111d20;border-left:6px solid #4bd68a;display:flex;align-items:center;gap:11px;padding:13px 14px">
+      <svg style="width:18px;height:18px;stroke:#4bd68a;fill:none;stroke-width:2;stroke-linecap:square;stroke-linejoin:miter;flex:none"><use href="#i-check"></use></svg>
+      <div style="flex:1">
+        <div style="font:600 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.26em;color:#4bd68a">RADAR DRAWN</div>
+        <div style="margin-top:5px;font:400 12.5px/1.35 Archivo,sans-serif;color:#cfe0e5">5km from Piccadilly — hiders notified.</div>
+      </div>
+      <span style="font:400 10px/1 'IBM Plex Mono',monospace;color:#5b6d71">21:31</span>
+    </div>
+
+    <div style="position:relative;background:#0d1618;border-top:4px solid #2ec4d6">
+      <div style="padding:9px 0 5px;display:grid;place-items:center"><span style="width:44px;height:4px;background:#2a3a3e"></span></div>
+      <div style="display:flex;align-items:center;gap:12px;padding:0 16px 12px;border-bottom:2px solid #1a2629">
+        <div style="font:700 30px/1 'IBM Plex Mono',monospace;color:#eef4f2;font-variant-numeric:tabular-nums;letter-spacing:-.02em">21<span style="color:#ffb02e">:</span>48</div>
+        <div style="font:600 8.5px/1.5 'IBM Plex Mono',monospace;letter-spacing:.2em;color:#ffb02e">ROUND 3<br><span style="color:#6d8085">SEEKING</span></div>
+        <span style="flex:1"></span>
+        <div style="display:flex;align-items:center;gap:7px;height:44px;padding:0 14px;background:#161f21;border-left:3px solid #ff6a4d;color:#eef4f2;font:600 12px/1 Archivo,sans-serif">
+          <svg style="width:10px;height:10px;color:#ff6a4d"><use href="#i-stop"></use></svg>End round
+        </div>
+      </div>
+      <div style="display:flex;background:#0a1214">
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;height:62px;color:#6d8085">
+          <svg style="width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-tools"></use></svg>
+          <span style="font:600 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.14em">TOOLS</span>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;height:62px;color:#6d8085;position:relative">
+          <svg style="width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-layers"></use></svg>
+          <span style="font:600 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.14em">LAYERS</span>
+          <span style="position:absolute;top:9px;right:16px;min-width:15px;height:15px;padding:0 3px;background:#ffb02e;color:#241300;font:700 9.5px/15px 'IBM Plex Mono',monospace;text-align:center">1</span>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;height:62px;border-top:3px solid #2ec4d6;background:#111d20;color:#2ec4d6">
+          <svg style="width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-ask"></use></svg>
+          <span style="font:700 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.14em">ASK</span>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;height:62px;color:#6d8085">
+          <svg style="width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-log"></use></svg>
+          <span style="font:600 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.14em">LOG</span>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;height:62px;color:#6d8085">
+          <svg style="width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-answers"></use></svg>
+          <span style="font:600 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.14em">ANSWERS</span>
+        </div>
+      </div>
+      <div style="padding:9px 0 8px;display:grid;place-items:center;background:#0a1214"><span style="width:132px;height:5px;background:#2a3538;border-radius:3px"></span></div>
+    </div>
+  </div>
+
+  <!-- MODAL SHEET · LIGHT -->
+  <div style="width:390px;height:800px;background:#edeae1;border-radius:36px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 44px rgba(0,0,0,.22);position:relative">
+    <div style="position:absolute;inset:0;background:#f1eee6;background-image:linear-gradient(rgba(11,123,140,.09) 1px,transparent 1px),linear-gradient(90deg,rgba(11,123,140,.09) 1px,transparent 1px);background-size:34px 34px"></div>
+    <svg viewBox="0 0 390 460" style="position:absolute;top:60px;left:0;width:390px;height:460px">
+      <circle cx="196" cy="210" r="140" fill="rgba(11,123,140,.07)" stroke="#0b7b8c" stroke-width="2" stroke-dasharray="8 7"></circle>
+      <path d="M20 360L140 220l80 45 150-150" fill="none" stroke="#c4741a" stroke-width="3" stroke-linecap="square"></path>
+      <circle cx="196" cy="210" r="7" fill="#0b7b8c"></circle>
+    </svg>
+    <div style="position:absolute;inset:0;background:rgba(16,32,31,.55)"></div>
+
+    <div style="position:relative;display:flex;align-items:center;justify-content:space-between;padding:16px 26px 8px;font:600 12px/1 'IBM Plex Mono',monospace;color:#f4f2ea;font-variant-numeric:tabular-nums">
+      <span>9:41</span>
+      <span style="display:flex;align-items:center;gap:5px"><span style="width:4px;height:9px;background:#f4f2ea"></span><span style="width:4px;height:12px;background:#f4f2ea"></span><span style="width:4px;height:14px;background:#8a9490"></span><span style="margin-left:4px;width:20px;height:10px;border:1px solid #cbd2ce"></span></span>
+    </div>
+
+    <span style="flex:1"></span>
+
+    <!-- settings sheet -->
+    <div style="position:relative;background:#f8f7f2;border-top:4px solid #c4741a">
+      <div style="padding:11px 0 6px;display:grid;place-items:center"><span style="width:44px;height:4px;background:#d5d3c8"></span></div>
+      <div style="display:flex;align-items:center;gap:12px;padding:4px 18px 14px;border-bottom:2px solid #e4e1d6">
+        <svg viewBox="0 0 48 48" style="width:28px;height:28px;flex:none"><path d="M8 40V26L26 8h14" fill="none" stroke="#0b7b8c" stroke-width="7" stroke-linecap="square"></path><circle cx="26" cy="8" r="6" fill="#f8f7f2" stroke="#0b7b8c" stroke-width="4.5"></circle></svg>
+        <div style="font:800 20px/1 Archivo,sans-serif;letter-spacing:-.03em;color:#10201f">Settings</div>
+        <span style="flex:1"></span>
+        <div style="width:44px;height:44px;display:grid;place-items:center;color:#5e6a68"><svg style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:square"><use href="#i-close"></use></svg></div>
+      </div>
+
+      <div style="padding:6px 18px 10px">
+        <div style="display:flex;align-items:center;gap:13px;height:58px;border-bottom:1px solid #e4e1d6">
+          <svg style="width:19px;height:19px;stroke:#5e6a68;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-layers"></use></svg>
+          <span style="font:500 14.5px/1 Archivo,sans-serif;color:#10201f">Map style</span>
+          <span style="flex:1"></span>
+          <span style="font:500 12px/1 'IBM Plex Mono',monospace;color:#8b938a">CARTO LIGHT</span>
+          <svg style="width:12px;height:12px;stroke:#a4aba1;fill:none;stroke-width:2;stroke-linecap:square"><use href="#i-chevron"></use></svg>
+        </div>
+        <div style="display:flex;align-items:center;gap:13px;height:58px;border-bottom:1px solid #e4e1d6">
+          <svg style="width:19px;height:19px;stroke:#5e6a68;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-measure"></use></svg>
+          <span style="font:500 14.5px/1 Archivo,sans-serif;color:#10201f">Units</span>
+          <span style="flex:1"></span>
+          <div style="display:flex;gap:2px">
+            <span style="padding:9px 13px;background:#0b7b8c;color:#fff;font:700 11px/1 'IBM Plex Mono',monospace">KM</span>
+            <span style="padding:9px 13px;background:#efece3;color:#6d766f;font:500 11px/1 'IBM Plex Mono',monospace">MI</span>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:13px;height:58px;border-bottom:1px solid #e4e1d6">
+          <svg style="width:19px;height:19px;stroke:#5e6a68;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-clock"></use></svg>
+          <span style="font:500 14.5px/1 Archivo,sans-serif;color:#10201f">Round length</span>
+          <span style="flex:1"></span>
+          <span style="font:600 15px/1 'IBM Plex Mono',monospace;color:#10201f;font-variant-numeric:tabular-nums">45:00</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:13px;height:58px">
+          <svg style="width:19px;height:19px;stroke:#5e6a68;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-help"></use></svg>
+          <span style="font:500 14.5px/1 Archivo,sans-serif;color:#10201f">Replay the tutorial</span>
+          <span style="flex:1"></span>
+          <svg style="width:12px;height:12px;stroke:#a4aba1;fill:none;stroke-width:2;stroke-linecap:square"><use href="#i-chevron"></use></svg>
+        </div>
+      </div>
+
+      <div style="padding:0 18px 18px;display:flex;gap:2px">
+        <div style="flex:1;display:flex;align-items:center;justify-content:center;height:54px;background:#efece3;color:#3b4744;font:600 14px/1 Archivo,sans-serif">Close</div>
+        <div style="flex:1;display:flex;align-items:center;justify-content:center;height:54px;background:#10201f;color:#fff;font:700 14px/1 Archivo,sans-serif;text-transform:uppercase">Leave room</div>
+      </div>
+      <div style="padding:0 0 10px;display:grid;place-items:center"><span style="width:132px;height:5px;background:#c9c6ba;border-radius:3px"></span></div>
+    </div>
+  </div>
+</div>
+</div>
+
+</div>
+<p class="dv-next">Try next: "extend <a class="dv-oid" href="#2a">2a</a> to Ask / Log / Answers" · "show the tutorial steps" · "swap amber for a cooler second accent"</p>
+</section>
+
+<section class="dv-turn" id="t1">
+<div class="dv-thd"><a class="dv-tid" href="#t1">1</a><span class="dv-tname">Transit-diagram identity — two takes, each paired dark / light</span></div>
+<div class="dv-opts">
+
+<!-- ============ OPTION 1A : INTERCHANGE ============ -->
+<div class="dv-opt" id="1a">
+<div class="dv-olabel"><a class="dv-oid" href="#1a">1a</a><span><b>Interchange.</b> A live route line runs down the panel's left gutter; every section header is an interchange node sitting on it. Hierarchy comes from where a card sits relative to the line — active content is a chamfered plate that <i>breaks</i> the line, passive rows are bare ticks with no fill at all. Chamfered 45° top-right corners, mono tabular readouts, zero card borders.</span></div>
+<div class="dv-card" style="width:1460px;display:grid;grid-template-columns:1fr 1fr;background:#c9d0cd">
+
+  <!-- ---------- DARK ---------- -->
+  <div style="background:#0c1317;padding:26px 24px 30px;display:flex;flex-direction:column;gap:26px">
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <div style="font:600 9px/1 'IBM Plex Mono',monospace;letter-spacing:.26em;color:#5d757f">DARK · DEFAULT</div>
+      <div style="height:1px;flex:1;margin-left:14px;background:repeating-linear-gradient(90deg,rgba(150,192,205,.34) 0 1px,transparent 1px 6px)"></div>
+    </div>
+
+    <!-- logo lockup -->
+    <div style="display:flex;flex-direction:column;gap:22px">
+      <div style="display:flex;align-items:center;gap:18px">
+        <svg viewBox="0 0 48 48" style="width:52px;height:52px;flex:none">
+          <path d="M6 42V26L26 6h16" fill="none" stroke="#2ec4d6" stroke-width="5" stroke-linecap="square"></path>
+          <circle cx="26" cy="6" r="6.5" fill="#0c1317" stroke="#2ec4d6" stroke-width="4"></circle>
+          <circle cx="6" cy="42" r="4" fill="#f0a13a"></circle>
+        </svg>
+        <div>
+          <div style="font:800 33px/1 Archivo,sans-serif;letter-spacing:-.035em;color:#e7eff2">Jet<span style="color:#2ec4d6">Lag</span>Pal</div>
+          <div style="margin-top:7px;display:flex;align-items:center;gap:9px;font:500 9px/1 'IBM Plex Mono',monospace;letter-spacing:.22em;color:#8aa2ac">
+            <span style="width:22px;height:2px;background:#2ec4d6"></span>FIELD KIT · HIDE &amp; SEEK
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:flex-end;gap:14px">
+        <div style="width:60px;height:60px;background:#101a1f;clip-path:polygon(0 0,calc(100% - 16px) 0,100% 16px,100% 100%,0 100%);position:relative">
+          <svg viewBox="0 0 48 48" style="position:absolute;inset:0;width:100%;height:100%">
+            <path d="M8 40V26L26 8h14" fill="none" stroke="#2ec4d6" stroke-width="6" stroke-linecap="square"></path>
+            <circle cx="26" cy="8" r="5.5" fill="#101a1f" stroke="#2ec4d6" stroke-width="4"></circle>
+          </svg>
+        </div>
+        <div style="width:60px;height:60px;background:#2ec4d6;clip-path:polygon(0 0,calc(100% - 16px) 0,100% 16px,100% 100%,0 100%);position:relative">
+          <svg viewBox="0 0 48 48" style="position:absolute;inset:0;width:100%;height:100%">
+            <path d="M8 40V26L26 8h14" fill="none" stroke="#08262b" stroke-width="6" stroke-linecap="square"></path>
+            <circle cx="26" cy="8" r="5.5" fill="#2ec4d6" stroke="#08262b" stroke-width="4"></circle>
+          </svg>
+        </div>
+        <div style="font:500 8.5px/1.7 'IBM Plex Mono',monospace;letter-spacing:.16em;color:#5d757f">APP ICON<br>KNOCKOUT / SOLID</div>
+      </div>
+    </div>
+
+    <!-- connection strip + clock -->
+    <div style="display:flex;flex-direction:column">
+      <div style="display:flex;align-items:center;gap:10px;padding:9px 0 10px;border-top:2px solid #2ec4d6">
+        <span style="width:7px;height:7px;background:#4bd68a;animation:jlp-blip 2.4s ease-in-out infinite"></span>
+        <span style="font:500 9.5px/1 'IBM Plex Mono',monospace;letter-spacing:.2em;color:#8aa2ac">ROOM</span>
+        <span style="font:600 17px/1 'IBM Plex Mono',monospace;letter-spacing:.06em;color:#e7eff2;font-variant-numeric:tabular-nums">41550</span>
+        <span style="flex:1"></span>
+        <div style="display:flex;gap:6px">
+          <div style="width:28px;height:28px;background:#142127;display:grid;place-items:center;color:#8aa2ac;clip-path:polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,0 100%)"><svg style="width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-copy"></use></svg></div>
+          <div style="width:28px;height:28px;background:#142127;display:grid;place-items:center;color:#8aa2ac;clip-path:polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,0 100%)"><svg style="width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-link"></use></svg></div>
+        </div>
+      </div>
+      <div style="font:400 10.5px/1 'IBM Plex Mono',monospace;color:#5d757f;padding-bottom:16px">BIRMINGHAM &amp; WEST MIDLANDS · SYNCED</div>
+
+      <div style="background:#101a1f;padding:16px 18px 14px;clip-path:polygon(0 0,calc(100% - 20px) 0,100% 20px,100% 100%,0 100%);border-left:3px solid #2ec4d6">
+        <div style="display:flex;align-items:flex-end;justify-content:space-between">
+          <div>
+            <div style="display:flex;align-items:center;gap:7px;font:600 9px/1 'IBM Plex Mono',monospace;letter-spacing:.22em;color:#2ec4d6">
+              <svg style="width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:square"><use href="#i-seek"></use></svg>SEEKING · RD 3
+            </div>
+            <div style="margin-top:9px;font:600 44px/1 'IBM Plex Mono',monospace;letter-spacing:-.02em;color:#e7eff2;font-variant-numeric:tabular-nums">21:48</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:7px;padding:8px 13px;background:#142127;color:#e7eff2;font:600 11px/1 Archivo,sans-serif;letter-spacing:.04em;clip-path:polygon(0 0,calc(100% - 10px) 0,100% 10px,100% 100%,0 100%)">
+            <svg style="width:11px;height:11px;color:#f0a13a"><use href="#i-stop"></use></svg>End round
+          </div>
+        </div>
+        <div style="margin-top:14px;height:9px;background:repeating-linear-gradient(90deg,#2ec4d6 0 1px,transparent 1px 9px);opacity:.5"></div>
+      </div>
+    </div>
+
+    <!-- setup screen (dark) -->
+    <div style="background:#101a1f;position:relative;clip-path:polygon(0 0,calc(100% - 24px) 0,100% 24px,100% 100%,0 100%)">
+      <div style="padding:26px 22px 24px;display:flex;flex-direction:column;gap:22px">
+        <div style="display:flex;align-items:center;gap:13px">
+          <svg viewBox="0 0 48 48" style="width:38px;height:38px;flex:none"><path d="M8 40V26L26 8h14" fill="none" stroke="#2ec4d6" stroke-width="6.5" stroke-linecap="square"></path><circle cx="26" cy="8" r="6" fill="#101a1f" stroke="#2ec4d6" stroke-width="4.5"></circle></svg>
+          <div>
+            <div style="font:800 24px/1 Archivo,sans-serif;letter-spacing:-.035em;color:#e7eff2">Jet<span style="color:#2ec4d6">Lag</span>Pal</div>
+            <div style="margin-top:6px;font:500 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.2em;color:#8aa2ac;white-space:nowrap">MAP TRACKER · HIDE &amp; SEEK</div>
+          </div>
+        </div>
+
+        <div style="position:relative;padding-left:26px;display:flex;flex-direction:column;gap:20px">
+          <div style="position:absolute;left:5px;top:6px;bottom:6px;width:2px;background:#1e3b45"></div>
+
+          <div style="position:relative">
+            <span style="position:absolute;left:-26px;top:1px;width:12px;height:12px;border:3px solid #2ec4d6;background:#101a1f;border-radius:50%"></span>
+            <div style="font:600 9px/1 'IBM Plex Mono',monospace;letter-spacing:.24em;color:#8aa2ac">WHICH SIDE ARE YOU ON?</div>
+            <div style="margin-top:11px;display:flex;gap:7px">
+              <div style="flex:1;display:flex;align-items:center;gap:8px;padding:13px 12px;background:#2ec4d6;color:#062227;font:700 13px/1 Archivo,sans-serif;clip-path:polygon(0 0,calc(100% - 12px) 0,100% 12px,100% 100%,0 100%)">
+                <svg style="width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-seek"></use></svg>Seeking
+              </div>
+              <div style="flex:1;display:flex;align-items:center;gap:8px;padding:13px 12px;background:#16262d;color:#8aa2ac;font:600 13px/1 Archivo,sans-serif;clip-path:polygon(0 0,calc(100% - 12px) 0,100% 12px,100% 100%,0 100%)">
+                <svg style="width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-hide"></use></svg>Hiding
+              </div>
+            </div>
+            <div style="margin-top:10px;font:400 11.5px/1.5 Archivo,sans-serif;color:#8aa2ac;text-wrap:pretty">You get the full map toolkit. Make your room, then link it to the hiders' so questions and answers flow both ways.</div>
+          </div>
+
+          <div style="position:relative">
+            <span style="position:absolute;left:-26px;top:1px;width:12px;height:12px;border:3px solid #2ec4d6;background:#101a1f;border-radius:50%"></span>
+            <div style="font:600 9px/1 'IBM Plex Mono',monospace;letter-spacing:.24em;color:#8aa2ac">CREATE A NEW GAME</div>
+            <div style="margin-top:11px;display:flex;align-items:center;gap:9px;padding:12px 13px;background:#16262d;color:#e7eff2;font:600 13px/1 Archivo,sans-serif">
+              <svg style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter;color:#2ec4d6"><use href="#i-zone"></use></svg>
+              Greater Manchester
+              <span style="flex:1"></span>
+              <svg style="width:13px;height:13px;stroke:#8aa2ac;fill:none;stroke-width:1.8;stroke-linecap:square;transform:rotate(90deg)"><use href="#i-chevron"></use></svg>
+            </div>
+            <div style="margin-top:8px;display:flex;align-items:center;justify-content:center;gap:9px;padding:16px 0;background:#2ec4d6;color:#062227;font:700 14px/1 Archivo,sans-serif;letter-spacing:.01em;clip-path:polygon(0 0,calc(100% - 14px) 0,100% 14px,100% 100%,0 100%)">
+              Create room
+              <svg style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:square"><use href="#i-chevron"></use></svg>
+            </div>
+            <div style="margin-top:9px;font:400 10.5px/1 'IBM Plex Mono',monospace;color:#5d757f">↳ paste a zone code</div>
+          </div>
+
+          <div style="position:relative">
+            <span style="position:absolute;left:-27px;top:2px;width:14px;height:2px;background:#1e3b45"></span>
+            <div style="font:600 9px/1 'IBM Plex Mono',monospace;letter-spacing:.24em;color:#5d757f">OR JOIN A GAME</div>
+            <div style="margin-top:11px;display:flex;gap:6px">
+              <span style="flex:1;padding:13px 0;background:#16262d;text-align:center;font:600 19px/1 'IBM Plex Mono',monospace;color:#4f6670">0</span>
+              <span style="flex:1;padding:13px 0;background:#16262d;text-align:center;font:600 19px/1 'IBM Plex Mono',monospace;color:#4f6670">0</span>
+              <span style="flex:1;padding:13px 0;background:#16262d;text-align:center;font:600 19px/1 'IBM Plex Mono',monospace;color:#4f6670">0</span>
+              <span style="flex:1;padding:13px 0;background:#16262d;text-align:center;font:600 19px/1 'IBM Plex Mono',monospace;color:#4f6670">0</span>
+              <span style="flex:1;padding:13px 0;background:#16262d;text-align:center;font:600 19px/1 'IBM Plex Mono',monospace;color:#4f6670">0</span>
+            </div>
+            <div style="margin-top:8px;display:flex;align-items:center;justify-content:center;padding:14px 0;border:2px solid #2ec4d6;color:#2ec4d6;font:700 13px/1 Archivo,sans-serif">Join room</div>
+          </div>
+        </div>
+      </div>
+      <div style="height:6px;background:repeating-linear-gradient(90deg,#2ec4d6 0 12px,#0c1317 12px 14px)"></div>
+    </div>
+
+    <!-- tools panel -->
+    <div style="background:#101a1f;padding:0 0 18px;position:relative;clip-path:polygon(0 0,calc(100% - 22px) 0,100% 22px,100% 100%,0 100%)">
+      <div style="position:absolute;left:20px;top:64px;bottom:18px;width:2px;background:#1e3b45"></div>
+      <div style="display:flex;align-items:center;gap:11px;padding:15px 16px;border-bottom:1px solid rgba(150,192,205,.1)">
+        <svg viewBox="0 0 48 48" style="width:24px;height:24px;flex:none"><path d="M8 40V26L26 8h14" fill="none" stroke="#2ec4d6" stroke-width="7" stroke-linecap="square"></path><circle cx="26" cy="8" r="6" fill="#101a1f" stroke="#2ec4d6" stroke-width="4.5"></circle></svg>
+        <div style="font:800 15px/1 Archivo,sans-serif;letter-spacing:-.03em;color:#e7eff2">Jet<span style="color:#2ec4d6">Lag</span>Pal</div>
+        <span style="flex:1"></span>
+        <div style="display:flex;gap:5px;color:#8aa2ac">
+          <div style="width:26px;height:26px;display:grid;place-items:center"><svg style="width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-back"></use></svg></div>
+          <div style="width:26px;height:26px;display:grid;place-items:center"><svg style="width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-help"></use></svg></div>
+          <div style="width:26px;height:26px;display:grid;place-items:center"><svg style="width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-dial"></use></svg></div>
+          <div style="width:26px;height:26px;display:grid;place-items:center"><svg style="width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-close"></use></svg></div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:2px;padding:12px 16px 0 16px">
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;padding:9px 0 10px;background:#16262d;color:#2ec4d6;clip-path:polygon(0 0,calc(100% - 9px) 0,100% 9px,100% 100%,0 100%)">
+          <svg style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-tools"></use></svg>
+          <span style="font:600 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.14em">TOOLS</span>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;padding:9px 0 10px;color:#6f8892;position:relative">
+          <svg style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-layers"></use></svg>
+          <span style="font:600 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.14em">LAYERS</span>
+          <span style="position:absolute;top:5px;right:12px;min-width:14px;height:14px;padding:0 3px;background:#2ec4d6;color:#08262b;font:700 9px/14px 'IBM Plex Mono',monospace;text-align:center">1</span>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;padding:9px 0 10px;color:#6f8892">
+          <svg style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-ask"></use></svg>
+          <span style="font:600 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.14em">ASK</span>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;padding:9px 0 10px;color:#6f8892">
+          <svg style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-log"></use></svg>
+          <span style="font:600 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.14em">LOG</span>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;padding:9px 0 10px;color:#6f8892">
+          <svg style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-answers"></use></svg>
+          <span style="font:600 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.14em">ANSWERS</span>
+        </div>
+      </div>
+
+      <div style="position:relative;padding:22px 16px 0 42px;display:flex;flex-direction:column;gap:18px">
+        <div style="position:absolute;left:19px;top:0;bottom:0;width:2px;background:#2ec4d6"></div>
+
+        <div style="position:relative">
+          <span style="position:absolute;left:-30px;top:3px;width:16px;height:16px;border:3px solid #2ec4d6;background:#101a1f;border-radius:50%"></span>
+          <div style="display:flex;align-items:center;gap:9px;color:#e7eff2">
+            <span style="font:600 12px/1 'IBM Plex Mono',monospace;color:#2ec4d6">01</span>
+            <svg style="width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter;color:#2ec4d6"><use href="#i-radar"></use></svg>
+            <span style="font:700 18px/1 Archivo,sans-serif;letter-spacing:-.02em">Radar</span>
+          </div>
+          <div style="margin-top:4px;font:400 11px/1.4 Archivo,sans-serif;color:#8aa2ac">Tap where you started, then where it got warmer.</div>
+        </div>
+
+        <div style="background:#16262d;padding:15px 16px;clip-path:polygon(0 0,calc(100% - 16px) 0,100% 16px,100% 100%,0 100%)">
+          <div style="font:600 9px/1 'IBM Plex Mono',monospace;letter-spacing:.24em;color:#7f99a3">RADIUS · KM</div>
+          <div style="margin-top:10px;display:flex;align-items:baseline;gap:8px;border-bottom:2px solid #2ec4d6;padding-bottom:8px">
+            <span style="font:600 32px/1 'IBM Plex Mono',monospace;color:#e7eff2;font-variant-numeric:tabular-nums">5</span>
+            <span style="font:500 11px/1 'IBM Plex Mono',monospace;color:#5d757f">KM</span>
+          </div>
+          <div style="margin-top:13px;display:flex;flex-wrap:wrap;gap:5px">
+            <span style="padding:6px 9px;background:#0f1c22;color:#8aa2ac;font:500 10px/1 'IBM Plex Mono',monospace">500m</span>
+            <span style="padding:6px 9px;background:#0f1c22;color:#8aa2ac;font:500 10px/1 'IBM Plex Mono',monospace">1km</span>
+            <span style="padding:6px 9px;background:#0f1c22;color:#8aa2ac;font:500 10px/1 'IBM Plex Mono',monospace">2km</span>
+            <span style="padding:6px 9px;background:#2ec4d6;color:#08262b;font:600 10px/1 'IBM Plex Mono',monospace">5km</span>
+            <span style="padding:6px 9px;background:#0f1c22;color:#8aa2ac;font:500 10px/1 'IBM Plex Mono',monospace">10km</span>
+            <span style="padding:6px 9px;background:#0f1c22;color:#8aa2ac;font:500 10px/1 'IBM Plex Mono',monospace">15km</span>
+            <span style="padding:6px 9px;background:#0f1c22;color:#8aa2ac;font:500 10px/1 'IBM Plex Mono',monospace">40km</span>
+            <span style="padding:6px 9px;background:#0f1c22;color:#8aa2ac;font:500 10px/1 'IBM Plex Mono',monospace">80km</span>
+            <span style="padding:6px 9px;background:#0f1c22;color:#8aa2ac;font:500 10px/1 'IBM Plex Mono',monospace">160km</span>
+          </div>
+          <div style="margin-top:15px;display:flex;gap:7px">
+            <div style="flex:1;display:flex;align-items:center;justify-content:center;gap:7px;padding:12px 0;background:#0f1c22;color:#cfe0e5;font:600 12px/1 Archivo,sans-serif;clip-path:polygon(0 0,calc(100% - 11px) 0,100% 11px,100% 100%,0 100%)">
+              <svg style="width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-crosshair"></use></svg>Pick centre
+            </div>
+            <div style="flex:1;display:flex;align-items:center;justify-content:center;gap:7px;padding:12px 0;background:#2ec4d6;color:#062227;font:700 12px/1 Archivo,sans-serif;clip-path:polygon(0 0,calc(100% - 11px) 0,100% 11px,100% 100%,0 100%)">
+              <svg style="width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-pin"></use></svg>Ask from here
+            </div>
+          </div>
+        </div>
+
+        <div style="position:relative">
+          <span style="position:absolute;left:-27px;top:5px;width:10px;height:2px;background:#1e3b45"></span>
+          <div style="font:600 9px/1 'IBM Plex Mono',monospace;letter-spacing:.24em;color:#5d757f">OR TYPE THE CENTRE</div>
+          <div style="margin-top:9px;padding:11px 0;border-bottom:1px solid rgba(150,192,205,.16);font:400 11.5px/1 'IBM Plex Mono',monospace;color:#4f6670">53.4808, -2.2426</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ---------- LIGHT ---------- -->
+  <div style="background:#e8ece9;padding:26px 24px 30px;display:flex;flex-direction:column;gap:26px">
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <div style="font:600 9px/1 'IBM Plex Mono',monospace;letter-spacing:.26em;color:#7b8d93">LIGHT</div>
+      <div style="height:1px;flex:1;margin-left:14px;background:repeating-linear-gradient(90deg,rgba(12,40,48,.3) 0 1px,transparent 1px 6px)"></div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:22px">
+      <div style="display:flex;align-items:center;gap:18px">
+        <svg viewBox="0 0 48 48" style="width:52px;height:52px;flex:none">
+          <path d="M6 42V26L26 6h16" fill="none" stroke="#0f8fa3" stroke-width="5" stroke-linecap="square"></path>
+          <circle cx="26" cy="6" r="6.5" fill="#e8ece9" stroke="#0f8fa3" stroke-width="4"></circle>
+          <circle cx="6" cy="42" r="4" fill="#c9741a"></circle>
+        </svg>
+        <div>
+          <div style="font:800 33px/1 Archivo,sans-serif;letter-spacing:-.035em;color:#0f2128">Jet<span style="color:#0f8fa3">Lag</span>Pal</div>
+          <div style="margin-top:7px;display:flex;align-items:center;gap:9px;font:500 9px/1 'IBM Plex Mono',monospace;letter-spacing:.22em;color:#5b7078">
+            <span style="width:22px;height:2px;background:#0f8fa3"></span>FIELD KIT · HIDE &amp; SEEK
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:flex-end;gap:14px">
+        <div style="width:60px;height:60px;background:#fff;clip-path:polygon(0 0,calc(100% - 16px) 0,100% 16px,100% 100%,0 100%);position:relative">
+          <svg viewBox="0 0 48 48" style="position:absolute;inset:0;width:100%;height:100%"><path d="M8 40V26L26 8h14" fill="none" stroke="#0f8fa3" stroke-width="6" stroke-linecap="square"></path><circle cx="26" cy="8" r="5.5" fill="#fff" stroke="#0f8fa3" stroke-width="4"></circle></svg>
+        </div>
+        <div style="width:60px;height:60px;background:#0f8fa3;clip-path:polygon(0 0,calc(100% - 16px) 0,100% 16px,100% 100%,0 100%);position:relative">
+          <svg viewBox="0 0 48 48" style="position:absolute;inset:0;width:100%;height:100%"><path d="M8 40V26L26 8h14" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="square"></path><circle cx="26" cy="8" r="5.5" fill="#0f8fa3" stroke="#fff" stroke-width="4"></circle></svg>
+        </div>
+        <div style="font:500 8.5px/1.7 'IBM Plex Mono',monospace;letter-spacing:.16em;color:#7b8d93">APP ICON<br>KNOCKOUT / SOLID</div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column">
+      <div style="display:flex;align-items:center;gap:10px;padding:9px 0 10px;border-top:2px solid #0f8fa3">
+        <span style="width:7px;height:7px;background:#17a35f"></span>
+        <span style="font:500 9.5px/1 'IBM Plex Mono',monospace;letter-spacing:.2em;color:#5b7078">ROOM</span>
+        <span style="font:600 17px/1 'IBM Plex Mono',monospace;letter-spacing:.06em;color:#0f2128;font-variant-numeric:tabular-nums">41550</span>
+        <span style="flex:1"></span>
+        <div style="display:flex;gap:6px">
+          <div style="width:28px;height:28px;background:#fff;display:grid;place-items:center;color:#5b7078;clip-path:polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,0 100%)"><svg style="width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-copy"></use></svg></div>
+          <div style="width:28px;height:28px;background:#fff;display:grid;place-items:center;color:#5b7078;clip-path:polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,0 100%)"><svg style="width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-link"></use></svg></div>
+        </div>
+      </div>
+      <div style="font:400 10.5px/1 'IBM Plex Mono',monospace;color:#7b8d93;padding-bottom:16px">BIRMINGHAM &amp; WEST MIDLANDS · SYNCED</div>
+
+      <div style="background:#fff;padding:16px 18px 14px;clip-path:polygon(0 0,calc(100% - 20px) 0,100% 20px,100% 100%,0 100%);border-left:3px solid #0f8fa3">
+        <div style="display:flex;align-items:flex-end;justify-content:space-between">
+          <div>
+            <div style="display:flex;align-items:center;gap:7px;font:600 9px/1 'IBM Plex Mono',monospace;letter-spacing:.22em;color:#0f8fa3">
+              <svg style="width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:square"><use href="#i-seek"></use></svg>SEEKING · RD 3
+            </div>
+            <div style="margin-top:9px;font:600 44px/1 'IBM Plex Mono',monospace;letter-spacing:-.02em;color:#0f2128;font-variant-numeric:tabular-nums">21:48</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:7px;padding:8px 13px;background:#eef2f1;color:#0f2128;font:600 11px/1 Archivo,sans-serif;clip-path:polygon(0 0,calc(100% - 10px) 0,100% 10px,100% 100%,0 100%)">
+            <svg style="width:11px;height:11px;color:#c9741a"><use href="#i-stop"></use></svg>End round
+          </div>
+        </div>
+        <div style="margin-top:14px;height:9px;background:repeating-linear-gradient(90deg,#0f8fa3 0 1px,transparent 1px 9px);opacity:.45"></div>
+      </div>
+    </div>
+
+    <!-- setup screen (light) -->
+    <div style="background:#fff;position:relative;clip-path:polygon(0 0,calc(100% - 24px) 0,100% 24px,100% 100%,0 100%)">
+      <div style="padding:26px 22px 24px;display:flex;flex-direction:column;gap:22px">
+        <div style="display:flex;align-items:center;gap:13px">
+          <svg viewBox="0 0 48 48" style="width:38px;height:38px;flex:none"><path d="M8 40V26L26 8h14" fill="none" stroke="#0f8fa3" stroke-width="6.5" stroke-linecap="square"></path><circle cx="26" cy="8" r="6" fill="#fff" stroke="#0f8fa3" stroke-width="4.5"></circle></svg>
+          <div>
+            <div style="font:800 24px/1 Archivo,sans-serif;letter-spacing:-.035em;color:#0f2128">Jet<span style="color:#0f8fa3">Lag</span>Pal</div>
+            <div style="margin-top:6px;font:500 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.2em;color:#5b7078">REAL-TIME MAP TRACKER</div>
+          </div>
+        </div>
+
+        <div style="position:relative;padding-left:26px;display:flex;flex-direction:column;gap:20px">
+          <div style="position:absolute;left:5px;top:6px;bottom:6px;width:2px;background:#d5dedc"></div>
+
+          <div style="position:relative">
+            <span style="position:absolute;left:-26px;top:1px;width:12px;height:12px;border:3px solid #0f8fa3;background:#fff;border-radius:50%"></span>
+            <div style="font:600 9px/1 'IBM Plex Mono',monospace;letter-spacing:.24em;color:#5b7078">WHICH SIDE ARE YOU ON?</div>
+            <div style="margin-top:11px;display:flex;gap:7px">
+              <div style="flex:1;display:flex;align-items:center;gap:8px;padding:13px 12px;background:#0f8fa3;color:#fff;font:700 13px/1 Archivo,sans-serif;clip-path:polygon(0 0,calc(100% - 12px) 0,100% 12px,100% 100%,0 100%)">
+                <svg style="width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-seek"></use></svg>Seeking
+              </div>
+              <div style="flex:1;display:flex;align-items:center;gap:8px;padding:13px 12px;background:#f2f5f4;color:#48606a;font:600 13px/1 Archivo,sans-serif;clip-path:polygon(0 0,calc(100% - 12px) 0,100% 12px,100% 100%,0 100%)">
+                <svg style="width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-hide"></use></svg>Hiding
+              </div>
+            </div>
+            <div style="margin-top:10px;font:400 11.5px/1.5 Archivo,sans-serif;color:#5b7078;text-wrap:pretty">You get the full map toolkit. Make your room, then link it to the hiders' so questions and answers flow both ways.</div>
+          </div>
+
+          <div style="position:relative">
+            <span style="position:absolute;left:-26px;top:1px;width:12px;height:12px;border:3px solid #0f8fa3;background:#fff;border-radius:50%"></span>
+            <div style="font:600 9px/1 'IBM Plex Mono',monospace;letter-spacing:.24em;color:#5b7078">CREATE A NEW GAME</div>
+            <div style="margin-top:11px;display:flex;align-items:center;gap:9px;padding:12px 13px;background:#f2f5f4;color:#0f2128;font:600 13px/1 Archivo,sans-serif">
+              <svg style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter;color:#0f8fa3"><use href="#i-zone"></use></svg>
+              Greater Manchester
+              <span style="flex:1"></span>
+              <svg style="width:13px;height:13px;stroke:#5b7078;fill:none;stroke-width:1.8;stroke-linecap:square;transform:rotate(90deg)"><use href="#i-chevron"></use></svg>
+            </div>
+            <div style="margin-top:8px;display:flex;align-items:center;justify-content:center;gap:9px;padding:16px 0;background:#0f2128;color:#fff;font:700 14px/1 Archivo,sans-serif;letter-spacing:.01em;clip-path:polygon(0 0,calc(100% - 14px) 0,100% 14px,100% 100%,0 100%)">
+              Create room
+              <svg style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:square;color:#2ec4d6"><use href="#i-chevron"></use></svg>
+            </div>
+            <div style="margin-top:9px;font:400 10.5px/1 'IBM Plex Mono',monospace;color:#7b8d93">↳ paste a zone code</div>
+          </div>
+
+          <div style="position:relative">
+            <span style="position:absolute;left:-27px;top:2px;width:14px;height:2px;background:#d5dedc"></span>
+            <div style="font:600 9px/1 'IBM Plex Mono',monospace;letter-spacing:.24em;color:#7b8d93">OR JOIN A GAME</div>
+            <div style="margin-top:11px;display:flex;gap:6px">
+              <span style="flex:1;padding:13px 0;background:#f2f5f4;text-align:center;font:600 19px/1 'IBM Plex Mono',monospace;color:#a9b8b8">0</span>
+              <span style="flex:1;padding:13px 0;background:#f2f5f4;text-align:center;font:600 19px/1 'IBM Plex Mono',monospace;color:#a9b8b8">0</span>
+              <span style="flex:1;padding:13px 0;background:#f2f5f4;text-align:center;font:600 19px/1 'IBM Plex Mono',monospace;color:#a9b8b8">0</span>
+              <span style="flex:1;padding:13px 0;background:#f2f5f4;text-align:center;font:600 19px/1 'IBM Plex Mono',monospace;color:#a9b8b8">0</span>
+              <span style="flex:1;padding:13px 0;background:#f2f5f4;text-align:center;font:600 19px/1 'IBM Plex Mono',monospace;color:#a9b8b8">0</span>
+            </div>
+            <div style="margin-top:8px;display:flex;align-items:center;justify-content:center;padding:14px 0;border:2px solid #0f2128;color:#0f2128;font:700 13px/1 Archivo,sans-serif">Join room</div>
+          </div>
+        </div>
+      </div>
+      <div style="height:6px;background:repeating-linear-gradient(90deg,#0f8fa3 0 12px,#0f2128 12px 14px)"></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ============ OPTION 1B : DEPARTURE BOARD ============ -->
+<div class="dv-opt" id="1b">
+<div class="dv-olabel"><a class="dv-oid" href="#1b">1b</a><span><b>Departure board.</b> Same transit vocabulary pushed to signage: a full-width state rule caps every surface, hierarchy is carried by a left state bar (6px live / 2px passive / none for chrome), all data is mono and tabular, and dashed route ticks replace dividers. Signal amber is the only second colour. Flat, high-contrast, zero radius — reads as equipment, not a card deck.</span></div>
+<div class="dv-card" style="width:1460px;display:grid;grid-template-columns:1fr 1fr;background:#b9bdb4">
+
+  <!-- ---------- DARK ---------- -->
+  <div style="background:#070d0f;padding:26px 24px 30px;display:flex;flex-direction:column;gap:26px">
+    <div style="display:flex;align-items:center;gap:14px">
+      <div style="font:600 9px/1 'IBM Plex Mono',monospace;letter-spacing:.26em;color:#66787d">DARK · DEFAULT</div>
+      <div style="height:2px;flex:1;background:repeating-linear-gradient(90deg,#2ec4d6 0 8px,transparent 8px 14px);opacity:.55"></div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:20px">
+      <div style="display:flex;align-items:stretch;gap:0">
+        <div style="width:58px;background:#2ec4d6;display:grid;place-items:center">
+          <svg viewBox="0 0 48 48" style="width:34px;height:34px">
+            <path d="M6 24h13M29 24h13" stroke="#04191c" stroke-width="5" stroke-linecap="square"></path>
+            <circle cx="24" cy="24" r="7" fill="none" stroke="#04191c" stroke-width="5"></circle>
+          </svg>
+        </div>
+        <div style="flex:1;background:#0d1618;padding:12px 16px;display:flex;flex-direction:column;justify-content:center">
+          <div style="font:900 30px/1 Archivo,sans-serif;letter-spacing:-.045em;color:#eef4f2;text-transform:uppercase">JETLAG<span style="color:#2ec4d6">PAL</span></div>
+          <div style="margin-top:8px;font:600 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.3em;color:#ffb02e">HIDE &amp; SEEK · FIELD TERMINAL</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:flex-end;gap:13px">
+        <div style="width:58px;height:58px;background:#0d1618;border-top:3px solid #2ec4d6;display:grid;place-items:center">
+          <svg viewBox="0 0 48 48" style="width:32px;height:32px"><path d="M6 24h13M29 24h13" stroke="#2ec4d6" stroke-width="5" stroke-linecap="square"></path><circle cx="24" cy="24" r="7" fill="none" stroke="#2ec4d6" stroke-width="5"></circle></svg>
+        </div>
+        <div style="width:58px;height:58px;background:#2ec4d6;display:grid;place-items:center">
+          <svg viewBox="0 0 48 48" style="width:32px;height:32px"><path d="M6 24h13M29 24h13" stroke="#04191c" stroke-width="5" stroke-linecap="square"></path><circle cx="24" cy="24" r="7" fill="none" stroke="#04191c" stroke-width="5"></circle></svg>
+        </div>
+        <div style="width:58px;height:58px;background:#ffb02e;display:grid;place-items:center">
+          <svg viewBox="0 0 48 48" style="width:32px;height:32px"><path d="M6 24h13M29 24h13" stroke="#251400" stroke-width="5" stroke-linecap="square"></path><circle cx="24" cy="24" r="7" fill="none" stroke="#251400" stroke-width="5"></circle></svg>
+        </div>
+        <div style="font:500 8.5px/1.7 'IBM Plex Mono',monospace;letter-spacing:.14em;color:#66787d">INTERCHANGE MARK<br>3 STATES</div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div style="border-top:3px solid #4bd68a;background:#0d1618;padding:10px 14px;display:flex;align-items:center;gap:11px">
+        <span style="font:600 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.24em;color:#4bd68a">LINKED</span>
+        <span style="width:1px;height:12px;background:#22343a"></span>
+        <span style="font:600 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.24em;color:#66787d">ROOM</span>
+        <span style="font:700 16px/1 'IBM Plex Mono',monospace;color:#eef4f2;font-variant-numeric:tabular-nums;letter-spacing:.1em">41550</span>
+        <span style="flex:1"></span>
+        <span style="font:400 9.5px/1 'IBM Plex Mono',monospace;color:#66787d">W-MIDLANDS</span>
+        <div style="display:flex;gap:8px;color:#8fa3a8">
+          <svg style="width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-copy"></use></svg>
+          <svg style="width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-link"></use></svg>
+        </div>
+      </div>
+
+      <div style="border-top:3px solid #ffb02e;background:#0d1618;border-left:6px solid #ffb02e;padding:14px 16px 12px">
+        <div style="display:flex;align-items:center;gap:9px">
+          <span style="font:600 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.3em;color:#ffb02e">ROUND 3 — SEEKING</span>
+          <span style="flex:1;height:2px;background:repeating-linear-gradient(90deg,#33474d 0 3px,transparent 3px 7px)"></span>
+        </div>
+        <div style="margin-top:10px;display:flex;align-items:flex-end;justify-content:space-between">
+          <div style="display:flex;align-items:baseline;gap:3px;color:#eef4f2;font:700 52px/.9 'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums;letter-spacing:-.03em">
+            21<span style="color:#ffb02e">:</span>48
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:#161f21;border-left:3px solid #ff6a4d;color:#eef4f2;font:600 11px/1 Archivo,sans-serif">
+            <svg style="width:10px;height:10px;color:#ff6a4d"><use href="#i-stop"></use></svg>End round
+          </div>
+        </div>
+        <div style="margin-top:12px;display:flex;justify-content:space-between;font:400 8px/1 'IBM Plex Mono',monospace;color:#4f6165;letter-spacing:.1em">
+          <span>+00:00</span><span>ELAPSED 21:48</span><span>ASKS 7</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- setup screen (dark) -->
+    <div style="background:#0d1618;border-top:4px solid #2ec4d6">
+      <div style="padding:22px 20px 22px;display:flex;flex-direction:column;gap:20px">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="width:34px;height:34px;background:#2ec4d6;display:grid;place-items:center;flex:none">
+            <svg viewBox="0 0 48 48" style="width:22px;height:22px"><path d="M6 24h13M29 24h13" stroke="#04191c" stroke-width="6" stroke-linecap="square"></path><circle cx="24" cy="24" r="7" fill="none" stroke="#04191c" stroke-width="6"></circle></svg>
+          </div>
+          <div style="font:900 21px/1 Archivo,sans-serif;letter-spacing:-.04em;color:#eef4f2">JETLAG<span style="color:#2ec4d6">PAL</span></div>
+          <span style="flex:1"></span>
+          <span style="font:500 8px/1 'IBM Plex Mono',monospace;letter-spacing:.18em;color:#5b6d71">V2.4</span>
+        </div>
+        <div style="font:400 12px/1.5 Archivo,sans-serif;color:#8fa3a8;text-wrap:pretty">Real-time map tracker for Hide &amp; Seek.</div>
+
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <div style="border-left:6px solid #2ec4d6;background:#111d20;padding:13px 14px">
+            <div style="font:600 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.28em;color:#7c9095">WHICH SIDE ARE YOU ON?</div>
+            <div style="margin-top:11px;display:flex;gap:2px">
+              <div style="flex:1;display:flex;align-items:center;gap:8px;padding:13px 12px;background:#2ec4d6;color:#04191c;font:700 13px/1 Archivo,sans-serif">
+                <svg style="width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-seek"></use></svg>SEEKING
+              </div>
+              <div style="flex:1;display:flex;align-items:center;gap:8px;padding:13px 12px;background:#182427;color:#7c9095;font:600 13px/1 Archivo,sans-serif">
+                <svg style="width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-hide"></use></svg>HIDING
+              </div>
+            </div>
+            <div style="margin-top:11px;font:400 11.5px/1.5 Archivo,sans-serif;color:#8fa3a8;text-wrap:pretty">You get the full map toolkit. Make your room, then link it to the hiders' so questions and answers flow both ways.</div>
+          </div>
+
+          <div style="height:2px;background:repeating-linear-gradient(90deg,#2c3c40 0 6px,transparent 6px 12px)"></div>
+
+          <div style="border-left:6px solid #ffb02e;background:#111d20;padding:13px 14px">
+            <div style="font:600 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.28em;color:#ffb02e">CREATE A NEW GAME</div>
+            <div style="margin-top:11px;display:flex;align-items:center;gap:9px;padding:12px 13px;background:#0a1214;color:#eef4f2;font:600 13px/1 Archivo,sans-serif;border-bottom:2px solid #2c3c40">
+              <svg style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter;color:#2ec4d6"><use href="#i-zone"></use></svg>
+              Greater Manchester
+              <span style="flex:1"></span>
+              <svg style="width:12px;height:12px;stroke:#7c9095;fill:none;stroke-width:2;stroke-linecap:square;transform:rotate(90deg)"><use href="#i-chevron"></use></svg>
+            </div>
+            <div style="margin-top:10px;display:flex;align-items:center;justify-content:space-between;padding:15px 15px;background:#ffb02e;color:#241300;font:800 14px/1 Archivo,sans-serif;letter-spacing:.02em;text-transform:uppercase">
+              Create room
+              <svg style="width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:square"><use href="#i-chevron"></use></svg>
+            </div>
+            <div style="margin-top:9px;font:400 10px/1 'IBM Plex Mono',monospace;color:#5b6d71">↳ PASTE A ZONE CODE</div>
+          </div>
+
+          <div style="background:#0a1214;padding:13px 14px">
+            <div style="font:600 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.28em;color:#5b6d71">OR JOIN A GAME</div>
+            <div style="margin-top:11px;display:flex;align-items:center;gap:10px">
+              <div style="flex:1;display:flex;gap:3px">
+                <span style="flex:1;padding:12px 0;background:#151f22;text-align:center;font:700 18px/1 'IBM Plex Mono',monospace;color:#3f4f53">0</span>
+                <span style="flex:1;padding:12px 0;background:#151f22;text-align:center;font:700 18px/1 'IBM Plex Mono',monospace;color:#3f4f53">0</span>
+                <span style="flex:1;padding:12px 0;background:#151f22;text-align:center;font:700 18px/1 'IBM Plex Mono',monospace;color:#3f4f53">0</span>
+                <span style="flex:1;padding:12px 0;background:#151f22;text-align:center;font:700 18px/1 'IBM Plex Mono',monospace;color:#3f4f53">0</span>
+                <span style="flex:1;padding:12px 0;background:#151f22;text-align:center;font:700 18px/1 'IBM Plex Mono',monospace;color:#3f4f53">0</span>
+              </div>
+              <div style="padding:13px 16px;border:2px solid #2ec4d6;color:#2ec4d6;font:700 12px/1 Archivo,sans-serif;text-transform:uppercase">Join</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ---------- LIGHT ---------- -->
+  <div style="background:#edeae1;padding:26px 24px 30px;display:flex;flex-direction:column;gap:26px">
+    <div style="display:flex;align-items:center;gap:14px">
+      <div style="font:600 9px/1 'IBM Plex Mono',monospace;letter-spacing:.26em;color:#6d766f">LIGHT</div>
+      <div style="height:2px;flex:1;background:repeating-linear-gradient(90deg,#0b7b8c 0 8px,transparent 8px 14px);opacity:.6"></div>
+    </div>
+
+    <div style="display:flex;align-items:stretch">
+      <div style="width:58px;background:#0b7b8c;display:grid;place-items:center">
+        <svg viewBox="0 0 48 48" style="width:34px;height:34px"><path d="M6 24h13M29 24h13" stroke="#f3f1ea" stroke-width="5" stroke-linecap="square"></path><circle cx="24" cy="24" r="7" fill="none" stroke="#f3f1ea" stroke-width="5"></circle></svg>
+      </div>
+      <div style="flex:1;background:#f8f7f2;padding:12px 16px;display:flex;flex-direction:column;justify-content:center">
+        <div style="font:900 30px/1 Archivo,sans-serif;letter-spacing:-.045em;color:#10201f;text-transform:uppercase">JETLAG<span style="color:#0b7b8c">PAL</span></div>
+        <div style="margin-top:8px;font:600 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.3em;color:#b06a10">HIDE &amp; SEEK · FIELD TERMINAL</div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div style="border-top:3px solid #17a35f;background:#f8f7f2;padding:10px 14px;display:flex;align-items:center;gap:11px">
+        <span style="font:600 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.24em;color:#17a35f">LINKED</span>
+        <span style="width:1px;height:12px;background:#d5d3c8"></span>
+        <span style="font:600 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.24em;color:#6d766f">ROOM</span>
+        <span style="font:700 16px/1 'IBM Plex Mono',monospace;color:#10201f;font-variant-numeric:tabular-nums;letter-spacing:.1em">41550</span>
+        <span style="flex:1"></span>
+        <span style="font:400 9.5px/1 'IBM Plex Mono',monospace;color:#6d766f">W-MIDLANDS</span>
+        <div style="display:flex;gap:8px;color:#5e6a68">
+          <svg style="width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-copy"></use></svg>
+          <svg style="width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-link"></use></svg>
+        </div>
+      </div>
+
+      <div style="border-top:3px solid #c4741a;background:#f8f7f2;border-left:6px solid #c4741a;padding:14px 16px 12px">
+        <div style="display:flex;align-items:center;gap:9px">
+          <span style="font:600 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.3em;color:#b06a10">ROUND 3 — SEEKING</span>
+          <span style="flex:1;height:2px;background:repeating-linear-gradient(90deg,#cfcdc0 0 3px,transparent 3px 7px)"></span>
+        </div>
+        <div style="margin-top:10px;display:flex;align-items:flex-end;justify-content:space-between">
+          <div style="display:flex;align-items:baseline;gap:3px;color:#10201f;font:700 52px/.9 'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums;letter-spacing:-.03em">
+            21<span style="color:#c4741a">:</span>48
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:#efece3;border-left:3px solid #d1452a;color:#10201f;font:600 11px/1 Archivo,sans-serif">
+            <svg style="width:10px;height:10px;color:#d1452a"><use href="#i-stop"></use></svg>End round
+          </div>
+        </div>
+        <div style="margin-top:12px;display:flex;justify-content:space-between;font:400 8px/1 'IBM Plex Mono',monospace;color:#8b938a;letter-spacing:.1em">
+          <span>+00:00</span><span>ELAPSED 21:48</span><span>ASKS 7</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- tools panel (light) -->
+    <div style="background:#f8f7f2;border-top:4px solid #0b7b8c">
+      <div style="display:flex;align-items:center;gap:11px;padding:13px 15px;border-bottom:2px solid #e4e1d6">
+        <div style="width:26px;height:26px;background:#0b7b8c;display:grid;place-items:center;flex:none">
+          <svg viewBox="0 0 48 48" style="width:18px;height:18px"><path d="M6 24h13M29 24h13" stroke="#f3f1ea" stroke-width="7" stroke-linecap="square"></path><circle cx="24" cy="24" r="7" fill="none" stroke="#f3f1ea" stroke-width="7"></circle></svg>
+        </div>
+        <div style="font:900 15px/1 Archivo,sans-serif;letter-spacing:-.04em;color:#10201f">JETLAG<span style="color:#0b7b8c">PAL</span></div>
+        <span style="flex:1"></span>
+        <div style="display:flex;gap:9px;color:#5e6a68">
+          <svg style="width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-back"></use></svg>
+          <svg style="width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-help"></use></svg>
+          <svg style="width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-dial"></use></svg>
+          <svg style="width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-close"></use></svg>
+        </div>
+      </div>
+
+      <div style="display:flex;border-bottom:2px solid #e4e1d6">
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;padding:10px 0 9px;border-top:3px solid #0b7b8c;background:#eef1ec;color:#0b7b8c;margin-top:-1px">
+          <svg style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-tools"></use></svg>
+          <span style="font:700 8px/1 'IBM Plex Mono',monospace;letter-spacing:.16em">TOOLS</span>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;padding:10px 0 9px;color:#7b837b;position:relative">
+          <svg style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-layers"></use></svg>
+          <span style="font:600 8px/1 'IBM Plex Mono',monospace;letter-spacing:.16em">LAYERS</span>
+          <span style="position:absolute;top:4px;right:10px;min-width:13px;height:13px;padding:0 3px;background:#c4741a;color:#fff;font:700 8.5px/13px 'IBM Plex Mono',monospace;text-align:center">1</span>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;padding:10px 0 9px;color:#7b837b">
+          <svg style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-ask"></use></svg>
+          <span style="font:600 8px/1 'IBM Plex Mono',monospace;letter-spacing:.16em">ASK</span>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;padding:10px 0 9px;color:#7b837b">
+          <svg style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-log"></use></svg>
+          <span style="font:600 8px/1 'IBM Plex Mono',monospace;letter-spacing:.16em">LOG</span>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;padding:10px 0 9px;color:#7b837b">
+          <svg style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-answers"></use></svg>
+          <span style="font:600 8px/1 'IBM Plex Mono',monospace;letter-spacing:.16em">ANSWERS</span>
+        </div>
+      </div>
+
+      <div style="padding:16px 15px 20px;display:flex;flex-direction:column;gap:14px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font:700 13px/1 'IBM Plex Mono',monospace;color:#0b7b8c">01</span>
+          <svg style="width:18px;height:18px;stroke:#0b7b8c;fill:none;stroke-width:1.7;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-radar"></use></svg>
+          <span style="font:800 19px/1 Archivo,sans-serif;letter-spacing:-.03em;color:#10201f">RADAR</span>
+          <span style="flex:1;height:2px;background:repeating-linear-gradient(90deg,#d5d3c8 0 3px,transparent 3px 7px)"></span>
+        </div>
+
+        <div style="border-left:6px solid #0b7b8c;background:#eef1ec;padding:14px 15px">
+          <div style="display:flex;align-items:flex-end;justify-content:space-between;border-bottom:2px solid #0b7b8c;padding-bottom:9px">
+            <span style="font:600 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.28em;color:#5e6a68">RADIUS</span>
+            <span style="font:700 30px/1 'IBM Plex Mono',monospace;color:#10201f;font-variant-numeric:tabular-nums">5<span style="font-size:12px;color:#8b938a;margin-left:3px">KM</span></span>
+          </div>
+          <div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:3px">
+            <span style="padding:7px 9px;background:#f8f7f2;color:#5e6a68;font:500 10px/1 'IBM Plex Mono',monospace">500m</span>
+            <span style="padding:7px 9px;background:#f8f7f2;color:#5e6a68;font:500 10px/1 'IBM Plex Mono',monospace">1km</span>
+            <span style="padding:7px 9px;background:#f8f7f2;color:#5e6a68;font:500 10px/1 'IBM Plex Mono',monospace">2km</span>
+            <span style="padding:7px 9px;background:#0b7b8c;color:#fff;font:700 10px/1 'IBM Plex Mono',monospace">5km</span>
+            <span style="padding:7px 9px;background:#f8f7f2;color:#5e6a68;font:500 10px/1 'IBM Plex Mono',monospace">10km</span>
+            <span style="padding:7px 9px;background:#f8f7f2;color:#5e6a68;font:500 10px/1 'IBM Plex Mono',monospace">15km</span>
+            <span style="padding:7px 9px;background:#f8f7f2;color:#5e6a68;font:500 10px/1 'IBM Plex Mono',monospace">40km</span>
+            <span style="padding:7px 9px;background:#f8f7f2;color:#5e6a68;font:500 10px/1 'IBM Plex Mono',monospace">80km</span>
+            <span style="padding:7px 9px;background:#f8f7f2;color:#5e6a68;font:500 10px/1 'IBM Plex Mono',monospace">160km</span>
+          </div>
+          <div style="margin-top:14px;display:flex;gap:2px">
+            <div style="flex:1;display:flex;align-items:center;justify-content:center;gap:7px;padding:13px 0;background:#f8f7f2;color:#3b4744;font:600 12px/1 Archivo,sans-serif">
+              <svg style="width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-crosshair"></use></svg>Pick centre
+            </div>
+            <div style="flex:1;display:flex;align-items:center;justify-content:center;gap:7px;padding:13px 0;background:#c4741a;color:#fff;font:700 12px/1 Archivo,sans-serif">
+              <svg style="width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-pin"></use></svg>Ask from here
+            </div>
+          </div>
+        </div>
+
+        <div style="border-left:2px solid #d5d3c8;padding:2px 0 2px 12px">
+          <div style="font:600 8.5px/1 'IBM Plex Mono',monospace;letter-spacing:.28em;color:#8b938a">OR TYPE THE CENTRE</div>
+          <div style="margin-top:7px;font:400 11.5px/1 'IBM Plex Mono',monospace;color:#a4aba1">53.4808, -2.2426</div>
+        </div>
+
+        <div style="border-left:2px solid #d5d3c8;padding:2px 0 2px 12px;display:flex;align-items:center;gap:9px">
+          <svg style="width:14px;height:14px;stroke:#8b938a;fill:none;stroke-width:1.6;stroke-linecap:square;stroke-linejoin:miter"><use href="#i-check"></use></svg>
+          <span style="font:400 11px/1.3 Archivo,sans-serif;color:#7b837b">Radar drawn · 5km from Piccadilly</span>
+          <span style="flex:1"></span>
+          <span style="font:400 9.5px/1 'IBM Plex Mono',monospace;color:#a4aba1">21:31</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+</div>
+<p class="dv-next">Try next: "take <a class="dv-oid" href="#1a">1a</a>'s route-line gutter but <a class="dv-oid" href="#1b">1b</a>'s mono clock" · "show <a class="dv-oid" href="#1b">1b</a>'s modal + toast" · "drop the amber, teal only"</p>
+</section>
+
+</x-dc>
+</body>
+</html>

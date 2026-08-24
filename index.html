@@ -6,7 +6,9 @@
     <!-- CSP allowlists only the hosts this app actually uses:
          scripts/styles from unpkg (Leaflet, Turf, osmtogeojson) + gstatic (Firebase),
          data from Overpass mirrors and Firebase/Firestore (*.googleapis.com),
-         map tiles from CARTO, and the linked-room push relay on Vercel.
+         map tiles from CARTO, the linked-room push relay on Vercel, and the
+         Archivo/IBM Plex Mono webfonts (fonts.googleapis.com stylesheet,
+         fonts.gstatic.com font files) used by the visual identity.
          'unsafe-inline'/'unsafe-eval' remain because the app relies on inline
          onclick handlers, an inline module, and the Firebase SDK. -->
     <meta http-equiv="Content-Security-Policy" content="
@@ -14,7 +16,8 @@
         script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://www.gstatic.com;
         connect-src 'self' https://*.googleapis.com https://*.gstatic.com https://overpass-api.de https://overpass.kumi.systems https://lz4.overpass-api.de https://*.vercel.app;
         img-src 'self' data: blob: https://*.basemaps.cartocdn.com https://unpkg.com;
-        style-src 'self' 'unsafe-inline' https://unpkg.com;
+        style-src 'self' 'unsafe-inline' https://unpkg.com https://fonts.googleapis.com;
+        font-src 'self' https://fonts.gstatic.com;
         worker-src 'self' blob:;
     ">
     <title>JetLagPal - Multiplayer</title>
@@ -26,9 +29,43 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="JetLagPal" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
+
+<svg width="0" height="0" style="position:absolute;overflow:hidden" aria-hidden="true">
+<symbol id="i-tools" viewBox="0 0 24 24"><path d="M4 20L20 4"></path><circle cx="9" cy="15" r="2.6"></circle><circle cx="16.5" cy="7.5" r="2.6"></circle></symbol>
+<symbol id="i-layers" viewBox="0 0 24 24"><path d="M12 3.5l8 4-8 4-8-4z"></path><path d="M4 12l8 4 8-4"></path><path d="M4 16.5l8 4 8-4"></path></symbol>
+<symbol id="i-ask" viewBox="0 0 24 24"><path d="M3.5 12h6l3-5 3 5h5"></path><circle cx="9.5" cy="12" r="2.4"></circle><path d="M12 3.5v3"></path></symbol>
+<symbol id="i-log" viewBox="0 0 24 24"><path d="M5 5v14"></path><path d="M9 6.5h11M9 12h8M9 17.5h5"></path><path d="M3.5 6.5h3M3.5 12h3M3.5 17.5h3"></path></symbol>
+<symbol id="i-answers" viewBox="0 0 24 24"><path d="M4 6h16v12H4z"></path><path d="M7.5 12.5l2.6 2.6 6-6"></path><path d="M4 9h16"></path></symbol>
+<symbol id="i-radar" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"></circle><circle cx="12" cy="12" r="4.4"></circle><path d="M12 12l6-6"></path><path d="M12 1.8v2.4M12 19.8v2.4M1.8 12h2.4M19.8 12h2.4"></path></symbol>
+<symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21l-5.5-8.2A6.6 6.6 0 1 1 17.5 12.8z"></path><circle cx="12" cy="9.8" r="2.2"></circle></symbol>
+<symbol id="i-crosshair" viewBox="0 0 24 24"><path d="M12 2v20M2 12h20"></path><circle cx="12" cy="12" r="5.4"></circle></symbol>
+<symbol id="i-seek" viewBox="0 0 24 24"><circle cx="10.4" cy="10.4" r="6.2"></circle><path d="M15 15l5.2 5.2"></path><path d="M10.4 6.6v7.6M6.6 10.4h7.6"></path></symbol>
+<symbol id="i-hide" viewBox="0 0 24 24"><path d="M3.5 11.5L12 4l8.5 7.5"></path><path d="M6 12v8h12v-8"></path><path d="M10 20v-4.5h4V20"></path></symbol>
+<symbol id="i-copy" viewBox="0 0 24 24"><path d="M9 9h11v11H9z"></path><path d="M15 5.5V4H4v11h1.5"></path></symbol>
+<symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14l-2 2a3.6 3.6 0 0 1-5-5l2-2"></path><path d="M14 10l2-2a3.6 3.6 0 0 1 5 5l-2 2"></path><path d="M9.2 14.8l5.6-5.6"></path></symbol>
+<symbol id="i-dial" viewBox="0 0 24 24"><path d="M4 7.5h16M4 16.5h16"></path><circle cx="9" cy="7.5" r="2.4"></circle><circle cx="15.5" cy="16.5" r="2.4"></circle></symbol>
+<symbol id="i-help" viewBox="0 0 24 24"><path d="M4 4h16v16H4z"></path><path d="M9.4 9.6a2.6 2.6 0 1 1 3.7 2.4c-.9.5-1.4 1-1.4 2"></path><path d="M11.7 17.2h.6"></path></symbol>
+<symbol id="i-close" viewBox="0 0 24 24"><path d="M5.5 5.5l13 13M18.5 5.5l-13 13"></path></symbol>
+<symbol id="i-back" viewBox="0 0 24 24"><path d="M9.5 6L4 11.5h12a3.8 3.8 0 0 1 0 7.6h-6"></path><path d="M9.5 17L4 11.5"></path></symbol>
+<symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.4"></circle><path d="M12 7v5.2l3.6 2.2"></path><path d="M12 2v2M12 20v2M2 12h2M20 12h2"></path></symbol>
+<symbol id="i-plane" viewBox="0 0 24 24"><path d="M3 13.6L20.5 7l-5.6 11.6-2.6-4.4z"></path><path d="M12.3 14.2L8.6 18"></path></symbol>
+<symbol id="i-train" viewBox="0 0 24 24"><path d="M6.5 4h11v11h-11z"></path><path d="M6.5 9.5h11"></path><path d="M9 19.6l1.6-4M15 19.6l-1.6-4"></path><path d="M4.5 19.6h15"></path></symbol>
+<symbol id="i-station" viewBox="0 0 24 24"><path d="M3.5 20h17"></path><path d="M7.5 20V9.5h9V20"></path><path d="M10.6 13.4h2.8"></path><path d="M12 4.5v5"></path></symbol>
+<symbol id="i-border" viewBox="0 0 24 24"><path d="M12 2.5v3.6M12 9.4v5.2M12 17.9v3.6"></path><path d="M5.5 7.5l3.5-2M15 18.5l3.5-2"></path></symbol>
+<symbol id="i-measure" viewBox="0 0 24 24"><path d="M3 9.5h18v5H3z"></path><path d="M7.5 9.5v2.6M12 9.5v3.4M16.5 9.5v2.6"></path></symbol>
+<symbol id="i-photo" viewBox="0 0 24 24"><path d="M3.6 6.4h16.8v11.2H3.6z"></path><path d="M3.6 15l4.6-4 4.4 3.8 3-2.6 4.8 4.2"></path><circle cx="15.6" cy="10" r="1.3"></circle></symbol>
+<symbol id="i-zone" viewBox="0 0 24 24"><path d="M4 8l6-4 5 2.6 5-2.6v12l-5 2.6-5-2.6-6 4z"></path><path d="M10 4v13M15 6.6v12"></path></symbol>
+<symbol id="i-node" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5.2"></circle></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><path d="M4.5 12.5l4.8 4.6L19.5 6.8"></path></symbol>
+<symbol id="i-chevron" viewBox="0 0 24 24"><path d="M8.5 5l7 7-7 7"></path></symbol>
+<symbol id="i-stop" viewBox="0 0 24 24"><path d="M7 7h10v10H7z" fill="currentColor" stroke="none"></path></symbol>
+<symbol id="i-route" viewBox="0 0 24 24"><path d="M3.5 20.5V13L13 3.5h7.5"></path></symbol>
+</svg>
 
 <div id="toastContainer"></div>
 <div id="appModalOverlay">
@@ -42,8 +79,8 @@
 <div id="settingsModal" class="modal-overlay">
     <div class="modal-sheet">
         <div class="modal-head">
-            <span class="modal-head-title">⚙️ Settings</span>
-            <button class="modal-close" onclick="window.closeSettings()" aria-label="Close settings">✕</button>
+            <span class="modal-head-title">Settings</span>
+            <button class="modal-close" onclick="window.closeSettings()" aria-label="Close settings"><svg class="icon"><use href="#i-close"></use></svg></button>
         </div>
         <div class="modal-body">
 
@@ -53,28 +90,28 @@
             <div class="settings-group">
                 <h4>Your role</h4>
                 <p class="settings-note" id="roleReadout">You're <strong>seeking</strong> this round.</p>
-                <button class="btn-ghost" onclick="window.nextRound()">🔁 Next round (swap &amp; clear)</button>
+                <button class="btn-ghost" onclick="window.nextRound()"><svg class="icon"><use href="#i-back"></use></svg> Next round (swap &amp; clear)</button>
             </div>
 
             <!-- ---- Your position: the anchor every question is asked from
                  (seekers) or your hiding spot, checked against answers you send
                  (hiders) — same field, relabelled by renderRoleReadout(). ---- -->
             <div class="settings-group pos-card" id="posSettingsGroup">
-                <h4 id="posCardTitle">🧍 Your position</h4>
+                <h4 id="posCardTitle"><svg class="icon"><use href="#i-pin"></use></svg> Your position</h4>
                 <p class="settings-note" id="posCardNote">Matching and measuring questions are answered <em>from where you are</em>.</p>
                 <input type="text" id="posCoords" inputmode="decimal" placeholder="Paste or type: 53.4808, -2.2426" onchange="window.seekerFromInputs()">
                 <div class="btn-row" style="margin-top:8px;">
-                    <button id="btnPosGps" onclick="window.seekerFromGPS()">🛰️ Update now</button>
-                    <button id="btnPosPick" class="btn-ghost" onclick="window.pickSeekerOnMap(event)">🗺️ Tap the map</button>
+                    <button id="btnPosGps" onclick="window.seekerFromGPS()"><svg class="icon"><use href="#i-radar"></use></svg> Update now</button>
+                    <button id="btnPosPick" class="btn-ghost" onclick="window.pickSeekerOnMap(event)"><svg class="icon"><use href="#i-crosshair"></use></svg> Tap the map</button>
                 </div>
                 <div class="pos-readout-row">
                     <div class="pos-readout" id="posReadout">Not set yet</div>
-                    <button class="btn-ghost pos-copy-btn" id="btnPosCopy" onclick="window.copySeekerPosition()" title="Copy to send to hiders">⧉ Copy</button>
+                    <button class="btn-ghost pos-copy-btn" id="btnPosCopy" onclick="window.copySeekerPosition()" title="Copy to send to hiders"><svg class="icon"><use href="#i-copy"></use></svg></button>
                 </div>
 
                 <label class="switch-row" style="margin-top:12px;">
                     <input type="checkbox" id="togglePosAuto" onchange="window.setPosAutoUpdate(this.checked)">
-                    <span>🔄 Auto-update from GPS</span>
+                    <span><svg class="icon"><use href="#i-back"></use></svg> Auto-update from GPS</span>
                 </label>
                 <select id="posAutoInterval" style="margin-top:6px; display:none;" onchange="window.setPosAutoInterval(this.value)">
                     <option value="1">Every 1 min</option>
@@ -88,9 +125,9 @@
             <div class="settings-group">
                 <h4>Map style</h4>
                 <div class="seg" id="mapStyleSeg">
-                    <button type="button" class="seg-btn active" data-style="light" onclick="window.setMapStyle('light')">☀️ Light</button>
-                    <button type="button" class="seg-btn" data-style="muted" onclick="window.setMapStyle('muted')">🌫️ Muted</button>
-                    <button type="button" class="seg-btn" data-style="dark" onclick="window.setMapStyle('dark')">🌙 Dark</button>
+                    <button type="button" class="seg-btn active" data-style="light" onclick="window.setMapStyle('light')">Light</button>
+                    <button type="button" class="seg-btn" data-style="muted" onclick="window.setMapStyle('muted')">Muted</button>
+                    <button type="button" class="seg-btn" data-style="dark" onclick="window.setMapStyle('dark')">Dark</button>
                 </div>
                 <p class="settings-note">Light is easiest to read outdoors. Dark only affects the map tiles, not the panel.</p>
             </div>
@@ -99,15 +136,15 @@
                 <h4>Map layers</h4>
                 <label class="switch-row">
                     <input type="checkbox" id="toggleLocal" checked onchange="window.toggleMapLayer('local', this.checked)">
-                    <span>🚇 Local transit (tram / tube)</span>
+                    <span><svg class="icon"><use href="#i-station"></use></svg> Local transit (tram / tube)</span>
                 </label>
                 <label class="switch-row">
                     <input type="checkbox" id="toggleRail" checked onchange="window.toggleMapLayer('rail', this.checked)">
-                    <span>🚆 National rail</span>
+                    <span><svg class="icon"><use href="#i-train"></use></svg> National rail</span>
                 </label>
                 <label class="switch-row">
                     <input type="checkbox" id="toggleLiveGPS" onchange="window.toggleLiveGPS(this.checked)">
-                    <span>🛰️ Live GPS tracking (this device only)</span>
+                    <span><svg class="icon"><use href="#i-radar"></use></svg> Live GPS tracking (this device only)</span>
                 </label>
             </div>
 
@@ -115,8 +152,8 @@
                 <h4>Map data</h4>
                 <p class="settings-note">Stations and boundaries download automatically when you join. Use these only if something looks missing.</p>
                 <div class="btn-row" style="margin-top:8px;">
-                    <button id="btnLoadTransport" class="btn-ghost" onclick="window.loadTransportData()">↻ Reload</button>
-                    <button class="btn-ghost" onclick="window.forceRefreshData()">⤓ Re-download</button>
+                    <button id="btnLoadTransport" class="btn-ghost" onclick="window.loadTransportData()"><svg class="icon"><use href="#i-back"></use></svg> Reload</button>
+                    <button class="btn-ghost" onclick="window.forceRefreshData()"><svg class="icon"><use href="#i-back"></use></svg> Re-download</button>
                 </div>
                 <div id="loader">Fetching data…</div>
             </div>
@@ -125,23 +162,23 @@
                 <h4>Game zone</h4>
                 <p class="settings-note">Share this zone so everyone can start a future game on exactly the same base area.</p>
                 <div class="btn-row" style="margin-top:8px;">
-                    <button class="btn-ghost" onclick="window.copyAreaCode()">⧉ Copy zone code</button>
-                    <button class="btn-ghost" onclick="window.saveCurrentArea()">☆ Save zone</button>
+                    <button class="btn-ghost" onclick="window.copyAreaCode()"><svg class="icon"><use href="#i-copy"></use></svg> Copy zone code</button>
+                    <button class="btn-ghost" onclick="window.saveCurrentArea()"><svg class="icon"><use href="#i-node"></use></svg> Save zone</button>
                 </div>
             </div>
 
             <div class="settings-group">
                 <h4>Room</h4>
-                <button class="btn-ghost" onclick="window.leaveRoom()">🚪 Leave room / change city</button>
+                <button class="btn-ghost" onclick="window.leaveRoom()"><svg class="icon"><use href="#i-back"></use></svg> Leave room / change city</button>
             </div>
 
             <!-- ---- Linked room: notify + answer flow ---- -->
             <div class="settings-group">
-                <h4>🔗 Linked room</h4>
+                <h4><svg class="icon"><use href="#i-link"></use></svg> Linked room</h4>
                 <p class="settings-note">Link the seeker room and the hider room so asking a question in one notifies the other, and answers come back with the card count. This uses a separate link code, not your room's join code — linking doesn't hand either side the other's actual room code.</p>
                 <div id="linkedRoomStatus" class="settings-note" style="display:none;"></div>
 
-                <button class="btn-accent" id="btnCopyLinkInvite" onclick="window.copyLinkInvite()">🔗 Copy link invite</button>
+                <button class="btn-accent" id="btnCopyLinkInvite" onclick="window.copyLinkInvite()"><svg class="icon"><use href="#i-link"></use></svg> Copy link invite</button>
                 <p class="settings-note">Send this to the other team — opening it links their room to yours automatically. No codes to type.</p>
 
                 <details class="tool-more">
@@ -149,25 +186,25 @@
                     <span class="field-label">My link code</span>
                     <div class="pos-readout-row">
                         <div class="pos-readout" id="myLinkTokenReadout">Loading…</div>
-                        <button class="btn-ghost pos-copy-btn" id="btnCopyLinkToken" onclick="window.copyMyLinkCode()" title="Copy link code">⧉ Copy</button>
+                        <button class="btn-ghost pos-copy-btn" id="btnCopyLinkToken" onclick="window.copyMyLinkCode()" title="Copy link code"><svg class="icon"><use href="#i-copy"></use></svg></button>
                     </div>
                     <span class="field-label">Their link code</span>
                     <input type="text" id="linkRoomInput" placeholder="Paste the other room's link code">
-                    <button class="btn-accent" onclick="window.linkRoom()">🔗 Link rooms</button>
+                    <button class="btn-accent" onclick="window.linkRoom()"><svg class="icon"><use href="#i-link"></use></svg> Link rooms</button>
                 </details>
                 <div class="btn-row" style="margin-top:8px;">
                     <button class="btn-ghost" id="btnUnlinkRoom" onclick="window.unlinkRoom()" style="display:none;">Unlink</button>
                 </div>
                 <label class="switch-row" style="margin-top:12px;">
                     <input type="checkbox" id="toggleNotifications" onchange="window.setNotificationsEnabled(this.checked)">
-                    <span>🔔 Notify this device</span>
+                    <span><svg class="icon"><use href="#i-clock"></use></svg> Notify this device</span>
                 </label>
                 <p class="settings-note">Needs a linked room, and only fires while you're online — same as any other message.</p>
             </div>
 
             <div class="settings-group">
                 <h4>Support</h4>
-                <a href="https://ko-fi.com/jetlagpal" target="_blank" rel="noopener" class="kofi-sidebar-btn">☕ Buy the developer a coffee</a>
+                <a href="https://ko-fi.com/jetlagpal" target="_blank" rel="noopener" class="kofi-sidebar-btn">Buy the developer a coffee</a>
             </div>
 
         </div>
@@ -177,8 +214,13 @@
 <!-- ============ SETUP ============ -->
 <div id="setupScreen">
     <div class="setup-container">
-        <div class="setup-logo">🕵️</div>
-        <h1>JetLagPal</h1>
+        <svg class="setup-logo logo-mark" viewBox="0 0 48 48" width="44" height="44">
+            <path class="mark-line" d="M8 40V26L26 8h14" stroke-width="6"></path>
+            <circle class="mark-node" cx="26" cy="8" r="6" stroke-width="4.5"></circle>
+            <circle class="mark-dot" cx="8" cy="40" r="4"></circle>
+        </svg>
+        <h1 class="wordmark">Jet<span class="wm-lag">Lag</span>Pal</h1>
+        <div class="wordmark-kicker" style="justify-content:center;"><span class="kicker-rule"></span>MAP TRACKER &middot; HIDE &amp; SEEK</div>
         <p class="setup-tagline">Real-time map tracker for Hide &amp; Seek</p>
 
         <!-- Role comes first: it decides what the whole app is for you. Seekers
@@ -188,14 +230,14 @@
         <div class="setup-box" id="roleBox">
             <h3>Which side are you on?</h3>
             <div class="seg" id="roleSeg">
-                <button type="button" class="seg-btn active" data-role="seeker" onclick="window.chooseRole('seeker')">🔍 Seeking</button>
-                <button type="button" class="seg-btn" data-role="hider" onclick="window.chooseRole('hider')">🙈 Hiding</button>
+                <button type="button" class="seg-btn active" data-role="seeker" onclick="window.chooseRole('seeker')"><svg class="icon"><use href="#i-seek"></use></svg> Seeking</button>
+                <button type="button" class="seg-btn" data-role="hider" onclick="window.chooseRole('hider')"><svg class="icon"><use href="#i-hide"></use></svg> Hiding</button>
             </div>
             <p class="settings-note" id="roleNote"></p>
         </div>
 
         <div id="linkInviteBanner" class="setup-link-banner" style="display:none;">
-            🔗 You've been invited to link rooms. Create or join your own team's room below — they'll connect automatically.
+            <svg class="icon"><use href="#i-link"></use></svg> You've been invited to link rooms. Create or join your own team's room below — they'll connect automatically.
         </div>
 
         <div class="setup-box">
@@ -232,26 +274,29 @@
 <div id="controls">
     <div class="controls-header">
         <div class="brand-lockup">
-            <span class="brand-mark">🕵️</span>
-            <h3>JetLagPal</h3>
+            <svg class="brand-mark logo-mark" viewBox="0 0 48 48" width="26" height="26">
+                <path class="mark-line" d="M8 40V26L26 8h14" stroke-width="6.5"></path>
+                <circle class="mark-node" cx="26" cy="8" r="6" stroke-width="4.5"></circle>
+            </svg>
+            <h3 class="wordmark">Jet<span class="wm-lag">Lag</span>Pal</h3>
         </div>
         <div class="header-btns">
-            <button class="icon-btn-header" id="btnUndoHeader" onclick="undoLast()" title="Undo last layer">↩</button>
-            <button class="icon-btn-header help-btn" onclick="openTutorial()" title="How to play">?</button>
-            <button class="icon-btn-header" onclick="window.openSettings()" title="Settings">⚙️</button>
-            <button class="icon-btn-header" id="minBtn" onclick="toggleControls()" title="Close menu">✕</button>
+            <button class="icon-btn-header" id="btnUndoHeader" onclick="undoLast()" title="Undo last layer"><svg class="icon"><use href="#i-back"></use></svg></button>
+            <button class="icon-btn-header help-btn" onclick="openTutorial()" title="How to play"><svg class="icon"><use href="#i-help"></use></svg></button>
+            <button class="icon-btn-header" onclick="window.openSettings()" title="Settings"><svg class="icon"><use href="#i-dial"></use></svg></button>
+            <button class="icon-btn-header" id="minBtn" onclick="toggleControls()" title="Close menu"><svg class="icon"><use href="#i-close"></use></svg></button>
         </div>
     </div>
 
-    <div id="hiderBadge">🙈 You're hiding this round</div>
+    <div id="hiderBadge"><svg class="icon"><use href="#i-hide"></use></svg> You're hiding this round</div>
 
     <div id="connectionStatus">
         <div class="conn-row">
             <span class="conn-dot" id="connDot" title="Connection status"></span>
             <span>Room <span class="conn-code" id="displayRoomCode">—</span></span>
             <span class="conn-spacer"></span>
-            <button class="conn-copy" id="btnCopyCode" onclick="window.copyRoomCode()" title="Copy room code">⧉</button>
-            <button class="conn-copy" id="btnCopyLink" onclick="window.copyInviteLink()" title="Copy invite link">🔗</button>
+            <button class="conn-copy" id="btnCopyCode" onclick="window.copyRoomCode()" title="Copy room code"><svg class="icon"><use href="#i-copy"></use></svg></button>
+            <button class="conn-copy" id="btnCopyLink" onclick="window.copyInviteLink()" title="Copy invite link"><svg class="icon"><use href="#i-link"></use></svg></button>
         </div>
         <div class="conn-region"><span id="displayRegion">No region</span> · <span id="connState">connecting…</span></div>
     </div>
@@ -262,7 +307,7 @@
          (styles.css) — the whole point of a clock is staying glanceable. -->
     <div id="clockBar" class="clock-bar" style="display:none;">
         <div class="clock-row">
-            <span class="clock-icon" id="clockPhaseIcon">⏱️</span>
+            <span class="clock-icon" id="clockPhaseIcon"><svg class="icon"><use href="#i-clock"></use></svg></span>
             <span class="clock-phase" id="clockPhaseText">Not started</span>
             <span class="conn-spacer"></span>
             <span class="clock-time" id="clockTime"></span>
@@ -274,8 +319,8 @@
          looking in Settings — this is the equivalent of the Answers tab's
          empty state, but for the side that doesn't have that tab by default. -->
     <div id="seekerLinkBanner" class="setup-link-banner in-panel" style="display:none;">
-        🔗 Not linked to a hider room yet.
-        <button class="btn-ghost" style="margin-top:6px;" onclick="window.copyLinkInvite()">🔗 Copy link invite</button>
+        <svg class="icon"><use href="#i-link"></use></svg> Not linked to a hider room yet.
+        <button class="btn-ghost" style="margin-top:6px;" onclick="window.copyLinkInvite()"><svg class="icon"><use href="#i-link"></use></svg> Copy link invite</button>
     </div>
 
     <!-- A seeker can walk on while the hider is still thinking, so the shape a
@@ -287,9 +332,9 @@
         <div class="pending-ask-row">
             <div class="pending-ask-text">
                 <div class="pending-ask-label" id="pendingAskLabel"></div>
-                <div class="pending-ask-sub">Pinned to where you asked — waiting on the hider's answer</div>
+                <div class="pending-ask-sub"><span class="blink-dot" style="display:inline-block;width:6px;height:6px;background:var(--accent);margin-right:6px;animation:blink 1.8s ease-in-out infinite;"></span>Pinned to where you asked — waiting on the hider's answer</div>
             </div>
-            <button class="pending-ask-cancel" onclick="window.cancelPendingAsk()" title="Cancel this question">✕</button>
+            <button class="pending-ask-cancel" onclick="window.cancelPendingAsk()" title="Cancel this question"><svg class="icon"><use href="#i-close"></use></svg></button>
         </div>
         <div class="pending-ask-btns">
             <button class="pending-ask-btn hit" id="pendingAskA" onclick="window.commitPendingAsk('hit')"></button>
@@ -298,11 +343,11 @@
     </div>
 
     <div class="tab-bar">
-        <button id="btn-tab-tools" class="tab-btn active" onclick="switchTab('tools')"><span class="tab-ico">🧭</span>Tools</button>
-        <button id="btn-tab-layers" class="tab-btn" onclick="switchTab('layers')"><span class="tab-ico">🗂️</span>Layers <span class="tab-count" id="layerCount"></span></button>
-        <button id="btn-tab-questions" class="tab-btn" onclick="switchTab('questions')"><span class="tab-ico">❓</span>Ask</button>
-        <button id="btn-tab-log" class="tab-btn" onclick="switchTab('log')"><span class="tab-ico">📜</span>Log</button>
-        <button id="btn-tab-answers" class="tab-btn" onclick="switchTab('answers')" style="display:none;"><span class="tab-ico">🙈</span>Answers <span class="tab-count" id="answersCount"></span></button>
+        <button id="btn-tab-tools" class="tab-btn active" onclick="switchTab('tools')"><span class="tab-ico"><svg class="icon"><use href="#i-tools"></use></svg></span>Tools</button>
+        <button id="btn-tab-layers" class="tab-btn" onclick="switchTab('layers')"><span class="tab-ico"><svg class="icon"><use href="#i-layers"></use></svg></span>Layers <span class="tab-count" id="layerCount"></span></button>
+        <button id="btn-tab-questions" class="tab-btn" onclick="switchTab('questions')"><span class="tab-ico"><svg class="icon"><use href="#i-ask"></use></svg></span>Ask</button>
+        <button id="btn-tab-log" class="tab-btn" onclick="switchTab('log')"><span class="tab-ico"><svg class="icon"><use href="#i-log"></use></svg></span>Log</button>
+        <button id="btn-tab-answers" class="tab-btn" onclick="switchTab('answers')" style="display:none;"><span class="tab-ico"><svg class="icon"><use href="#i-answers"></use></svg></span>Answers <span class="tab-count" id="answersCount"></span></button>
     </div>
 
     <div id="sheetScroll">
@@ -311,13 +356,13 @@
 
             <!-- ---- Radar ---- -->
             <div class="tool-card">
-                <div class="tool-title"><span class="tool-ico">🎯</span>Radar</div>
+                <div class="tool-title"><span class="tool-ico"><svg class="icon"><use href="#i-radar"></use></svg></span>Radar</div>
                 <span class="field-label">Radius (km)</span>
                 <input type="number" id="radiusInput" value="5" min="0.1" step="0.1">
                 <div class="chip-row" id="radarChips" style="margin-top:6px;"><!-- from distancePresets.radar --></div>
                 <div class="btn-row" style="margin-top:8px;">
-                    <button id="btnRadius" onclick="startRadiusTool(event)">🗺️ Pick centre</button>
-                    <button id="btnGpsRadius" class="btn-accent" onclick="window.radiusAtSeeker()">🧍 Ask from here</button>
+                    <button id="btnRadius" onclick="startRadiusTool(event)"><svg class="icon"><use href="#i-crosshair"></use></svg> Pick centre</button>
+                    <button id="btnGpsRadius" class="btn-accent" onclick="window.radiusAtSeeker()"><svg class="icon"><use href="#i-pin"></use></svg> Ask from here</button>
                 </div>
                 <span class="field-label">Or type the centre</span>
                 <input type="text" id="radiusCoords" inputmode="decimal" placeholder="Paste or type: 53.4808, -2.2426">
@@ -326,7 +371,7 @@
 
             <!-- ---- Dividing line: thermometer / measuring / line match ---- -->
             <div class="tool-card">
-                <div class="tool-title"><span class="tool-ico">🌡️</span>Dividing line</div>
+                <div class="tool-title"><span class="tool-ico"><svg class="icon"><use href="#i-measure"></use></svg></span>Dividing line</div>
                 <div class="seg" id="dividerModes">
                     <button type="button" class="seg-btn active" data-mode="thermo" onclick="window.setDividerMode('thermo')">Thermometer</button>
                     <button type="button" class="seg-btn" data-mode="line" onclick="window.setDividerMode('line')">Match a line</button>
@@ -343,7 +388,7 @@
 
             <!-- ---- Boundary match: borough / county / country / fare zone ---- -->
             <div class="tool-card">
-                <div class="tool-title"><span class="tool-ico">🗺️</span>Boundary match</div>
+                <div class="tool-title"><span class="tool-ico"><svg class="icon"><use href="#i-border"></use></svg></span>Boundary match</div>
                 <span class="field-label">Level</span>
                 <select id="boundaryLevel" onchange="window.setBoundaryLevel(this.value)">
                     <option value="borough">Borough / district</option>
@@ -351,7 +396,7 @@
                     <option value="country">Country / nation</option>
                     <option value="zone">Transit fare zone</option>
                 </select>
-                <button class="btn-accent" onclick="window.boundaryMatchFromPosition()">🧍 Same as me?</button>
+                <button class="btn-accent" onclick="window.boundaryMatchFromPosition()"><svg class="icon"><use href="#i-pin"></use></svg> Same as me?</button>
                 <span class="field-label">Or type a coordinate</span>
                 <input type="text" id="boundaryCoords" inputmode="decimal" placeholder="Paste or type: 53.4808, -2.2426">
                 <button class="btn-ghost" onclick="window.boundaryMatchFromCoords()">Same as that point?</button>
@@ -359,18 +404,18 @@
                     <span class="tool-sub-label">Or pick an area manually</span>
                     <select id="boundarySelect" onfocus="window.ensureBoundaryData()"><option value="">Tap to load areas…</option></select>
                     <div class="btn-row">
-                        <button class="btn-ghost" onclick="window.previewBoundary()">👁️ Show me</button>
-                        <button onclick="window.addBoundaryLayer()">＋ Add that area</button>
+                        <button class="btn-ghost" onclick="window.previewBoundary()"><svg class="icon"><use href="#i-crosshair"></use></svg> Show me</button>
+                        <button onclick="window.addBoundaryLayer()">+ Add that area</button>
                     </div>
                 </div>
             </div>
 
             <!-- ---- Points of interest: tentacles / nearest catchment ---- -->
             <div class="tool-card">
-                <div class="tool-title"><span class="tool-ico">📍</span>Points of interest</div>
+                <div class="tool-title"><span class="tool-ico"><svg class="icon"><use href="#i-pin"></use></svg></span>Points of interest</div>
                 <span class="field-label">Feature</span>
                 <select id="poiCategorySelect" onchange="window.onFeatureChange()"><!-- filled from window.FEATURES --></select>
-                <button id="btnShowFeatures" class="btn-ghost" onclick="window.toggleFeaturePreview()">👁️ Show me where they are</button>
+                <button id="btnShowFeatures" class="btn-ghost" onclick="window.toggleFeaturePreview()"><svg class="icon"><use href="#i-crosshair"></use></svg> Show me where they are</button>
                 <span class="field-label">Or type a coordinate (used below instead of your position)</span>
                 <input type="text" id="poiCoords" inputmode="decimal" placeholder="Paste or type: 53.4808, -2.2426">
                 <div class="seg" id="poiModes" style="margin-top:8px;">
@@ -381,20 +426,20 @@
 
                 <div id="poiMatchMode">
                     <div class="btn-row">
-                        <button class="btn-accent" onclick="window.poiMatchFromPosition()">🧍 Same nearest as me?</button>
+                        <button class="btn-accent" onclick="window.poiMatchFromPosition()"><svg class="icon"><use href="#i-pin"></use></svg> Same nearest as me?</button>
                         <button class="btn-ghost" onclick="window.poiMatchFromCoords()">Same as that point?</button>
                     </div>
                     <div class="tool-sub">
                         <span class="tool-sub-label">Or pick a specific one</span>
-                        <button onclick="window.loadPOIVoronoi()">🔍 Find catchments</button>
+                        <button onclick="window.loadPOIVoronoi()"><svg class="icon"><use href="#i-crosshair"></use></svg> Find catchments</button>
                         <select id="poiResultSelect"><option value="">Find catchments first…</option></select>
-                        <button onclick="window.addPOILayer()">＋ Add that catchment</button>
+                        <button onclick="window.addPOILayer()">+ Add that catchment</button>
                     </div>
                 </div>
 
                 <div id="poiMeasureMode" style="display:none;">
                     <div class="btn-row">
-                        <button class="btn-accent" onclick="window.poiMeasureFromPosition()">🧍 Closer than me?</button>
+                        <button class="btn-accent" onclick="window.poiMeasureFromPosition()"><svg class="icon"><use href="#i-pin"></use></svg> Closer than me?</button>
                         <button class="btn-ghost" onclick="window.poiMeasureFromCoords()">Closer than that point?</button>
                     </div>
                 </div>
@@ -403,12 +448,12 @@
                     <span class="field-label">Radius (from you)</span>
                     <select id="tentacleRadius"><!-- from distancePresets.tentacle --></select>
                     <div class="btn-row">
-                        <button onclick="window.findTentacleCandidates()">🔍 What's in range?</button>
+                        <button onclick="window.findTentacleCandidates()"><svg class="icon"><use href="#i-crosshair"></use></svg> What's in range?</button>
                         <button class="btn-ghost" onclick="window.findTentacleCandidatesFromCoords()">From that point</button>
                     </div>
                     <span class="field-label">They said they're nearest to</span>
                     <select id="tentacleAnswer"><option value="">Check what's in range first…</option></select>
-                    <button class="btn-accent" onclick="window.addTentacleAnswer()">🐙 Add that answer</button>
+                    <button class="btn-accent" onclick="window.addTentacleAnswer()"><svg class="icon"><use href="#i-pin"></use></svg> Add that answer</button>
                     <button class="btn-ghost" onclick="window.addTentacleOutOfRange()">They're out of range</button>
                 </div>
             </div>
@@ -443,8 +488,8 @@
 
         <div id="tab-answers" class="tab-content">
             <div id="answersUnlinked" class="empty-state" style="display:none;">
-                <span class="empty-ico">🔗</span>Not linked to a seeker room yet.<br>
-                Ask them for a link invite, or swap link codes in <strong>⚙️ Settings</strong>.
+                <span class="empty-ico"><svg class="icon"><use href="#i-link"></use></svg></span>Not linked to a seeker room yet.<br>
+                Ask them for a link invite, or swap link codes in <strong>Settings</strong>.
             </div>
             <div id="answersLinked">
                 <p class="tool-hint">Questions the seekers have asked. Answer honestly — the card count is what they draw.</p>
@@ -1034,8 +1079,8 @@
 
                 // Create a floating Finish button
                 const finishBtn = document.createElement('button');
-                finishBtn.innerText = "✅ Finish Drawing";
-                finishBtn.style.cssText = "position:absolute; bottom:30px; left:50%; transform:translateX(-50%); z-index:9999; padding:15px 30px; background:#28a745; color:white; border:none; border-radius:30px; font-size:1.1em; font-weight:bold; cursor:pointer; box-shadow:0 4px 10px rgba(0,0,0,0.3);";
+                finishBtn.innerText = "Finish Drawing";
+                finishBtn.style.cssText = "position:absolute; bottom:30px; left:50%; transform:translateX(-50%); z-index:9999; padding:15px 30px; background:var(--ok); color:#fff; border:none; border-left:6px solid var(--text); font-family:var(--font-ui); font-size:1.1em; font-weight:700; text-transform:uppercase; letter-spacing:.02em; cursor:pointer;";
                 document.body.appendChild(finishBtn);
 
                 const onClick = function(e) {
@@ -1453,7 +1498,7 @@
                 // Deliberately doesn't show the other room's actual code here
                 // — same reasoning as the link token itself.
                 statusEl.style.display = 'block';
-                statusEl.innerHTML = `🔗 Linked to another room.`;
+                statusEl.innerHTML = `<svg class="icon"><use href="#i-link"></use></svg> Linked to another room.`;
                 unlinkBtn.style.display = '';
             } else {
                 statusEl.style.display = 'none';
@@ -1525,30 +1570,30 @@
             bar.classList.remove('hiding', 'seeking');
 
             if (phase === 'idle') {
-                phaseIcon.textContent = '⏱️';
+                phaseIcon.innerHTML = '<svg class="icon"><use href="#i-clock"></use></svg>';
                 phaseText.textContent = 'Round not started';
                 timeEl.textContent = '';
-                actionsEl.innerHTML = `<button class="btn-accent" onclick="window.promptStartRound()">▶ Start round</button>`;
+                actionsEl.innerHTML = `<button class="btn-accent" onclick="window.promptStartRound()">Start round</button>`;
                 stopClockTick();
             } else if (phase === 'hiding') {
                 bar.classList.add('hiding');
-                phaseIcon.textContent = '🙈';
+                phaseIcon.innerHTML = '<svg class="icon"><use href="#i-hide"></use></svg>';
                 phaseText.textContent = 'Hiding';
                 timeEl.textContent = fmtClock((round.startedAt + round.hideSeconds * 1000 - Date.now()) / 1000);
-                actionsEl.innerHTML = `<button class="btn-ghost" onclick="window.endRound()">⏹ End round</button>`;
+                actionsEl.innerHTML = `<button class="btn-ghost" onclick="window.endRound()"><svg class="icon"><use href="#i-stop"></use></svg> End round</button>`;
                 startClockTick();
             } else if (phase === 'seeking') {
                 bar.classList.add('seeking');
-                phaseIcon.textContent = '🔍';
+                phaseIcon.innerHTML = '<svg class="icon"><use href="#i-seek"></use></svg>';
                 phaseText.textContent = 'Seeking';
                 timeEl.textContent = fmtClock((Date.now() - (round.startedAt + round.hideSeconds * 1000)) / 1000);
-                actionsEl.innerHTML = `<button class="btn-ghost" onclick="window.endRound()">⏹ End round</button>`;
+                actionsEl.innerHTML = `<button class="btn-ghost" onclick="window.endRound()"><svg class="icon"><use href="#i-stop"></use></svg> End round</button>`;
                 startClockTick();
             } else { // ended
-                phaseIcon.textContent = '🏁';
+                phaseIcon.innerHTML = '<svg class="icon"><use href="#i-check"></use></svg>';
                 phaseText.textContent = 'Round ended';
                 timeEl.textContent = '';
-                actionsEl.innerHTML = `<button class="btn-accent" onclick="window.nextRound()">🔁 Next round</button>`;
+                actionsEl.innerHTML = `<button class="btn-accent" onclick="window.nextRound()"><svg class="icon"><use href="#i-back"></use></svg> Next round</button>`;
                 stopClockTick();
             }
 
@@ -1558,7 +1603,7 @@
             if (lastKnownRoundPhase === 'hiding' && phase === 'seeking') {
                 notifyRoom(
                     (window.linkedRoomData && window.linkedRoomData.pushSubscriptions) || [],
-                    "🔍 Seeking has started",
+                    "Seeking has started",
                     "Hiding time is up.",
                     { tag: 'round-seeking-' + (round.n || 1), roomId: window.currentGameId }
                 );
@@ -1601,7 +1646,7 @@
                 window.showToast(`Round started — ${minutes} min hiding.`, "success", { duration: 3000 });
                 notifyRoom(
                     (window.linkedRoomData && window.linkedRoomData.pushSubscriptions) || [],
-                    "▶ Round started",
+                    "Round started",
                     `Hiding for ${minutes} minutes.`,
                     { tag: 'round-start-' + n, roomId: window.currentGameId }
                 );
@@ -1675,7 +1720,7 @@
 
             notifyRoom(
                 (window.linkedRoomData && window.linkedRoomData.pushSubscriptions) || [],
-                "🔁 New round",
+                "New round",
                 "Roles have swapped and the board is clear.",
                 { tag: 'next-round-' + n, roomId: window.currentGameId }
             );
@@ -1816,11 +1861,11 @@
                 const c = fmtAskedFrom(p);
                 return `<div class="pos-readout-row" style="margin-top:6px;">
                     <div class="pos-readout"><strong>${p.label}</strong><br>${c}</div>
-                    <button class="btn-ghost pos-copy-btn" onclick="window.copyAskedFrom('${c}')" title="Copy ${p.label}">⧉</button>
+                    <button class="btn-ghost pos-copy-btn" onclick="window.copyAskedFrom('${c}')" title="Copy ${p.label}"><svg class="icon"><use href="#i-copy"></use></svg></button>
                 </div>`;
             }).join('');
             const both = pts.length > 1
-                ? `<button class="btn-ghost" style="margin-top:6px;" onclick="window.copyAskedFrom('${pts.map(fmtAskedFrom).join('\\n')}')">⧉ Copy both points</button>`
+                ? `<button class="btn-ghost" style="margin-top:6px;" onclick="window.copyAskedFrom('${pts.map(fmtAskedFrom).join('\\n')}')"><svg class="icon"><use href="#i-copy"></use></svg> Copy both points</button>`
                 : '';
             return rows + both;
         }
@@ -1847,15 +1892,17 @@
             list.innerHTML = pending.length ? pending.map(e => {
                 const dp = e.questionKey ? drawPickForQuestionKey(e.questionKey) : null;
                 const dpText = dp ? `<span class="log-meta">${cardText(dp)}</span>` : '';
+                const layerText = e.layerName ? `<div class="log-meta">→ ${e.layerName}</div>` : '';
                 return `<div class="log-list-item">
                     <div>${e.text} ${dpText}</div>
+                    ${layerText}
                     ${askedPointsHtml(e)}
                     <div class="pending-ask-btns" style="margin-top:8px;">
                         <button class="pending-ask-btn hit" onclick="window.answerLinkedQuestion('${e.id}','hit')">HIT</button>
                         <button class="pending-ask-btn miss" onclick="window.answerLinkedQuestion('${e.id}','miss')">MISS</button>
                     </div>
                 </div>`;
-            }).join('') : "<div class='empty-state'><span class='empty-ico'>🙈</span>Nothing waiting on you right now.</div>";
+            }).join('') : "<div class='empty-state'><span class='empty-ico'><svg class='icon'><use href='#i-answers'></use></svg></span>Nothing waiting on you right now.</div>";
 
             if (historyEl) {
                 historyEl.innerHTML = answered.length ? answered.map(e => {
@@ -1864,12 +1911,13 @@
                     const pts = askedPointsOf(e).map(p => `${p.label}: ${fmtAskedFrom(p)}`).join(' · ');
                     const otherState = e.answerState === 'hit' ? 'miss' : 'hit';
                     const editedNote = e.answerEditedAt
-                        ? `<div class="log-meta answer-changed-tag">⚠️ Changed from ${(e.previousAnswerState || '?').toUpperCase()}</div>`
+                        ? `<div class="log-meta answer-changed-tag">Changed from ${(e.previousAnswerState || '?').toUpperCase()}</div>`
                         : '';
-                    return `<div class="log-list-item">
+                    return `<div class="log-list-item ${e.answerState === 'hit' ? 'is-hit' : 'is-miss'}">
                         <div>${e.text}</div>
-                        <div class="log-meta">${e.answerState === 'hit' ? '✅ HIT' : '❌ MISS'}${dp ? ` — they drew ${dp.draw}${dp.pick ? `, kept ${dp.pick}` : ''}` : ''}${t ? ` · ${t}` : ''}</div>
-                        ${pts ? `<div class="log-meta">📍 ${pts}</div>` : ''}
+                        ${e.layerName ? `<div class="log-meta">→ ${e.layerName}</div>` : ''}
+                        <div class="log-meta">${e.answerState === 'hit' ? '<svg class="icon"><use href="#i-check"></use></svg> HIT' : '<svg class="icon"><use href="#i-close"></use></svg> MISS'}${dp ? ` — they drew ${dp.draw}${dp.pick ? `, kept ${dp.pick}` : ''}` : ''}${t ? ` · ${t}` : ''}</div>
+                        ${pts ? `<div class="log-meta"><svg class="icon"><use href="#i-pin"></use></svg> ${pts}</div>` : ''}
                         ${editedNote}
                         <button class="btn-ghost" style="margin-top:6px;" onclick="window.answerLinkedQuestion('${e.id}','${otherState}',true)">Change to ${otherState.toUpperCase()}</button>
                     </div>`;
@@ -1922,7 +1970,7 @@
             if (!window.seekerPoint && !warnedNoHidingSpot) {
                 warnedNoHidingSpot = true;
                 window.showToast(
-                    "Set your hiding spot in ⚙️ Settings and answers can be double-checked against it automatically.",
+                    "Set your hiding spot in Settings and answers can be double-checked against it automatically.",
                     "info", { duration: 6000 }
                 );
             } else {
@@ -1955,14 +2003,14 @@
                 if (isEdit) {
                     notifyRoom(
                         (window.linkedRoomData && window.linkedRoomData.pushSubscriptions) || [],
-                        `⚠️ Answer changed: ${cleanText}`,
+                        `Answer changed: ${cleanText}`,
                         `${(previousState || '?').toUpperCase()} → ${state.toUpperCase()}${cardTxt}. Check anything you already drew from this.`,
                         { tag: 'answer-' + entryId, roomId: window.linkedRoomId }
                     );
                 } else {
                     notifyRoom(
                         (window.linkedRoomData && window.linkedRoomData.pushSubscriptions) || [],
-                        `${state === 'hit' ? '✅ HIT' : '❌ MISS'}: ${cleanText}`,
+                        `${state === 'hit' ? 'HIT' : 'MISS'}: ${cleanText}`,
                         `Answered by the hider${cardTxt}.`,
                         { tag: 'answer-' + entryId, roomId: window.linkedRoomId }
                     );
@@ -1994,10 +2042,10 @@
         function flashCopied(btnId) {
             const btn = document.getElementById(btnId);
             if (!btn) return;
-            const original = btn.textContent;
-            btn.textContent = '✓';
+            const original = btn.innerHTML;
+            btn.innerHTML = '<svg class="icon"><use href="#i-check"></use></svg>';
             btn.disabled = true;
-            setTimeout(() => { btn.textContent = original; btn.disabled = false; }, 1200);
+            setTimeout(() => { btn.innerHTML = original; btn.disabled = false; }, 1200);
         }
 
         window.copyRoomCode = async function() {
@@ -2289,18 +2337,19 @@
 
         // Icon + accent colour per constraint type, for the Layers list.
         function typeMeta(type) {
+            var ic = function(id) { return '<svg class="icon"><use href="#' + id + '"></use></svg>'; };
             switch (type) {
-                case 'radius':   return { icon: '🎯', color: '#0e7490' };
-                case 'angle':    return { icon: '📐', color: '#334155' };
-                case 'bisect':   return { icon: '🌡️', color: '#dc2626' }; // legacy rooms
-                case 'thermo':   return { icon: '🌡️', color: '#dc2626' };
-                case 'zone':     return { icon: '🎟️', color: '#7c3aed' };
-                case 'tentacle': return { icon: '🐙', color: '#0d9488' };
-                case 'borough':  return { icon: '🗺️', color: '#16a34a' };
-                case 'poi':      return { icon: '🧭', color: '#2563eb' };
-                case 'match':    return { icon: '🟰', color: '#7c3aed' };
-                case 'measure':  return { icon: '📏', color: '#0891b2' };
-                default:         return { icon: '📍', color: '#64748b' };
+                case 'radius':   return { icon: ic('i-radar'), color: 'var(--brand)' };
+                case 'angle':    return { icon: ic('i-crosshair'), color: 'var(--text-3)' };
+                case 'bisect':   return { icon: ic('i-measure'), color: 'var(--danger)' }; // legacy rooms
+                case 'thermo':   return { icon: ic('i-measure'), color: 'var(--danger)' };
+                case 'zone':     return { icon: ic('i-zone'), color: 'var(--brand)' };
+                case 'tentacle': return { icon: ic('i-pin'), color: 'var(--brand)' };
+                case 'borough':  return { icon: ic('i-border'), color: 'var(--ok)' };
+                case 'poi':      return { icon: ic('i-tools'), color: 'var(--brand)' };
+                case 'match':    return { icon: ic('i-check'), color: 'var(--brand)' };
+                case 'measure':  return { icon: ic('i-measure'), color: 'var(--brand)' };
+                default:         return { icon: ic('i-pin'), color: 'var(--text-3)' };
             }
         }
 
@@ -2331,7 +2380,7 @@
             var badge = document.getElementById('layerCount');
             if (badge) badge.textContent = myConstraints.length ? String(myConstraints.length) : '';
             if (myConstraints.length === 0) {
-                list.innerHTML = "<div class='empty-state'><span class='empty-ico'>🗺️</span>No layers yet.<br>Add one from the <strong>Tools</strong> tab and the map will start narrowing down.</div>";
+                list.innerHTML = "<div class='empty-state'><span class='empty-ico'><svg class='icon'><use href='#i-layers'></use></svg></span>No layers yet.<br>Add one from the <strong>Tools</strong> tab and the map will start narrowing down.</div>";
                 return;
             }
             myConstraints.slice().reverse().forEach(c => {
@@ -2341,25 +2390,28 @@
                 var controlsHtml = "";
                 // Word the two buttons the way the question was actually asked.
                 var sides;
-                if (c.type === 'thermo' || c.type === 'bisect') sides = { a: '🔥 Warmer', b: '❄️ Colder' };
+                if (c.type === 'thermo' || c.type === 'bisect') sides = { a: 'Warmer', b: 'Colder' };
                 else if (c.type === 'angle') sides = directionalSides(c);
-                else if (c.type === 'match') sides = { a: '🟰 Same', b: '✖ Different' };
-                else if (c.type === 'measure') sides = { a: '📏 Closer', b: '➖ Further' };
+                else if (c.type === 'match') sides = { a: 'Same', b: 'Different' };
+                else if (c.type === 'measure') sides = { a: 'Closer', b: 'Further' };
                 else sides = { a: 'HIT', b: 'MISS' };
                 controlsHtml = `<button class="toggle-btn ${c.state==='hit'?'is-hit':''}" onclick="window.toggleConstraintState(${c.id}, 'hit')">${sides.a}</button><button class="toggle-btn ${c.state==='miss'?'is-miss':''}" onclick="window.toggleConstraintState(${c.id}, 'miss')">${sides.b}</button>`;
-                li.innerHTML = `<div class="layer-header"><span class="layer-icon" style="color:${meta.color}">${meta.icon}</span><span class="layer-name" onclick="window.renameConstraint(${c.id})">${c.name}</span><div class="icon-group"><button class="icon-btn" onclick="window.renameConstraint(${c.id})">✎</button><button class="icon-btn del-btn" onclick="window.removeConstraint(${c.id})">×</button></div></div><div class="layer-controls">${controlsHtml}</div>`;
+                li.innerHTML = `<div class="layer-header"><span class="layer-icon" style="color:${meta.color}">${meta.icon}</span><span class="layer-name" onclick="window.renameConstraint(${c.id})">${c.name}</span><div class="icon-group"><button class="icon-btn" onclick="window.renameConstraint(${c.id})" title="Rename">&#9998;</button><button class="icon-btn del-btn" onclick="window.removeConstraint(${c.id})" title="Delete"><svg class="icon"><use href="#i-close"></use></svg></button></div></div><div class="layer-controls">${controlsHtml}</div>`;
                 list.appendChild(li);
             });
         }
 
-        // Burger toggle — ☰ when the menu is closed (tap to open), ✕ once it's
-        // open (tap to close). Same class/behaviour on mobile and desktop.
+        // Burger toggle — layers icon when the menu is closed (tap to open),
+        // close icon once it's open (tap to close). Same class/behaviour on
+        // mobile and desktop.
         window.toggleControls = function() {
             var c = document.getElementById('controls');
             c.classList.toggle('minimized');
             var closed = c.classList.contains('minimized');
             var btn = document.getElementById('minBtn');
-            btn.innerText = closed ? "☰" : "✕";
+            btn.innerHTML = closed
+                ? '<svg class="icon"><use href="#i-layers"></use></svg>'
+                : '<svg class="icon"><use href="#i-close"></use></svg>';
             btn.title = closed ? "Open menu" : "Close menu";
         };
 
@@ -2423,11 +2475,11 @@
         // {lat,lng}, or null if they backed all the way out.
         async function captureOnePoint(promptHtml, allowNone) {
             var choices = [
-                { value: 'gps',    label: '🧍 My location',           hint: 'Take a fresh GPS reading now' },
-                { value: 'map',    label: '🗺️ A point on the map',   hint: 'Tap the spot yourself' },
-                { value: 'coords', label: '⌨️ Coordinates',           hint: 'Type or paste a lat, lng' }
+                { value: 'gps',    label: '<svg class="icon"><use href="#i-radar"></use></svg> My location',           hint: 'Take a fresh GPS reading now' },
+                { value: 'map',    label: '<svg class="icon"><use href="#i-crosshair"></use></svg> A point on the map', hint: 'Tap the spot yourself' },
+                { value: 'coords', label: 'Coordinates',           hint: 'Type or paste a lat, lng' }
             ];
-            if (allowNone) choices.push({ value: 'none', label: '➖ No location', hint: "This question doesn't need one" });
+            if (allowNone) choices.push({ value: 'none', label: 'No location', hint: "This question doesn't need one" });
 
             var choice = await window.showChoice(promptHtml, choices);
             if (choice === null) return null;
@@ -2770,16 +2822,16 @@
                 return Promise.resolve(null);
             }
             var btn = document.getElementById('btnPosGps');
-            var old = btn && btn.textContent;
+            var old = btn && btn.innerHTML;
             if (btn) { btn.textContent = 'Locating…'; btn.disabled = true; }
             return new Promise(function(resolve) {
                 navigator.geolocation.getCurrentPosition(function(pos) {
-                    if (btn) { btn.textContent = old; btn.disabled = false; }
+                    if (btn) { btn.innerHTML = old; btn.disabled = false; }
                     window.setSeekerPoint(pos.coords.latitude, pos.coords.longitude, { silent: opts.silent });
                     if (!opts.silent) window.showToast("Position set from GPS.", "success", { duration: 2000 });
                     resolve(window.seekerPoint);
                 }, function() {
-                    if (btn) { btn.textContent = old; btn.disabled = false; }
+                    if (btn) { btn.innerHTML = old; btn.disabled = false; }
                     if (!opts.silent) window.showToast("Couldn't get your location — type it in instead.", "warn");
                     resolve(null);
                 }, { enableHighAccuracy: true, timeout: 12000 });
@@ -2939,7 +2991,7 @@
             if (!built) return;
             var type = opts.type || 'angle';
             var label = opts.label || `Line ${Math.round(bearing)}°`;
-            var sides = type === 'thermo' ? { a: '🔥 Warmer', b: '❄️ Colder' } : directionalSidesFromLine(built.guideLine);
+            var sides = type === 'thermo' ? { a: 'Warmer', b: 'Colder' } : directionalSidesFromLine(built.guideLine);
             stagePendingAsk({
                 type: type, label: label, sides: sides,
                 build: function() { return { geometry: built.poly, visualGeometry: built.guideLine }; }
@@ -3643,7 +3695,9 @@ window.dynamicZones = {};
         function setPreviewBtn(on, count) {
             const btn = document.getElementById('btnShowFeatures');
             if (!btn) return;
-            btn.textContent = on ? `🙈 Hide the ${count} shown` : '👁️ Show me where they are';
+            btn.innerHTML = on
+                ? `<svg class="icon"><use href="#i-hide"></use></svg> Hide the ${count} shown`
+                : '<svg class="icon"><use href="#i-crosshair"></use></svg> Show me where they are';
             btn.classList.toggle('is-showing', !!on);
         }
 
@@ -3712,7 +3766,7 @@ window.dynamicZones = {};
 
                 const matchLabel = `Same nearest ${one}: ${poi.properties.name}`;
                 stagePendingAsk({
-                    type: 'match', label: matchLabel, sides: { a: '🟰 Same', b: '✖ Different' },
+                    type: 'match', label: matchLabel, sides: { a: 'Same', b: 'Different' },
                     build: () => ({ geometry: cell, visualGeometry: cell })
                 });
                 prog.done(`Nearest ${one}: ${poi.properties.name} (${km.toFixed(1)}km)`);
@@ -3749,7 +3803,7 @@ window.dynamicZones = {};
 
                 const measureLabel = `${singular(label)} — nearer than my ${km.toFixed(2)}km`;
                 stagePendingAsk({
-                    type: 'measure', label: measureLabel, sides: { a: '📏 Closer', b: '➖ Further' },
+                    type: 'measure', label: measureLabel, sides: { a: 'Closer', b: 'Further' },
                     build: () => ({ geometry: union, visualGeometry: null })
                 });
                 prog.done(`Your nearest ${one} is ${km.toFixed(2)}km away (${poi.properties.name})`);
@@ -4085,27 +4139,28 @@ window.dynamicZones = {};
 
         function renderLog() {
             var list = document.getElementById('logList'); list.innerHTML = "";
-            if (logEntries.length === 0) { list.innerHTML = "<div class='empty-state'><span class='empty-ico'>📜</span>Nothing asked yet.<br>Questions you mark in the <strong>Ask</strong> tab land here, newest last.</div>"; return; }
+            if (logEntries.length === 0) { list.innerHTML = "<div class='empty-state'><span class='empty-ico'><svg class='icon'><use href='#i-log'></use></svg></span>Nothing asked yet.<br>Questions you mark in the <strong>Ask</strong> tab land here, newest last.</div>"; return; }
             logEntries.forEach((entry, index) => {
-                var div = document.createElement('div'); div.className = 'log-list-item';
+                var div = document.createElement('div');
+                div.className = 'log-list-item' + (entry.answerState === 'hit' ? ' is-hit' : entry.answerState === 'miss' ? ' is-miss' : '');
                 var time = entry.ts ? new Date(entry.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
                 var layer = entry.layerName ? `<span class="log-meta">→ ${entry.layerName}</span>` : '';
                 var answer = '';
                 if (entry.awaitingAnswer) {
                     if (entry.answerState) {
-                        answer = `<div class="log-meta">${entry.answerState === 'hit' ? '✅ HIT' : '❌ MISS'}${entry.cardInfo ? ` — draw ${entry.cardInfo.draw}${entry.cardInfo.pick ? `, pick ${entry.cardInfo.pick}` : ''}` : ''}</div>`;
+                        answer = `<div class="log-meta">${entry.answerState === 'hit' ? '<svg class="icon"><use href="#i-check"></use></svg> HIT' : '<svg class="icon"><use href="#i-close"></use></svg> MISS'}${entry.cardInfo ? ` — draw ${entry.cardInfo.draw}${entry.cardInfo.pick ? `, pick ${entry.cardInfo.pick}` : ''}` : ''}</div>`;
                         // A layer may already be drawn from the old answer — call
                         // this out loudly rather than a quiet meta line, since
                         // drawing stays manual and nothing here fixes it for you.
                         if (entry.answerEditedAt) {
-                            answer += `<div class="answer-changed-banner">⚠️ Answer changed from ${(entry.previousAnswerState || '?').toUpperCase()} to ${entry.answerState.toUpperCase()} — check anything you already drew from this.</div>`;
+                            answer += `<div class="answer-changed-banner">Answer changed from ${(entry.previousAnswerState || '?').toUpperCase()} to ${entry.answerState.toUpperCase()} — check anything you already drew from this.</div>`;
                         }
                     } else {
-                        answer = `<div class="log-meta">⏳ Waiting on the hider…</div>`;
+                        answer = `<div class="log-meta">Waiting on the hider…</div>`;
                     }
                 }
                 var pts = askedPointsOf(entry);
-                var where = pts.length ? `<div class="log-meta">📍 ${pts.map(p => `${p.label}: ${fmtAskedFrom(p)}`).join(' · ')}</div>` : '';
+                var where = pts.length ? `<div class="log-meta"><svg class="icon"><use href="#i-pin"></use></svg> ${pts.map(p => `${p.label}: ${fmtAskedFrom(p)}`).join(' · ')}</div>` : '';
                 div.innerHTML = `<div style="display:flex; align-items:center; flex-wrap:wrap;"><span class="log-index">${index + 1}.</span><span>${entry.text} ${layer}</span></div>${time ? `<span class="log-meta">${time}</span>` : ''}${where}${answer}`;
                 list.appendChild(div);
             });
@@ -4189,7 +4244,7 @@ window.dynamicZones = {};
                     var whereText = askedPoints.map(p => `\n${p.label}: ${fmtAskedFrom(p)}`).join('');
                     notifyRoom(
                         (window.linkedRoomData && window.linkedRoomData.pushSubscriptions) || [],
-                        "❓ New question",
+                        "New question",
                         itemName + " (" + catName + ")" + whereText,
                         { tag: 'ask-' + entry.id, roomId: window.currentGameId }
                     );
@@ -4323,7 +4378,22 @@ window.dynamicZones = {};
         function linkConstraintToLog(constraintId, label) {
             if (!window.pendingQuestionLink) return;
             var e = logEntries.find(en => en.id === window.pendingQuestionLink);
-            if (e) { e.layerName = label; e.layerId = constraintId; window.saveQuestionsToCloud(); renderLog(); }
+            if (e) {
+                e.layerName = label; e.layerId = constraintId; window.saveQuestionsToCloud(); renderLog();
+                // Matching/Measuring/Tentacles questions aren't fully specified until
+                // the target feature is picked here (e.g. "Nearest Park" -> which
+                // park) — the original ask notification went out before this was
+                // known, so the hider needs a follow-up with the actual constraint.
+                if (e.awaitingAnswer && !e.answerState && window.linkedRoomId) {
+                    var cleanText = e.text.replace(/<[^>]+>/g, '');
+                    notifyRoom(
+                        (window.linkedRoomData && window.linkedRoomData.pushSubscriptions) || [],
+                        `Detail added: ${cleanText}`,
+                        label,
+                        { tag: 'ask-' + e.id, roomId: window.linkedRoomId }
+                    );
+                }
+            }
             window.pendingQuestionLink = null;
         }
 
@@ -4434,7 +4504,7 @@ function resolveCoords(name, missingList) {
                     shared: false   // raw ways/relations, routinely over the 1MB doc cap
                 });
             } catch (e) {
-                prog.fail("Map servers are busy — tap ↻ Reload in ⚙️ Settings to try again.");
+                prog.fail("Map servers are busy — tap Reload in Settings to try again.");
                 if (loader) loader.style.display = 'none';
                 return;
             }
@@ -4662,7 +4732,7 @@ function processData(d, profile) {
                 try { poly = turf.buffer(turf.simplify(poly, { tolerance: 0.001, highQuality: false }), 0); } catch (e) {}
                 const boundaryLabel = `Same ${cfg.label.toLowerCase()}: ${hit.name}`;
                 stagePendingAsk({
-                    type: 'match', label: boundaryLabel, sides: { a: '🟰 Same', b: '✖ Different' },
+                    type: 'match', label: boundaryLabel, sides: { a: 'Same', b: 'Different' },
                     build: () => ({ geometry: poly, visualGeometry: poly })
                 });
                 prog.done(`You're in ${hit.name}`);
@@ -4777,7 +4847,9 @@ function processData(d, profile) {
 
             const posTitle = document.getElementById('posCardTitle');
             const posNote = document.getElementById('posCardNote');
-            if (posTitle) posTitle.textContent = isHider ? '🙈 Your hiding spot' : '🧍 Your position';
+            if (posTitle) posTitle.innerHTML = isHider
+                ? '<svg class="icon"><use href="#i-hide"></use></svg> Your hiding spot'
+                : '<svg class="icon"><use href="#i-pin"></use></svg> Your position';
             if (posNote) {
                 posNote.innerHTML = isHider
                     ? 'Used only to double-check the answers you send — it stays on this device and is <strong>never sent to the seekers</strong>.'

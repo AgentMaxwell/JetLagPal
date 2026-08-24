@@ -9,7 +9,7 @@
 
 const CARDS = [
     {
-        icon: '🕵️',
+        icon: 'i-seek',
         title: 'What this app is for',
         body: `
             <p>You're playing <strong>Jet Lag: The Game — Hide + Seek</strong>. The hider is
@@ -25,7 +25,7 @@ const CARDS = [
         `
     },
     {
-        icon: '🔗',
+        icon: 'i-link',
         title: 'Two rooms, one game',
         body: `
             <p>Pick your side on the next screen. <strong>Seekers</strong> get the full map
@@ -34,15 +34,15 @@ const CARDS = [
 
             <p>Each side runs its <strong>own room</strong>, so the hiders never see the seekers'
             working. Teammates on the same side share a room using the 5-digit code or the
-            🔗 invite link next to it.</p>
+            <svg class="icon"><use href="#i-link"></use></svg> invite link next to it.</p>
 
-            <p>To connect the two sides, one team opens <strong>⚙️ Settings → 🔗 Copy link
+            <p>To connect the two sides, one team opens <strong>Settings → <svg class="icon"><use href="#i-link"></use></svg> Copy link
             invite</strong> and sends that URL over. Opening it links the rooms automatically —
             no codes to type. From then on questions and answers flow both ways.</p>
         `
     },
     {
-        icon: '❓',
+        icon: 'i-ask',
         title: 'Asking a question',
         badge: 'Seekers',
         body: `
@@ -61,7 +61,7 @@ const CARDS = [
         `
     },
     {
-        icon: '🎯',
+        icon: 'i-radar',
         title: 'Turning the answer into a shape',
         badge: 'Seekers',
         body: `
@@ -75,29 +75,29 @@ const CARDS = [
 
             <p>Four tools cover the deck:</p>
             <ul>
-                <li>🎯 <strong>Radar</strong> — a circle of the range you picked.</li>
-                <li>🌡️ <strong>Dividing line</strong> — <em>Thermometer</em> keeps the half you
+                <li><svg class="icon"><use href="#i-radar"></use></svg> <strong>Radar</strong> — a circle of the range you picked.</li>
+                <li><svg class="icon"><use href="#i-measure"></use></svg> <strong>Dividing line</strong> — <em>Thermometer</em> keeps the half you
                     got warmer toward; <em>Match a line</em> runs the divider along a street,
                     transit line or coast.</li>
-                <li>🗺️ <strong>Boundary match</strong> — same borough, county, country or fare
+                <li><svg class="icon"><use href="#i-border"></use></svg> <strong>Boundary match</strong> — same borough, county, country or fare
                     zone as your point.</li>
-                <li>📍 <strong>Points of interest</strong> — <em>Matching</em> ("same nearest
+                <li><svg class="icon"><use href="#i-pin"></use></svg> <strong>Points of interest</strong> — <em>Matching</em> ("same nearest
                     museum as me?"), <em>Measuring</em> ("closer to one than me?") and
                     <em>Tentacles</em> ("within 2km of me, which one are you nearest to?").</li>
             </ul>
 
             <p>Got one wrong? Any layer in the <strong>Layers</strong> tab can be flipped,
-            renamed or deleted, and ↩ Undo has a one-tap Restore.</p>
+            renamed or deleted, and Undo has a one-tap Restore.</p>
         `
     },
     {
-        icon: '🙈',
+        icon: 'i-hide',
         title: 'Answering, as the hider',
         badge: 'Hiders',
         body: `
             <p>Your home is the <strong>Answers</strong> tab. It lists what the seekers have
             asked and — the part that matters — the exact coordinates they asked from, each with
-            a ⧉ copy button. Thermometers get a <strong>Copy both points</strong> button too.</p>
+            a <svg class="icon"><use href="#i-copy"></use></svg> copy button. Thermometers get a <strong>Copy both points</strong> button too.</p>
 
             <p>Work out the honest answer, then tap <strong>HIT</strong> or <strong>MISS</strong>.
             They're told what it means and how many cards they draw, read straight off the
@@ -109,7 +109,7 @@ const CARDS = [
         `
     },
     {
-        icon: '📶',
+        icon: 'i-radar',
         title: 'Out in the field',
         body: `
             <p><strong>Install it.</strong> Use your browser's install or "Add to Home Screen"
@@ -119,7 +119,7 @@ const CARDS = [
             keep working in a tunnel or a dead zone. Anything you change syncs the moment you're
             back — and you'll be told if a teammate changed something while you were away.</p>
 
-            <p><strong>Turn on 🔔 in Settings</strong> so questions and answers reach you with the
+            <p><strong>Turn on notifications in Settings</strong> so questions and answers reach you with the
             app closed. Do it on each device, in the room that device is actually using.</p>
         `
     }
@@ -167,7 +167,7 @@ export function setupTutorial() {
 
     function renderStep() {
         const card = CARDS[step];
-        iconEl.textContent = card.icon;
+        iconEl.innerHTML = `<svg class="icon"><use href="#${card.icon}"></use></svg>`;
         titleEl.textContent = card.title;
         badgeEl.textContent = card.badge || '';
         badgeEl.style.display = card.badge ? '' : 'none';
