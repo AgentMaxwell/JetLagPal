@@ -731,16 +731,13 @@ body.hider-mode #hiderBadge {
     background: #6d28d9; color: #fff; text-align: center;
     border-radius: var(--r-md); font-size: .84em; font-weight: 650; flex-shrink: 0;
 }
-/* Hide every control that edits shared state; keep the map + layer list readable.
-   The Ask tab goes too: with linked rooms a hider asks nothing, and their own
-   room's question grid would always be empty. Their view is the Answers tab. */
-body.hider-mode #tab-tools,
-body.hider-mode .layer-controls,
-body.hider-mode .layer-item .icon-group,
-body.hider-mode #btn-tab-tools,
+/* Hiders get the drawing tools too, to check an answer against the map before
+   sending it — Tools, the layer list's edit controls, and Undo all stay. What
+   stays hidden is asking questions specifically: with linked rooms a hider
+   asks nothing, and their own room's question grid would always be empty.
+   (The actual boundary is in JS, not here — see addConstraint/saveConstraints
+   for why a hider's drawn layers never leave the device.) */
 body.hider-mode #btn-tab-questions,
-body.hider-mode #btnUndoHeader,
-body.hider-mode #tab-layers .btn-danger,
 body.hider-mode #tab-questions .btn-ghost,
 body.hider-mode #tab-log .btn-danger { display: none !important; }
 body.hider-mode .q-btn { pointer-events: none; opacity: .85; }

@@ -1243,20 +1243,31 @@
                     const priorLogIds = new Set(logEntries.map(e => e.id));
                     const reconnecting = wasOffline;
 
-                    myConstraints = (data.constraints || []).map(c => ({
-                        id: c.id, type: c.type, state: c.state, name: c.name,
-                        geometry: JSON.parse(c.geometry),
-                        visualGeometry: c.visualGeometry ? JSON.parse(c.visualGeometry) : null
-                    }));
+                    // A hider's constraints are drawn locally only (see
+                    // addConstraint/saveConstraints) and never written here, so
+                    // this room's server copy stays permanently empty for them —
+                    // overwriting local state from it would wipe their scratch
+                    // shapes on every snapshot (round-clock ticks, push-sub
+                    // changes, anything). Use data.roomRole rather than the body
+                    // class: on the very first snapshot the class hasn't been
+                    // applied yet, so it would still read as seeker.
+                    const isHiderRoom = data.roomRole ? data.roomRole === 'hiders' : document.body.classList.contains('hider-mode');
+                    if (!isHiderRoom) {
+                        myConstraints = (data.constraints || []).map(c => ({
+                            id: c.id, type: c.type, state: c.state, name: c.name,
+                            geometry: JSON.parse(c.geometry),
+                            visualGeometry: c.visualGeometry ? JSON.parse(c.visualGeometry) : null
+                        }));
 
-                    guideLayer.clearLayers();
-                    myConstraints.forEach(c => {
-                        if (c.visualGeometry) {
-                            c.leafletLayer = L.geoJSON(c.visualGeometry, { style: { color: 'black', weight: 2, dashArray: '5, 5', fill: false } }).addTo(guideLayer);
-                        }
-                    });
+                        guideLayer.clearLayers();
+                        myConstraints.forEach(c => {
+                            if (c.visualGeometry) {
+                                c.leafletLayer = L.geoJSON(c.visualGeometry, { style: { color: 'black', weight: 2, dashArray: '5, 5', fill: false } }).addTo(guideLayer);
+                            }
+                        });
 
-                    updateLayerList(); updateLogicMap();
+                        updateLayerList(); updateLogicMap();
+                    }
                     if (data.questionState) questionState = data.questionState;
                     if (data.logEntries) logEntries = normalizeLog(data.logEntries);
                     renderQuestions(); renderLog();
@@ -1278,6 +1289,13 @@
                                     `Roles swapped — you're ${data.roomRole === 'hiders' ? 'hiding' : 'seeking'} this round.`,
                                     "info", { duration: 5000 }
                                 );
+                            } else if (data.roomRole === 'hiders') {
+                                // Restore whatever this device had drawn last
+                                // time it was hiding — e.g. a refresh mid-round
+                                // shouldn't lose the checking work. A role swap
+                                // (Next round) clears this key itself, so there's
+                                // nothing stale to restore after one of those.
+                                loadHiderScratch();
                             }
                         }
                     } else if (!window.myRoomRole) {
@@ -1651,6 +1669,9 @@
             myConstraints = [];
             guideLayer.clearLayers();
             updateLayerList(); updateLogicMap();
+            // A new round makes any old checking layers stale, whichever side
+            // just finished hiding.
+            try { localStorage.removeItem('gm_hider_scratch_v1'); } catch (e) {}
 
             notifyRoom(
                 (window.linkedRoomData && window.linkedRoomData.pushSubscriptions) || [],
@@ -2004,6 +2025,28 @@
         // Known limitation: this resolves concurrent ADDs and DELETEs correctly, but
         // if two players toggle HIT/MISS on the SAME layer within one round-trip, the
         // last transaction to commit wins for that layer (acceptable for this game).
+        // Mirrors the pre-room scratch loader below, but for a hider's local
+        // checking layers (gm_hider_scratch_v1) — restored on first landing in
+        // hider mode for a room, see the roomRole handling in startGameSession.
+        function loadHiderScratch() {
+            var saved = localStorage.getItem('gm_hider_scratch_v1');
+            if (!saved) return;
+            try {
+                var data = JSON.parse(saved);
+                myConstraints = []; guideLayer.clearLayers();
+                data.forEach(c => {
+                    var geom = typeof c.geometry === 'string' ? JSON.parse(c.geometry) : c.geometry;
+                    var vis = c.visualGeometry
+                        ? (typeof c.visualGeometry === 'string' ? JSON.parse(c.visualGeometry) : c.visualGeometry)
+                        : null;
+                    var layer = null;
+                    if (vis) layer = L.geoJSON(vis, { style: { color: 'black', weight: 2, dashArray: '5, 5', fill: false } }).addTo(guideLayer);
+                    myConstraints.push({ id: c.id, type: c.type, geometry: geom, state: c.state, name: c.name, visualGeometry: vis, leafletLayer: layer });
+                });
+                updateLayerList(); updateLogicMap();
+            } catch (e) { console.error("Failed to load hider scratch", e); }
+        }
+
         window.saveConstraints = async function(opts = {}) {
             const cleanLocal = myConstraints.map(c => ({
                 id: c.id,
@@ -2016,6 +2059,16 @@
 
             if (!window.currentGameId) {
                 localStorage.setItem('gm_constraints_v53', JSON.stringify(cleanLocal));
+                return;
+            }
+
+            // A hider's drawn shapes are for their own checking, never for the
+            // room — this room's constraints stream live to the linked seeker
+            // room. Keep them device-local under their own key, distinct from
+            // the pre-room scratch above, so a role swap (Next round) can't
+            // mix the two up.
+            if (document.body.classList.contains('hider-mode')) {
+                localStorage.setItem('gm_hider_scratch_v1', JSON.stringify(cleanLocal));
                 return;
             }
 
@@ -2095,16 +2148,14 @@
         window.openPopup = function(url) { window.open(url, "TransitInfo", "width=400,height=600,resizable=yes,scrollbars=yes,status=yes"); };
 
         function addConstraint(type, geoJsonShape, label, visualGeoJSON, initialState) {
-            // A constraint is drawn around wherever the asker was, and this room's
-            // logEntries/constraints stream live to the linked room via
-            // attachLinkedRoomListener — so a hider drawing one would publish their
-            // own position straight to the seekers. The UI already hides every path
-            // here (CSS on .q-btn/#tab-tools), but that's not a real boundary since
-            // these are still plain globals; this is the actual one.
-            if (document.body.classList.contains('hider-mode')) {
-                console.warn("addConstraint blocked: hiders don't draw constraints (would leak their position).");
-                return;
-            }
+            // Hiders get the tools too, to check an answer against the map
+            // before sending it — but a constraint here is drawn around
+            // wherever they are, and this room's constraints stream live to
+            // the linked seeker room via attachLinkedRoomListener. So for a
+            // hider this stays LOCAL ONLY: saveConstraints() below skips the
+            // Firestore write in hider-mode, and the snapshot handler skips
+            // overwriting local state from the (always-empty, for a hider's
+            // own room) server copy — see both for the other half of this.
             var id = Date.now(); var layer = null;
             if (visualGeoJSON) layer = L.geoJSON(visualGeoJSON, { style: { color: 'black', weight: 2, dashArray: '5, 5', fill: false } }).addTo(guideLayer);
             myConstraints.push({ id: id, type: type, geometry: fixGeometry(geoJsonShape), state: initialState || 'hit', name: label, leafletLayer: layer, visualGeometry: visualGeoJSON });
@@ -4809,6 +4860,9 @@ function processData(d, profile) {
             // Scratch constraints are only written when you're NOT in a room; clearing
             // them stops the last game's shapes reappearing on the next setup screen.
             try { localStorage.removeItem('gm_constraints_v53'); } catch (e) {}
+            // Same idea for a hider's local checking layers — don't let them
+            // bleed into an unrelated future room.
+            try { localStorage.removeItem('gm_hider_scratch_v1'); } catch (e) {}
 
             var target = window.cleanAppUrl();
             if (target === window.location.href) window.location.reload();
