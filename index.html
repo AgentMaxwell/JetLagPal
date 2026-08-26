@@ -301,6 +301,7 @@
          looking in Settings — this is the equivalent of the Answers tab's
          empty state, but for the side that doesn't have that tab by default. -->
     <div id="seekerLinkBanner" class="setup-link-banner in-panel" style="display:none;">
+        <button class="banner-dismiss" onclick="window.dismissSeekerLinkBanner()" title="Dismiss"><svg class="icon"><use href="#i-close"></use></svg></button>
         <svg class="icon"><use href="#i-link"></use></svg> Not linked to a hider room yet.
         <button class="btn-ghost" style="margin-top:6px;" onclick="window.copyLinkInvite()"><svg class="icon"><use href="#i-link"></use></svg> Copy link invite</button>
     </div>
@@ -465,7 +466,11 @@
 
         <div id="tab-log" class="tab-content">
             <div id="logList"></div>
-            <button class="btn-danger" onclick="clearLog()" style="margin-top:12px;">Clear log</button>
+            <div class="btn-row" style="margin-top:12px;">
+                <button class="btn-ghost" onclick="window.showRoundHistory()"><svg class="icon"><use href="#i-clock"></use></svg> Round times</button>
+                <button class="btn-ghost" onclick="window.addTimeBonus()"><svg class="icon"><use href="#i-clock"></use></svg> Add time bonus</button>
+            </div>
+            <button class="btn-danger" onclick="clearLog()" style="margin-top:8px;">Clear log</button>
         </div>
 
         <div id="tab-answers" class="tab-content">
@@ -818,9 +823,12 @@
         // The room owns the role once you're in one — see the snapshot handler
         // in startGameSession. null until the first snapshot arrives.
         window.myRoomRole = null;
-        // { n, hideSeconds, startedAt, endedAt } mirrored from the room doc;
-        // see roundPhase() for how a phase is derived from it.
+        // { n, hideSeconds, startedAt, endedAt, bonusSeconds, bonuses } mirrored
+        // from the room doc; see roundPhase() for how a phase is derived from it.
         window.myRound = null;
+        // Archive of completed rounds — [{ n, hideSeconds, startedAt, endedAt,
+        // bonusSeconds, bonuses }], appended to whenever a round ends.
+        window.myRoundHistory = [];
 
         // === CONNECTION STATUS INDICATOR ===
         // 'connecting' (amber) → 'online' (green) once a snapshot arrives from the
@@ -1175,10 +1183,10 @@
                 customTurfBbox: customTurf ? JSON.stringify(customTurf) : null,
                 customTurfPoly: customPoly ? JSON.stringify(customPoly) : null, // Save the nuanced shape
                 createdAt: new Date().toISOString(),
-                constraints: [], logEntries: [], questionState: {},
+                constraints: [], logEntries: [], questionState: {}, roundHistory: [],
                 linkToken: generateLinkToken(),
                 roomRole: roomRole,
-                round: { n: 1, hideSeconds: null, startedAt: null, endedAt: null }
+                round: { n: 1, hideSeconds: null, startedAt: null, endedAt: null, bonusSeconds: 0, bonuses: [] }
             }).catch((e) => console.warn("Room create write failed to reach the server (will retry when online):", e));
 
             if (!navigator.onLine) {
@@ -1380,6 +1388,7 @@
                     // identical and the linked listener has no reason to know
                     // about it too.
                     window.myRound = data.round || null;
+                    window.myRoundHistory = data.roundHistory || [];
                     renderClock();
                     renderSeekerLinkBanner();
 
@@ -1518,12 +1527,19 @@
         // had nothing pointing them at the same step, buried 6 groups down in
         // Settings. This mirrors it above the tab bar, where it's seen without
         // switching tabs.
+        function dismissedBannerKey() { return 'gm_dismissed_link_banner_' + window.currentGameId; }
         function renderSeekerLinkBanner() {
             const banner = document.getElementById('seekerLinkBanner');
             if (!banner) return;
             const isHider = document.body.classList.contains('hider-mode');
-            banner.style.display = (!isHider && window.currentGameId && !window.linkedRoomId) ? 'block' : 'none';
+            const dismissed = window.currentGameId && localStorage.getItem(dismissedBannerKey()) === '1';
+            banner.style.display = (!isHider && window.currentGameId && !window.linkedRoomId && !dismissed) ? 'block' : 'none';
         }
+        window.dismissSeekerLinkBanner = function() {
+            if (window.currentGameId) localStorage.setItem(dismissedBannerKey(), '1');
+            document.getElementById('seekerLinkBanner').style.display = 'none';
+            window.showToast('You can still link a hider room any time from Settings → Linked room.', 'info');
+        };
 
         // === ROUND CLOCK ===
         // Phase is derived from round.startedAt/hideSeconds/endedAt, never
@@ -1645,7 +1661,7 @@
             if (!window.currentGameId) return;
             const hideSeconds = Math.round(minutes * 60);
             const n = (window.myRound && window.myRound.n) || 1;
-            const roundObj = { n: n, hideSeconds: hideSeconds, startedAt: Date.now(), endedAt: null };
+            const roundObj = { n: n, hideSeconds: hideSeconds, startedAt: Date.now(), endedAt: null, bonusSeconds: 0, bonuses: [] };
             const writes = [setDoc(doc(db, "games", window.currentGameId), { round: roundObj }, { merge: true })];
             if (window.linkedRoomId) writes.push(setDoc(doc(db, "games", window.linkedRoomId), { round: roundObj }, { merge: true }));
             try {
@@ -1663,15 +1679,96 @@
             }
         };
 
+        // A completed round's record for the history list — just the fields
+        // worth keeping once it's over, not the live round object itself.
+        function roundHistoryEntry(round) {
+            return {
+                n: round.n, hideSeconds: round.hideSeconds,
+                startedAt: round.startedAt, endedAt: round.endedAt,
+                bonusSeconds: round.bonusSeconds || 0, bonuses: round.bonuses || []
+            };
+        }
+
         window.endRound = async function() {
             if (!window.currentGameId || !window.myRound) return;
             const ok = await window.showConfirm("End this round?", { confirmLabel: 'End round' });
             if (!ok) return;
             const roundObj = Object.assign({}, window.myRound, { endedAt: Date.now() });
-            const writes = [setDoc(doc(db, "games", window.currentGameId), { round: roundObj }, { merge: true })];
-            if (window.linkedRoomId) writes.push(setDoc(doc(db, "games", window.linkedRoomId), { round: roundObj }, { merge: true }));
+            const historyEntry = roundHistoryEntry(roundObj);
+            const patch = { round: roundObj, roundHistory: arrayUnion(historyEntry) };
+            const writes = [setDoc(doc(db, "games", window.currentGameId), patch, { merge: true })];
+            if (window.linkedRoomId) writes.push(setDoc(doc(db, "games", window.linkedRoomId), patch, { merge: true }));
             try { await Promise.all(writes); }
             catch (e) { console.warn("Failed to end round:", e); window.showToast("Couldn't end the round — check your connection.", "error"); }
+        };
+
+        // Bonus/penalty minutes logged against the live round — extends the
+        // hiding countdown itself if added while still hiding (there's no
+        // equivalent countdown to extend once seeking has started), and is
+        // always recorded in round.bonuses for the round-history view either way.
+        window.addTimeBonus = async function() {
+            if (!window.currentGameId || !window.myRound || !window.myRound.startedAt || window.myRound.endedAt) {
+                window.showToast("Start a round first.", "warn");
+                return;
+            }
+            const typed = await window.showPrompt("Bonus minutes (negative for a penalty):", "5", { confirmLabel: 'Next' });
+            if (typed === null) return;
+            const minutes = parseFloat(typed);
+            if (!isFinite(minutes) || minutes === 0) { window.showToast("Enter a non-zero number of minutes.", "warn"); return; }
+            const note = await window.showPrompt("What's it for? (optional)", "", { confirmLabel: 'Add bonus' });
+
+            const bonusSeconds = Math.round(minutes * 60);
+            const phase = roundPhase(window.myRound);
+            const newHideSeconds = phase === 'hiding'
+                ? Math.max(0, window.myRound.hideSeconds + bonusSeconds)
+                : window.myRound.hideSeconds;
+            const bonuses = (window.myRound.bonuses || []).concat([{ minutes: minutes, note: note || '', at: Date.now() }]);
+            const bonusSecondsTotal = (window.myRound.bonusSeconds || 0) + bonusSeconds;
+            const roundObj = Object.assign({}, window.myRound, { hideSeconds: newHideSeconds, bonusSeconds: bonusSecondsTotal, bonuses: bonuses });
+            const writes = [setDoc(doc(db, "games", window.currentGameId), { round: roundObj }, { merge: true })];
+            if (window.linkedRoomId) writes.push(setDoc(doc(db, "games", window.linkedRoomId), { round: roundObj }, { merge: true }));
+            try {
+                await Promise.all(writes);
+                window.showToast(`${minutes > 0 ? '+' : ''}${minutes} min bonus logged${note ? ': ' + note : ''}.`, "success");
+            } catch (e) {
+                console.warn("Failed to add time bonus:", e);
+                window.showToast("Couldn't save the bonus — check your connection.", "error");
+            }
+        };
+
+        // Round times + any bonuses logged against them, for either side to
+        // check back on — the only place this history is ever shown.
+        window.showRoundHistory = function() {
+            const overlay = document.getElementById('appModalOverlay');
+            const body = document.getElementById('appModalBody');
+            const actions = document.getElementById('appModalActions');
+
+            const fmtWhen = (ms) => ms ? new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
+            const history = (window.myRoundHistory || []).slice().sort((a, b) => (b.startedAt || 0) - (a.startedAt || 0));
+
+            const rows = history.length ? history.map(r => {
+                const elapsed = (r.startedAt && r.endedAt) ? fmtClock((r.endedAt - r.startedAt) / 1000) : '—';
+                const bonusList = (r.bonuses && r.bonuses.length)
+                    ? `<div class="log-meta">${r.bonuses.map(b => `${b.minutes > 0 ? '+' : ''}${b.minutes} min${b.note ? ' — ' + b.note : ''}`).join('<br>')}</div>`
+                    : '';
+                return `<div class="log-list-item">
+                    <div>
+                        <div><strong>Round ${r.n}</strong></div>
+                        <div class="log-meta">${fmtWhen(r.startedAt)} – ${fmtWhen(r.endedAt)} · ${elapsed}${r.bonusSeconds ? ` (${r.bonusSeconds > 0 ? '+' : ''}${Math.round(r.bonusSeconds / 60)} min bonus)` : ''}</div>
+                        ${bonusList}
+                    </div>
+                </div>`;
+            }).join('') : `<p class="tool-hint">No completed rounds yet — this fills in once a round is ended.</p>`;
+
+            body.innerHTML = `<div><strong>Round times</strong></div><div style="margin-top:10px;">${rows}</div>`;
+            actions.innerHTML = '';
+            const closeBtn = document.createElement('button');
+            closeBtn.className = 'app-modal-cancel';
+            closeBtn.textContent = 'Close';
+            closeBtn.style.flex = '1';
+            closeBtn.onclick = () => overlay.classList.remove('open');
+            actions.appendChild(closeBtn);
+            overlay.classList.add('open');
         };
 
         // Wipes both rooms' constraints/log/questions, swaps who's hiding, and
@@ -1693,10 +1790,19 @@
             recentlyDeleted.clear();
             recentlyDeletedLogIds.clear();
 
+            // A round reached via "Next round" without an explicit "End round"
+            // first (the common path) never got archived — do it here so the
+            // history stays complete either way.
+            const priorRound = window.myRound;
+            const historyEntry = (priorRound && priorRound.startedAt)
+                ? roundHistoryEntry(Object.assign({}, priorRound, { endedAt: priorRound.endedAt || Date.now() }))
+                : null;
+
             const n = ((window.myRound && window.myRound.n) || 1) + 1;
             const hideSeconds = (window.myRound && window.myRound.hideSeconds) || 1800;
-            const freshRound = { n: n, hideSeconds: hideSeconds, startedAt: null, endedAt: null };
+            const freshRound = { n: n, hideSeconds: hideSeconds, startedAt: null, endedAt: null, bonusSeconds: 0, bonuses: [] };
             const wipe = { constraints: [], logEntries: [], questionState: {}, round: freshRound };
+            if (historyEntry) wipe.roundHistory = arrayUnion(historyEntry);
 
             const myOldRole = window.myRoomRole || (document.body.classList.contains('hider-mode') ? 'hiders' : 'seekers');
             const myNewRole = myOldRole === 'hiders' ? 'seekers' : 'hiders';

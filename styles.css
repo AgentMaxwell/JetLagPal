@@ -267,7 +267,15 @@ strong { font-weight: 650; }
 
 /* Reusable dismissible notice inside the panel (below the header strips) —
    same look as .setup-link-banner on the setup screen, different gutter. */
-.setup-link-banner.in-panel { margin: 10px 14px 0; }
+.setup-link-banner.in-panel { margin: 10px 14px 0; position: relative; padding-right: 34px; }
+.banner-dismiss {
+    position: absolute; top: 8px; right: 8px;
+    width: 22px; height: 22px; padding: 0; margin: 0;
+    background: transparent; color: var(--text-3);
+    border: none; font-size: .8em; line-height: 1;
+    display: flex; align-items: center; justify-content: center;
+}
+.banner-dismiss:hover { color: var(--text); }
 
 /* ---------- Pending question — tier 1 (live/awaiting) ---------- */
 .pending-ask {
@@ -905,6 +913,9 @@ body.hider-mode #btn-tab-answers { flex: 1.4; }
     }
     #controls.minimized { max-height: none; }
     .controls-header { padding: 8px 14px 10px; order: 0; }
+    /* The drag handle above already opens/closes the sheet here — the header
+       button would just be a second, redundant control for the same action. */
+    .header-btns { display: none; }
     .tab-bar { order: 5; border-top: 2px solid var(--hairline); }
     .panel-footer { order: 6; }
     .q-grid { grid-template-columns: 1fr 1fr; }

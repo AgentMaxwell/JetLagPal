@@ -6,10 +6,21 @@ export const cityProfiles = {
         center: [53.4808, -2.2426],
         defaultZoom: 11,
         boundingBox: "53.30,-2.75,53.68,-1.90",
-        
+        // Pre-fetched Overpass results for this preset's boundingBox, bundled with
+        // the site so game creation and the Boundary/Zone/POI tools don't depend
+        // on a live Overpass call — same approach as west_midlands below. See
+        // window.loadTransportData, loadDynamicAreas, loadFareZones, and
+        // fetchPOIs in index.html — each tries its static file first, and only
+        // falls back to Overpass if the file is missing or fails to load (or a
+        // forced refresh is requested).
+        staticDataUrl: "data/manchester_transport.json",
+        staticBoundaryUrl: "data/manchester_boundaries.json",
+        staticFareZoneUrl: "data/manchester_farezones.json",
+        staticPOIUrl: "data/manchester_pois.json",
+
         overpassQuery: `node["railway"~"station|tram_stop"]({{bbox}}); way["railway"~"rail|tram|light_rail"]({{bbox}}); relation["type"="route"]["route"~"tram|light_rail"]({{bbox}});`,
- 
-        boroughs: { 
+
+        boroughs: {
             "Bolton": ["Blackrod","Bolton","Bromley Cross","Farnworth","Horwich Parkway","Kearsley","Lostock","Moses Gate","Westhoughton"], 
             "Bury": ["Besses o' th' Barn","Bury Interchange","Heaton Park","Prestwich","Radcliffe","Whitefield"], 
             "Manchester": ["Abraham Moss","Baguley","Barlow Moor Road","Benchill","Bowker Vale","Burton Road","Central Park","Chorlton","Clayton Hall","Cornbrook","Crossacres","Crumpsall","Deansgate-Castlefield","Didsbury Village","East Didsbury","Etihad Campus","Exchange Square","Holt Town","New Islington","Newton Heath and Moston","Northern Moor","Peel Hall","Piccadilly","Piccadilly Gardens","Queens Road","Robinswood Road","Roundthorn","Shadowmoss","Shudehill","St. Peter's Square","St Werburgh's Road","Velopark","Victoria","West Didsbury","Withington","Wythenshawe Park","Wythenshawe Town Centre", "Ardwick","Ashburys","Belle Vue","Burnage","Deansgate","Gorton","Levenshulme","Manchester Oxford Road","Mauldeth Road","Moston","Ryder Brow"], 
