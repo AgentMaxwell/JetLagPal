@@ -169,9 +169,14 @@ strong { font-weight: 650; }
     width: 352px; max-width: 92vw; max-height: calc(100vh - 24px);
     overflow: hidden;
     display: flex; flex-direction: column;
+    transition: transform .22s cubic-bezier(.2,.7,.3,1);
 }
-.controls-header, #connectionStatus, .tab-bar, #clockBar, #seekerLinkBanner { flex-shrink: 0; }
+.controls-header, #connectionStatus, .tab-bar, .panel-footer, #seekerLinkBanner { flex-shrink: 0; }
 #sheetScroll { flex: 1 1 auto; overflow-y: auto; min-height: 0; padding: 0 14px 16px; overscroll-behavior: contain; }
+
+/* Real drag target for the bottom-sheet layout (see the pointer-drag JS) —
+   invisible/inert on the wide-viewport floating-card layout. */
+.sheet-handle { display: none; flex-shrink: 0; }
 
 .controls-header {
     display: flex; justify-content: space-between; align-items: center; gap: 8px;
@@ -197,6 +202,7 @@ strong { font-weight: 650; }
 #controls.minimized { width: auto; min-width: 190px; max-height: none; }
 #controls.minimized #connectionStatus,
 #controls.minimized .tab-bar,
+#controls.minimized .panel-footer,
 #controls.minimized #sheetScroll { display: none !important; }
 #controls.minimized .controls-header { border-bottom: none; }
 
@@ -231,20 +237,33 @@ strong { font-weight: 650; }
     border-left: 6px solid var(--accent);
     font-size: .86em; color: var(--text-2);
 }
-.clock-row { display: flex; align-items: center; gap: 7px; }
-.clock-icon { font-size: 1.05em; line-height: 1; color: var(--accent); }
+/* Floating header bar: its own card, independent of the tools panel, so the
+   round timer stays glanceable whether that panel is open, minimized, or
+   (on mobile) dragged out of the way. Kept small and one row — this is a
+   glance-and-go readout, not a panel. */
+.floating-clock {
+    position: fixed; top: calc(env(safe-area-inset-top, 0px) + 10px);
+    left: 50%; transform: translateX(-50%);
+    z-index: 1100; width: auto; max-width: calc(100vw - 24px);
+    padding: 6px 8px 6px 10px;
+    border: 1px solid var(--hairline); border-left: 4px solid var(--accent);
+    display: flex; align-items: center; gap: 8px;
+}
+.clock-row { display: flex; align-items: center; gap: 6px; }
+.clock-icon { font-size: .95em; line-height: 1; color: var(--accent); }
 .clock-phase {
-    font-family: var(--font-mono); font-weight: 600; font-size: 9px;
-    letter-spacing: .2em; text-transform: uppercase; color: var(--text-3);
+    font-family: var(--font-mono); font-weight: 600; font-size: 8.5px;
+    letter-spacing: .16em; text-transform: uppercase; color: var(--text-3);
+    white-space: nowrap;
 }
 .clock-time {
     font-family: var(--font-mono); font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -.02em;
-    color: var(--brand); font-size: 1.3em;
+    color: var(--brand); font-size: 1.05em;
 }
 .clock-bar.hiding .clock-time { color: var(--danger); }
 .clock-bar.seeking .clock-time { color: var(--ok); }
-.clock-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-.clock-actions button { width: auto; margin: 0; padding: 8px 12px; font-size: .88em; min-height: 0; }
+.clock-actions { display: flex; flex-wrap: nowrap; gap: 6px; margin: 0; }
+.clock-actions button { width: auto; margin: 0; padding: 5px 9px; font-size: .74em; min-height: 0; white-space: nowrap; }
 
 /* Reusable dismissible notice inside the panel (below the header strips) —
    same look as .setup-link-banner on the setup screen, different gutter. */
@@ -305,6 +324,23 @@ strong { font-weight: 650; }
 
 .tab-content { display: none; }
 .tab-content.active { display: block; animation: fadeIn .18s ease; }
+
+/* ---------- Panel footer — chrome tier, foot of the expanded panel ---------- */
+.panel-footer {
+    display: flex; gap: 0; margin: 0; padding: 0;
+    background: var(--surface-sunk); border-top: 2px solid var(--hairline);
+}
+.footer-btn {
+    flex: 1; margin: 0; width: auto; padding: 10px 6px;
+    background: transparent; color: var(--text-2);
+    border: none; cursor: pointer;
+    font-family: var(--font-ui); font-size: .78em; font-weight: 700;
+    text-transform: none; letter-spacing: 0;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    transition: background .15s, color .15s;
+}
+.footer-btn .icon { font-size: 1.1em; }
+.footer-btn:hover { background: var(--surface-3); color: var(--text); }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
 
 /* ============================================================
@@ -814,18 +850,6 @@ button:disabled { background: var(--surface-3); color: var(--text-3); cursor: no
 @keyframes toastOut { from { opacity: 1; } to { opacity: 0; transform: translateY(14px); } }
 
 /* ============================================================
-   Ko-fi (settings only — no floating overlay stealing the map)
-   ============================================================ */
-.kofi-sidebar-btn {
-    display: block; width: 100%; box-sizing: border-box;
-    background: #FF5E5B; color: #fff !important;
-    padding: 12px; text-transform: none; letter-spacing: 0;
-    font-weight: 650; font-size: .95em; text-align: center; text-decoration: none;
-    transition: filter .15s;
-}
-.kofi-sidebar-btn:hover { filter: brightness(1.07); }
-
-/* ============================================================
    Hider (read-only) mode
    ============================================================ */
 #hiderBadge { display: none; }
@@ -869,14 +893,20 @@ body.hider-mode #btn-tab-answers { flex: 1.4; }
         border-top: none; border-left: none; border-right: none;
         padding-bottom: env(safe-area-inset-bottom, 0);
     }
-    #controls::before {
-        content: ""; order: -1; flex-shrink: 0;
-        width: 44px; height: 4px; margin: 9px auto 3px;
+    .sheet-handle {
+        display: block; order: -1; flex-shrink: 0;
+        width: 100%; padding: 9px 0 8px; margin: 0;
+        cursor: grab; touch-action: none;
+    }
+    .sheet-handle::before {
+        content: ""; display: block;
+        width: 44px; height: 4px; margin: 0 auto;
         background: var(--tick);
     }
     #controls.minimized { max-height: none; }
     .controls-header { padding: 8px 14px 10px; order: 0; }
     .tab-bar { order: 5; border-top: 2px solid var(--hairline); }
+    .panel-footer { order: 6; }
     .q-grid { grid-template-columns: 1fr 1fr; }
     .tab-btn { padding: 8px 3px; font-size: 8px; gap: 4px; }
     .tab-btn .tab-ico { font-size: 1.3em; }

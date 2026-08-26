@@ -22,7 +22,7 @@
     ">
     <title>JetLagPal - Multiplayer</title>
     <link rel="manifest" href="manifest.json" />
-    <meta name="theme-color" content="#0e7490" />
+    <meta name="theme-color" content="#0b7b8c" />
     <link rel="icon" href="icons/icon-192.png" />
     <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -202,11 +202,6 @@
                 <p class="settings-note">Needs a linked room, and only fires while you're online — same as any other message.</p>
             </div>
 
-            <div class="settings-group">
-                <h4>Support</h4>
-                <a href="https://ko-fi.com/jetlagpal" target="_blank" rel="noopener" class="kofi-sidebar-btn">Buy the developer a coffee</a>
-            </div>
-
         </div>
     </div>
 </div>
@@ -272,6 +267,10 @@
 
 <!-- ============ CONTROL PANEL ============ -->
 <div id="controls">
+    <!-- Real drag target (not just decoration) — see the pointer-drag block
+         near the bottom of the script for the gesture logic. Only active in
+         the narrow-viewport bottom-sheet layout (styles.css media query). -->
+    <div class="sheet-handle" id="sheetHandle"></div>
     <div class="controls-header">
         <div class="brand-lockup">
             <svg class="brand-mark logo-mark" viewBox="0 0 48 48" width="26" height="26">
@@ -281,9 +280,6 @@
             <h3 class="wordmark">Jet<span class="wm-lag">Lag</span>Pal</h3>
         </div>
         <div class="header-btns">
-            <button class="icon-btn-header" id="btnUndoHeader" onclick="undoLast()" title="Undo last layer"><svg class="icon"><use href="#i-back"></use></svg></button>
-            <button class="icon-btn-header help-btn" onclick="openTutorial()" title="How to play"><svg class="icon"><use href="#i-help"></use></svg></button>
-            <button class="icon-btn-header" onclick="window.openSettings()" title="Settings"><svg class="icon"><use href="#i-dial"></use></svg></button>
             <button class="icon-btn-header" id="minBtn" onclick="toggleControls()" title="Close menu"><svg class="icon"><use href="#i-close"></use></svg></button>
         </div>
     </div>
@@ -299,20 +295,6 @@
             <button class="conn-copy" id="btnCopyLink" onclick="window.copyInviteLink()" title="Copy invite link"><svg class="icon"><use href="#i-link"></use></svg></button>
         </div>
         <div class="conn-region"><span id="displayRegion">No region</span> · <span id="connState">connecting…</span></div>
-    </div>
-
-    <!-- Round clock: mirrored to both linked rooms, phase derived from
-         round.startedAt/hideSeconds/endedAt rather than written, so the two
-         rooms can't disagree. Deliberately NOT in the minimize-hides list
-         (styles.css) — the whole point of a clock is staying glanceable. -->
-    <div id="clockBar" class="clock-bar" style="display:none;">
-        <div class="clock-row">
-            <span class="clock-icon" id="clockPhaseIcon"><svg class="icon"><use href="#i-clock"></use></svg></span>
-            <span class="clock-phase" id="clockPhaseText">Not started</span>
-            <span class="conn-spacer"></span>
-            <span class="clock-time" id="clockTime"></span>
-        </div>
-        <div class="clock-actions" id="clockActions"></div>
     </div>
 
     <!-- Seekers get no nudge to link the hiders' room today unless they go
@@ -500,6 +482,26 @@
         </div>
 
     </div><!-- /#sheetScroll -->
+
+    <div class="panel-footer">
+        <button class="footer-btn" onclick="undoLast()" title="Undo last layer"><svg class="icon"><use href="#i-back"></use></svg> Undo</button>
+        <button class="footer-btn" onclick="openTutorial()" title="How to play"><svg class="icon"><use href="#i-help"></use></svg> How to play</button>
+        <button class="footer-btn" onclick="window.openSettings()" title="Settings"><svg class="icon"><use href="#i-dial"></use></svg> Settings</button>
+    </div>
+</div>
+
+<!-- Round clock: floating in its own header bar so it stays glanceable
+     regardless of whether the tools panel is open, minimized, or (on
+     mobile) dragged away — mirrored to both linked rooms, phase derived
+     from round.startedAt/hideSeconds/endedAt rather than written, so the
+     two rooms can't disagree. -->
+<div id="clockBar" class="clock-bar floating-clock" style="display:none;">
+    <div class="clock-row">
+        <span class="clock-icon" id="clockPhaseIcon"><svg class="icon"><use href="#i-clock"></use></svg></span>
+        <span class="clock-phase" id="clockPhaseText">Idle</span>
+        <span class="clock-time" id="clockTime"></span>
+    </div>
+    <div class="clock-actions" id="clockActions"></div>
 </div>
 
 <div id="map"></div>
@@ -861,12 +863,17 @@
             muted: 'light_all',             // the old flat greyscale
             dark:  'dark_all'
         };
+        // CARTO retired keyless access to these raster styles — requests with no
+        // key now come back watermarked "API KEY REQUIRED" instead of failing
+        // outright. This key is free-tier and meant for client-side use (fair-use
+        // rate limited, not a secret), from https://carto.com/basemaps/apikey.
+        var CARTO_API_KEY = 'cb1_27ww_1_cd02e23451158d09fef10375';
         var baseTiles = null;
         window.setMapStyle = function(style) {
             if (!TILE_STYLES[style]) style = 'light';
             localStorage.setItem('gm_map_style', style);
             if (baseTiles) map.removeLayer(baseTiles);
-            baseTiles = L.tileLayer(`https://{s}.basemaps.cartocdn.com/${TILE_STYLES[style]}/{z}/{x}/{y}{r}.png`, {
+            baseTiles = L.tileLayer(`https://{s}.basemaps.cartocdn.com/${TILE_STYLES[style]}/{z}/{x}/{y}{r}.png?key=${CARTO_API_KEY}`, {
                 attribution: '&copy; CARTO', subdomains: 'abcd', maxZoom: 19
             }).addTo(map);
             baseTiles.bringToBack();
@@ -936,7 +943,7 @@
                 }
 
                 L.geoJSON(worldPoly, {
-                    style: { color: 'none', fillColor: '#c62828', fillOpacity: 0.10 },
+                    style: { color: 'none', fillColor: '#dc2626', fillOpacity: 0.14 },
                     interactive: false
                 }).addTo(logicLayer);
 
@@ -1566,34 +1573,34 @@
             const timeEl = document.getElementById('clockTime');
             const actionsEl = document.getElementById('clockActions');
 
-            bar.style.display = 'block';
+            bar.style.display = 'flex';
             bar.classList.remove('hiding', 'seeking');
 
             if (phase === 'idle') {
                 phaseIcon.innerHTML = '<svg class="icon"><use href="#i-clock"></use></svg>';
-                phaseText.textContent = 'Round not started';
+                phaseText.textContent = 'Idle';
                 timeEl.textContent = '';
-                actionsEl.innerHTML = `<button class="btn-accent" onclick="window.promptStartRound()">Start round</button>`;
+                actionsEl.innerHTML = `<button class="btn-accent" onclick="window.promptStartRound()">Start</button>`;
                 stopClockTick();
             } else if (phase === 'hiding') {
                 bar.classList.add('hiding');
                 phaseIcon.innerHTML = '<svg class="icon"><use href="#i-hide"></use></svg>';
                 phaseText.textContent = 'Hiding';
                 timeEl.textContent = fmtClock((round.startedAt + round.hideSeconds * 1000 - Date.now()) / 1000);
-                actionsEl.innerHTML = `<button class="btn-ghost" onclick="window.endRound()"><svg class="icon"><use href="#i-stop"></use></svg> End round</button>`;
+                actionsEl.innerHTML = `<button class="btn-ghost" onclick="window.endRound()"><svg class="icon"><use href="#i-stop"></use></svg> End</button>`;
                 startClockTick();
             } else if (phase === 'seeking') {
                 bar.classList.add('seeking');
                 phaseIcon.innerHTML = '<svg class="icon"><use href="#i-seek"></use></svg>';
                 phaseText.textContent = 'Seeking';
                 timeEl.textContent = fmtClock((Date.now() - (round.startedAt + round.hideSeconds * 1000)) / 1000);
-                actionsEl.innerHTML = `<button class="btn-ghost" onclick="window.endRound()"><svg class="icon"><use href="#i-stop"></use></svg> End round</button>`;
+                actionsEl.innerHTML = `<button class="btn-ghost" onclick="window.endRound()"><svg class="icon"><use href="#i-stop"></use></svg> End</button>`;
                 startClockTick();
             } else { // ended
                 phaseIcon.innerHTML = '<svg class="icon"><use href="#i-check"></use></svg>';
-                phaseText.textContent = 'Round ended';
+                phaseText.textContent = 'Ended';
                 timeEl.textContent = '';
-                actionsEl.innerHTML = `<button class="btn-accent" onclick="window.nextRound()"><svg class="icon"><use href="#i-back"></use></svg> Next round</button>`;
+                actionsEl.innerHTML = `<button class="btn-accent" onclick="window.nextRound()"><svg class="icon"><use href="#i-back"></use></svg> Next</button>`;
                 stopClockTick();
             }
 
@@ -2414,6 +2421,59 @@
                 : '<svg class="icon"><use href="#i-close"></use></svg>';
             btn.title = closed ? "Open menu" : "Close menu";
         };
+
+        // === SHEET DRAG ===
+        // Makes the handle on the mobile bottom sheet actually draggable
+        // instead of purely decorative. There's no partial/peek height today
+        // (only "minimized" — header only — and "open" — full sheet), so a
+        // drag is a gesture recognizer over that same two-state toggle: drag
+        // the open sheet down past a threshold to collapse it (with the sheet
+        // live-following your finger for feedback), or drag the collapsed
+        // header up to reopen it. A tap that doesn't move counts too, so the
+        // handle behaves like an extension of the header's open/close button.
+        (function() {
+            var handle = document.getElementById('sheetHandle');
+            var panel = document.getElementById('controls');
+            if (!handle || !panel) return;
+
+            var DOWN_TO_CLOSE = 70;   // px dragged down before an open sheet collapses
+            var UP_TO_OPEN = 24;      // px dragged up before a minimized sheet opens
+            var TAP_SLOP = 6;         // below this, treat it as a tap, not a drag
+
+            var dragging = false, startY = 0, moved = false, startedMinimized = false;
+
+            function isSheetLayout() { return window.matchMedia('(max-width: 640px)').matches; }
+
+            handle.addEventListener('pointerdown', function(e) {
+                dragging = true; moved = false; startY = e.clientY;
+                startedMinimized = panel.classList.contains('minimized');
+                panel.style.transition = 'none';
+                handle.setPointerCapture(e.pointerId);
+            });
+
+            handle.addEventListener('pointermove', function(e) {
+                if (!dragging) return;
+                var dy = e.clientY - startY;
+                if (Math.abs(dy) > TAP_SLOP) moved = true;
+                if (isSheetLayout() && !startedMinimized) {
+                    panel.style.transform = 'translateY(' + Math.max(0, dy) + 'px)';
+                }
+            });
+
+            function endDrag(e) {
+                if (!dragging) return;
+                dragging = false;
+                panel.style.transition = '';
+                panel.style.transform = '';
+                if (!isSheetLayout()) return;
+                var dy = e.clientY - startY;
+                if (!moved) { window.toggleControls(); return; }
+                if (!startedMinimized && dy > DOWN_TO_CLOSE) window.toggleControls();
+                else if (startedMinimized && dy < -UP_TO_OPEN) window.toggleControls();
+            }
+            handle.addEventListener('pointerup', endDrag);
+            handle.addEventListener('pointercancel', endDrag);
+        })();
 
         function resetTools() {
             ['btnRadius', 'btnDivider'].forEach(id => { var el = document.getElementById(id); if (el) el.classList.remove('active-tool-btn'); });
