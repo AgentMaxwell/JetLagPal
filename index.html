@@ -64,6 +64,8 @@
 <symbol id="i-check" viewBox="0 0 24 24"><path d="M4.5 12.5l4.8 4.6L19.5 6.8"></path></symbol>
 <symbol id="i-chevron" viewBox="0 0 24 24"><path d="M8.5 5l7 7-7 7"></path></symbol>
 <symbol id="i-stop" viewBox="0 0 24 24"><path d="M7 7h10v10H7z" fill="currentColor" stroke="none"></path></symbol>
+<symbol id="i-pause" viewBox="0 0 24 24"><path d="M6 5h4v14H6zM14 5h4v14h-4z" fill="currentColor" stroke="none"></path></symbol>
+<symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.5l13 7.5-13 7.5z" fill="currentColor" stroke="none"></path></symbol>
 <symbol id="i-route" viewBox="0 0 24 24"><path d="M3.5 20.5V13L13 3.5h7.5"></path></symbol>
 </svg>
 
@@ -1186,7 +1188,7 @@
                 constraints: [], logEntries: [], questionState: {}, roundHistory: [],
                 linkToken: generateLinkToken(),
                 roomRole: roomRole,
-                round: { n: 1, hideSeconds: null, startedAt: null, endedAt: null, bonusSeconds: 0, bonuses: [] }
+                round: { n: 1, hideSeconds: null, startedAt: null, endedAt: null, pausedAt: null, totalPausedMs: 0, bonusSeconds: 0, bonuses: [] }
             }).catch((e) => console.warn("Room create write failed to reach the server (will retry when online):", e));
 
             if (!navigator.onLine) {
@@ -1545,10 +1547,20 @@
         // Phase is derived from round.startedAt/hideSeconds/endedAt, never
         // written directly — that's what lets two rooms mirroring the same
         // object never disagree about what phase they're in.
+        //
+        // Pausing works the same way: rather than stopping some interval,
+        // round.pausedAt freezes "now" for elapsed-time math at the moment it
+        // was set, and round.totalPausedMs (accumulated across every
+        // pause/resume this round) shifts elapsed time back by however long
+        // was spent paused. Resuming just un-freezes it — no timer to restart.
+        function roundElapsedMs(round) {
+            const now = round.pausedAt || Date.now();
+            return now - round.startedAt - (round.totalPausedMs || 0);
+        }
         function roundPhase(round) {
             if (!round || !round.startedAt) return 'idle';
             if (round.endedAt) return 'ended';
-            return Date.now() < round.startedAt + round.hideSeconds * 1000 ? 'hiding' : 'seeking';
+            return roundElapsedMs(round) < round.hideSeconds * 1000 ? 'hiding' : 'seeking';
         }
 
         function fmtClock(totalSeconds) {
@@ -1590,7 +1602,12 @@
             const actionsEl = document.getElementById('clockActions');
 
             bar.style.display = 'flex';
-            bar.classList.remove('hiding', 'seeking');
+            bar.classList.remove('hiding', 'seeking', 'paused');
+
+            const isPaused = phase !== 'idle' && phase !== 'ended' && !!round.pausedAt;
+            const pauseBtn = isPaused
+                ? `<button class="btn-ghost icon-only" onclick="window.resumeRound()" title="Resume"><svg class="icon"><use href="#i-play"></use></svg></button>`
+                : `<button class="btn-ghost icon-only" onclick="window.pauseRound()" title="Pause"><svg class="icon"><use href="#i-pause"></use></svg></button>`;
 
             if (phase === 'idle') {
                 phaseIcon.innerHTML = '<svg class="icon"><use href="#i-clock"></use></svg>';
@@ -1600,17 +1617,19 @@
                 stopClockTick();
             } else if (phase === 'hiding') {
                 bar.classList.add('hiding');
-                phaseIcon.innerHTML = '<svg class="icon"><use href="#i-hide"></use></svg>';
-                phaseText.textContent = 'Hiding';
-                timeEl.textContent = fmtClock((round.startedAt + round.hideSeconds * 1000 - Date.now()) / 1000);
-                actionsEl.innerHTML = `<button class="btn-ghost" onclick="window.endRound()"><svg class="icon"><use href="#i-stop"></use></svg> End</button>`;
+                if (isPaused) bar.classList.add('paused');
+                phaseIcon.innerHTML = isPaused ? '<svg class="icon"><use href="#i-pause"></use></svg>' : '<svg class="icon"><use href="#i-hide"></use></svg>';
+                phaseText.textContent = isPaused ? 'Hiding — paused' : 'Hiding';
+                timeEl.textContent = fmtClock((round.hideSeconds * 1000 - roundElapsedMs(round)) / 1000);
+                actionsEl.innerHTML = pauseBtn + `<button class="btn-ghost" onclick="window.endRound()"><svg class="icon"><use href="#i-stop"></use></svg> End</button>`;
                 startClockTick();
             } else if (phase === 'seeking') {
                 bar.classList.add('seeking');
-                phaseIcon.innerHTML = '<svg class="icon"><use href="#i-seek"></use></svg>';
-                phaseText.textContent = 'Seeking';
-                timeEl.textContent = fmtClock((Date.now() - (round.startedAt + round.hideSeconds * 1000)) / 1000);
-                actionsEl.innerHTML = `<button class="btn-ghost" onclick="window.endRound()"><svg class="icon"><use href="#i-stop"></use></svg> End</button>`;
+                if (isPaused) bar.classList.add('paused');
+                phaseIcon.innerHTML = isPaused ? '<svg class="icon"><use href="#i-pause"></use></svg>' : '<svg class="icon"><use href="#i-seek"></use></svg>';
+                phaseText.textContent = isPaused ? 'Seeking — paused' : 'Seeking';
+                timeEl.textContent = fmtClock((roundElapsedMs(round) - round.hideSeconds * 1000) / 1000);
+                actionsEl.innerHTML = pauseBtn + `<button class="btn-ghost" onclick="window.endRound()"><svg class="icon"><use href="#i-stop"></use></svg> End</button>`;
                 startClockTick();
             } else { // ended
                 phaseIcon.innerHTML = '<svg class="icon"><use href="#i-check"></use></svg>';
@@ -1661,7 +1680,7 @@
             if (!window.currentGameId) return;
             const hideSeconds = Math.round(minutes * 60);
             const n = (window.myRound && window.myRound.n) || 1;
-            const roundObj = { n: n, hideSeconds: hideSeconds, startedAt: Date.now(), endedAt: null, bonusSeconds: 0, bonuses: [] };
+            const roundObj = { n: n, hideSeconds: hideSeconds, startedAt: Date.now(), endedAt: null, pausedAt: null, totalPausedMs: 0, bonusSeconds: 0, bonuses: [] };
             const writes = [setDoc(doc(db, "games", window.currentGameId), { round: roundObj }, { merge: true })];
             if (window.linkedRoomId) writes.push(setDoc(doc(db, "games", window.linkedRoomId), { round: roundObj }, { merge: true }));
             try {
@@ -1677,6 +1696,27 @@
                 console.warn("Failed to start round:", e);
                 window.showToast("Couldn't start the round — check your connection.", "error");
             }
+        };
+
+        // Pausing/resuming just toggles round.pausedAt — see roundElapsedMs for
+        // how that freezes and un-freezes the countdown without a real timer.
+        window.pauseRound = async function() {
+            if (!window.currentGameId || !window.myRound || !window.myRound.startedAt || window.myRound.endedAt || window.myRound.pausedAt) return;
+            const roundObj = Object.assign({}, window.myRound, { pausedAt: Date.now() });
+            const writes = [setDoc(doc(db, "games", window.currentGameId), { round: roundObj }, { merge: true })];
+            if (window.linkedRoomId) writes.push(setDoc(doc(db, "games", window.linkedRoomId), { round: roundObj }, { merge: true }));
+            try { await Promise.all(writes); window.showToast("Round paused.", "info", { duration: 2000 }); }
+            catch (e) { console.warn("Failed to pause round:", e); window.showToast("Couldn't pause — check your connection.", "error"); }
+        };
+
+        window.resumeRound = async function() {
+            if (!window.currentGameId || !window.myRound || !window.myRound.pausedAt) return;
+            const pausedMs = Date.now() - window.myRound.pausedAt;
+            const roundObj = Object.assign({}, window.myRound, { pausedAt: null, totalPausedMs: (window.myRound.totalPausedMs || 0) + pausedMs });
+            const writes = [setDoc(doc(db, "games", window.currentGameId), { round: roundObj }, { merge: true })];
+            if (window.linkedRoomId) writes.push(setDoc(doc(db, "games", window.linkedRoomId), { round: roundObj }, { merge: true }));
+            try { await Promise.all(writes); window.showToast("Round resumed.", "success", { duration: 2000 }); }
+            catch (e) { console.warn("Failed to resume round:", e); window.showToast("Couldn't resume — check your connection.", "error"); }
         };
 
         // A completed round's record for the history list — just the fields
@@ -1702,15 +1742,24 @@
             catch (e) { console.warn("Failed to end round:", e); window.showToast("Couldn't end the round — check your connection.", "error"); }
         };
 
-        // Bonus/penalty minutes logged against the live round — extends the
-        // hiding countdown itself if added while still hiding (there's no
-        // equivalent countdown to extend once seeking has started), and is
-        // always recorded in round.bonuses for the round-history view either way.
-        window.addTimeBonus = async function() {
-            if (!window.currentGameId || !window.myRound || !window.myRound.startedAt || window.myRound.endedAt) {
-                window.showToast("Start a round first.", "warn");
-                return;
-            }
+        // Bonus/penalty minutes, loggable against the live round OR any past
+        // one — hiders often only reveal the time-bonus cards they were
+        // holding once a round is over, so this has to stay editable well
+        // after the fact, not just while the clock is still running.
+        // `startedAt` identifies which round: omit it for the current one
+        // (whatever phase it's in, including "ended" but not yet archived by
+        // Next round), or pass a round-history entry's startedAt to edit a
+        // round that's already been superseded.
+        window.addTimeBonus = async function(startedAt) {
+            if (!window.currentGameId) return;
+            const targetStartedAt = startedAt != null ? startedAt : (window.myRound && window.myRound.startedAt);
+            if (!targetStartedAt) { window.showToast("Start a round first.", "warn"); return; }
+
+            const isLive = !!(window.myRound && window.myRound.startedAt === targetStartedAt);
+            const historyIdx = (window.myRoundHistory || []).findIndex(r => r.startedAt === targetStartedAt);
+            const current = isLive ? window.myRound : (historyIdx !== -1 ? window.myRoundHistory[historyIdx] : null);
+            if (!current) { window.showToast("Couldn't find that round.", "error"); return; }
+
             const typed = await window.showPrompt("Bonus minutes (negative for a penalty):", "5", { confirmLabel: 'Next' });
             if (typed === null) return;
             const minutes = parseFloat(typed);
@@ -1718,15 +1767,28 @@
             const note = await window.showPrompt("What's it for? (optional)", "", { confirmLabel: 'Add bonus' });
 
             const bonusSeconds = Math.round(minutes * 60);
-            const phase = roundPhase(window.myRound);
+            // Only a live, still-hiding round has a countdown worth extending —
+            // a penalty/bonus logged after the fact just adjusts the record.
+            const phase = isLive ? roundPhase(window.myRound) : 'ended';
             const newHideSeconds = phase === 'hiding'
-                ? Math.max(0, window.myRound.hideSeconds + bonusSeconds)
-                : window.myRound.hideSeconds;
-            const bonuses = (window.myRound.bonuses || []).concat([{ minutes: minutes, note: note || '', at: Date.now() }]);
-            const bonusSecondsTotal = (window.myRound.bonusSeconds || 0) + bonusSeconds;
-            const roundObj = Object.assign({}, window.myRound, { hideSeconds: newHideSeconds, bonusSeconds: bonusSecondsTotal, bonuses: bonuses });
-            const writes = [setDoc(doc(db, "games", window.currentGameId), { round: roundObj }, { merge: true })];
-            if (window.linkedRoomId) writes.push(setDoc(doc(db, "games", window.linkedRoomId), { round: roundObj }, { merge: true }));
+                ? Math.max(0, current.hideSeconds + bonusSeconds)
+                : current.hideSeconds;
+            const bonuses = (current.bonuses || []).concat([{ minutes: minutes, note: note || '', at: Date.now() }]);
+            const bonusSecondsTotal = (current.bonusSeconds || 0) + bonusSeconds;
+            const updated = Object.assign({}, current, { hideSeconds: newHideSeconds, bonusSeconds: bonusSecondsTotal, bonuses: bonuses });
+
+            const patch = {};
+            if (isLive) window.myRound = patch.round = updated;
+            if (historyIdx !== -1) {
+                const newHistory = (window.myRoundHistory || []).slice();
+                newHistory[historyIdx] = roundHistoryEntry(updated);
+                window.myRoundHistory = patch.roundHistory = newHistory;
+            }
+            renderClock();
+            if (document.getElementById('appModalOverlay').classList.contains('open')) window.showRoundHistory();
+
+            const writes = [setDoc(doc(db, "games", window.currentGameId), patch, { merge: true })];
+            if (window.linkedRoomId) writes.push(setDoc(doc(db, "games", window.linkedRoomId), patch, { merge: true }));
             try {
                 await Promise.all(writes);
                 window.showToast(`${minutes > 0 ? '+' : ''}${minutes} min bonus logged${note ? ': ' + note : ''}.`, "success");
@@ -1757,6 +1819,7 @@
                         <div class="log-meta">${fmtWhen(r.startedAt)} – ${fmtWhen(r.endedAt)} · ${elapsed}${r.bonusSeconds ? ` (${r.bonusSeconds > 0 ? '+' : ''}${Math.round(r.bonusSeconds / 60)} min bonus)` : ''}</div>
                         ${bonusList}
                     </div>
+                    <button class="btn-ghost" style="width:auto; margin:0; padding:6px 10px; font-size:.78em;" onclick="window.addTimeBonus(${r.startedAt})">+ Bonus</button>
                 </div>`;
             }).join('') : `<p class="tool-hint">No completed rounds yet — this fills in once a round is ended.</p>`;
 
@@ -1791,16 +1854,18 @@
             recentlyDeletedLogIds.clear();
 
             // A round reached via "Next round" without an explicit "End round"
-            // first (the common path) never got archived — do it here so the
-            // history stays complete either way.
+            // first never got archived — do it here so the history stays
+            // complete either way. One that WAS already ended (endedAt set)
+            // was archived back when endRound() ran, including any bonuses
+            // edited into it since — skip it here or it'd be duplicated.
             const priorRound = window.myRound;
-            const historyEntry = (priorRound && priorRound.startedAt)
-                ? roundHistoryEntry(Object.assign({}, priorRound, { endedAt: priorRound.endedAt || Date.now() }))
+            const historyEntry = (priorRound && priorRound.startedAt && !priorRound.endedAt)
+                ? roundHistoryEntry(Object.assign({}, priorRound, { endedAt: Date.now() }))
                 : null;
 
             const n = ((window.myRound && window.myRound.n) || 1) + 1;
             const hideSeconds = (window.myRound && window.myRound.hideSeconds) || 1800;
-            const freshRound = { n: n, hideSeconds: hideSeconds, startedAt: null, endedAt: null, bonusSeconds: 0, bonuses: [] };
+            const freshRound = { n: n, hideSeconds: hideSeconds, startedAt: null, endedAt: null, pausedAt: null, totalPausedMs: 0, bonusSeconds: 0, bonuses: [] };
             const wipe = { constraints: [], logEntries: [], questionState: {}, round: freshRound };
             if (historyEntry) wipe.roundHistory = arrayUnion(historyEntry);
 

@@ -8,13 +8,13 @@
 //
 // Bump CACHE_VERSION whenever shipping a change to any precached file so
 // clients pick up the new copy instead of serving a stale one forever.
-const CACHE_VERSION = 'v15';
+const CACHE_VERSION = 'v17';
 const SHELL_CACHE = `jetlagpal-shell-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `jetlagpal-runtime-${CACHE_VERSION}`;
 const TILE_CACHE = `jetlagpal-tiles-${CACHE_VERSION}`;
 
-// Everything needed to boot the app and see previously-loaded Birmingham/West
-// Midlands station data with zero network.
+// Everything needed to boot the app and see previously-loaded Greater
+// Manchester/Birmingham & West Midlands station data with zero network.
 const SHELL_ASSETS = [
     './',
     './index.html',
@@ -25,6 +25,10 @@ const SHELL_ASSETS = [
     './ui.js',
     './firebase-config.js',
     './manifest.json',
+    './data/manchester_boundaries.json',
+    './data/manchester_farezones.json',
+    './data/manchester_pois.json',
+    './data/manchester_transport.json',
     './data/west_midlands_boundaries.json',
     './data/west_midlands_farezones.json',
     './data/west_midlands_pois.json',
