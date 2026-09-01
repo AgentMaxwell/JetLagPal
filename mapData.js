@@ -68,8 +68,23 @@ export const cityProfiles = {
         center: [51.5074, -0.1278],
         defaultZoom: 12,
         boundingBox: "51.28,-0.51,51.69,0.33",
-        
-overpassQuery: `node["railway"~"station|subway_entrance"]({{bbox}}); way["railway"~"rail|subway|light_rail"]({{bbox}}); relation["type"="route"]["route"~"subway|light_rail"]({{bbox}});`,        
+        // Pre-fetched Overpass results for this preset's boundingBox, bundled with
+        // the site so game creation and the Boundary/Zone/POI tools don't depend
+        // on a live Overpass call — same approach as manchester/west_midlands above.
+        // See window.loadTransportData, loadDynamicAreas, loadFareZones, and
+        // fetchPOIs in index.html — each tries its static file first, and only
+        // falls back to Overpass if the file is missing or fails to load (or a
+        // forced refresh is requested). london_boundaries.json is filtered down to
+        // relations whose bounds actually fall near Greater London — the raw query
+        // pulls in every English county because it's a member of the national
+        // "England" relation, which Overpass's bbox check treats as a match the
+        // moment any point in the box lands inside the country.
+        staticDataUrl: "data/london_transport.json",
+        staticBoundaryUrl: "data/london_boundaries.json",
+        staticFareZoneUrl: "data/london_farezones.json",
+        staticPOIUrl: "data/london_pois.json",
+
+overpassQuery: `node["railway"~"station|subway_entrance"]({{bbox}}); way["railway"~"rail|subway|light_rail"]({{bbox}}); relation["type"="route"]["route"~"subway|light_rail"]({{bbox}});`,
         boroughs: {
             "Camden": ["Euston", "King's Cross St. Pancras", "Camden Town", "Chalk Farm", "Kentish Town"],
             "Islington": ["Angel", "Highbury & Islington", "Archway", "Finsbury Park", "Arsenal"],

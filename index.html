@@ -2620,6 +2620,12 @@
                 startedMinimized = panel.classList.contains('minimized');
                 panel.style.transition = 'none';
                 handle.setPointerCapture(e.pointerId);
+                // Toggling here reflows the sheet before the touch's synthetic
+                // "click" fires, so that click lands on whatever now sits under
+                // the finger (e.g. "Clear all restrictions" in the freshly-shown
+                // Layers tab) instead of the handle. preventDefault on pointerdown
+                // tells the browser to skip that synthetic click for this touch.
+                e.preventDefault();
             });
 
             handle.addEventListener('pointermove', function(e) {
